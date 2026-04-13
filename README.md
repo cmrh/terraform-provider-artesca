@@ -1,0 +1,216 @@
+# Terraform Provider for Scality ARTESCA
+
+A Terraform/OpenTofu provider for managing [Scality ARTESCA](https://www.scality.com/artesca/) infrastructure, including accounts, storage locations, endpoints, replication, IAM users, and lifecycle workflows.
+
+## Requirements
+
+- [Go](https://go.dev/dl/) 1.26+
+- [Terraform](https://www.terraform.io/downloads) or [OpenTofu](https://opentofu.org/docs/intro/install/)
+
+## Provider Configuration
+
+```hcl
+terraform {
+  required_providers {
+    artesca = {
+      source = "registry.opentofu.org/scality/artesca"
+    }
+  }
+}
+
+provider "artesca" {
+  management_endpoint = "https://management.artesca.example.com"
+  oidc_url            = "https://ui.artesca.example.com"
+  username            = var.artesca_username
+  password            = var.artesca_password
+
+  # Optional
+  instance_id          = "auto-discovered-if-omitted"
+  oidc_realm           = "artesca"          # default
+  client_id            = "zenko-ui"         # default
+  iam_region           = "us-east-1"        # default
+  insecure_skip_verify = false              # default
+}
+```
+
+All attributes can also be set via environment variables:
+
+| Attribute | Environment Variable |
+|---|---|
+| `management_endpoint` | `ARTESCA_MANAGEMENT_ENDPOINT` |
+| `oidc_url` | `ARTESCA_OIDC_URL` |
+| `username` | `ARTESCA_USERNAME` |
+| `password` | `ARTESCA_PASSWORD` |
+| `instance_id` | `ARTESCA_INSTANCE_ID` |
+| `oidc_realm` | `ARTESCA_OIDC_REALM` |
+| `client_id` | `ARTESCA_CLIENT_ID` |
+| `iam_region` | `ARTESCA_IAM_REGION` |
+| `insecure_skip_verify` | `ARTESCA_INSECURE_SKIP_VERIFY` |
+
+## Resources
+
+### Infrastructure
+
+| Resource | Description |
+|---|---|
+| `artesca_account` | Manage ARTESCA accounts (S3 users) |
+| `artesca_location` | Manage storage locations (AWS S3, Azure, GCP, Scality RING, etc.) |
+| `artesca_endpoint` | Manage data service endpoints |
+| `artesca_replication` | Manage cross-region replication streams |
+
+### IAM
+
+| Resource | Description |
+|---|---|
+| `artesca_user` | Manage IAM users within accounts |
+| `artesca_user_access_key` | Create access keys for IAM users |
+| `artesca_user_policy` | Attach inline policies to IAM users |
+
+### Lifecycle Workflows
+
+| Resource | Description |
+|---|---|
+| `artesca_bucket_workflow_expiration` | Manage object expiration lifecycle rules |
+| `artesca_bucket_workflow_transition` | Manage object transition lifecycle rules |
+
+## Usage Examples
+
+### Create an account
+
+```hcl
+resource "artesca_account" "example" {
+  name  = "my-account"
+  email = "admin@example.com"
+}
+
+output "access_key" {
+  value = artesca_account.example.access_key
+}
+
+output "secret_key" {
+  value     = artesca_account.example.secret_key
+  sensitive = true
+}
+```
+
+### Create a storage location
+
+```hcl
+resource "artesca_location" "s3" {
+  name          = "aws-us-east-1"
+  location_type = "location-aws-s3-v1"
+
+  details {
+    access_key              = var.aws_access_key
+    secret_key              = var.aws_secret_key
+    bucket_name             = "my-target-bucket"
+    bucket_match            = true
+    region                  = "us-east-1"
+    server_side_encryption  = true
+  }
+}
+```
+
+### Create an endpoint
+
+```hcl
+resource "artesca_endpoint" "data" {
+  hostname      = "data.artesca.example.com"
+  location_name = artesca_location.s3.name
+}
+```
+
+### Create an IAM user with an access key
+
+```hcl
+resource "artesca_user" "app" {
+  account_access_key = artesca_account.example.access_key
+  account_secret_key = artesca_account.example.secret_key
+  username           = "app-user"
+}
+
+resource "artesca_user_access_key" "app" {
+  account_access_key = artesca_account.example.access_key
+  account_secret_key = artesca_account.example.secret_key
+  username           = artesca_user.app.username
+}
+```
+
+## Local Development
+
+### Build
+
+```bash
+make build
+```
+
+### Install locally
+
+This installs the provider binary into the OpenTofu plugin directory so it can be used by local Terraform/OpenTofu configurations:
+
+```bash
+make install
+```
+
+### Run tests
+
+```bash
+# Unit tests
+make test
+
+# Acceptance tests (requires a running ARTESCA instance)
+make testacc
+```
+
+### Lint and format
+
+```bash
+make lint
+make fmt
+```
+
+### Using the local provider
+
+After `make install`, configure your Terraform/OpenTofu to use the local build:
+
+```hcl
+terraform {
+  required_providers {
+    artesca = {
+      source  = "registry.opentofu.org/scality/artesca"
+      version = "0.1.0"
+    }
+  }
+}
+```
+
+Then create a [dev overrides](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers) file at `~/.terraformrc` to skip version checks during development:
+
+```hcl
+provider_installation {
+  dev_overrides {
+    "registry.opentofu.org/scality/artesca" = "/path/to/go/bin"
+  }
+  direct {}
+}
+```
+
+## Releasing
+
+Releases are built automatically by GitHub Actions when a version tag is pushed:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers the release workflow which:
+
+1. Runs tests, `go vet`, and format checks
+2. Builds binaries for linux, darwin, and windows (amd64/arm64)
+3. Generates SHA256 checksums
+4. Uploads all artifacts as a GitHub release
+
+## License
+
+See [LICENSE](LICENSE) for details.
