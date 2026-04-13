@@ -16,8 +16,8 @@ import (
 
 // OIDC constants.
 const (
-	oidcHTTPTimeout      = 30 * time.Second
-	oidcTokenPreExpiry   = 30 * time.Second
+	oidcHTTPTimeout    = 30 * time.Second
+	oidcTokenPreExpiry = 30 * time.Second
 )
 
 type OIDCTokenSource struct {

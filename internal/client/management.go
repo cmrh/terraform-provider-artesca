@@ -14,9 +14,9 @@ import (
 
 // Management API constants.
 const (
-	managementAPIPath    = "/api/v1"
+	managementAPIPath     = "/api/v1"
 	managementHTTPTimeout = 60 * time.Second
-	contentTypeJSON      = "application/json"
+	contentTypeJSON       = "application/json"
 )
 
 // ManagementClient communicates with the ARTESCA management API.
@@ -87,13 +87,13 @@ func (c *ManagementClient) doRequest(ctx context.Context, method, path string, b
 // --- Config Overlay ---
 
 type ConfigOverlay struct {
-	InstanceID         string               `json:"instanceId"`
-	Locations          map[string]Location   `json:"locations"`
-	Users              []User               `json:"users"`
-	Endpoints          []Endpoint           `json:"endpoints"`
-	ReplicationStreams  []ReplicationStream  `json:"replicationStreams"`
-	Version            int64                `json:"version"`
-	UpdatedAt          string               `json:"updatedAt"`
+	InstanceID         string              `json:"instanceId"`
+	Locations          map[string]Location `json:"locations"`
+	Users              []User              `json:"users"`
+	Endpoints          []Endpoint          `json:"endpoints"`
+	ReplicationStreams []ReplicationStream `json:"replicationStreams"`
+	Version            int64               `json:"version"`
+	UpdatedAt          string              `json:"updatedAt"`
 }
 
 type Location struct {
@@ -137,15 +137,15 @@ type LocationDetails struct {
 }
 
 type User struct {
-	AccountName  string `json:"accountName"`
-	AccessKey    string `json:"accessKey,omitempty"`
-	SecretKey    string `json:"secretKey,omitempty"`
-	ARN          string `json:"arn,omitempty"`
-	CanonicalID  string `json:"canonicalId,omitempty"`
-	Email        string `json:"email,omitempty"`
-	CreateDate   string `json:"createDate,omitempty"`
-	UserName     string `json:"userName,omitempty"`
-	ID           string `json:"id,omitempty"`
+	AccountName string `json:"accountName"`
+	AccessKey   string `json:"accessKey,omitempty"`
+	SecretKey   string `json:"secretKey,omitempty"`
+	ARN         string `json:"arn,omitempty"`
+	CanonicalID string `json:"canonicalId,omitempty"`
+	Email       string `json:"email,omitempty"`
+	CreateDate  string `json:"createDate,omitempty"`
+	UserName    string `json:"userName,omitempty"`
+	ID          string `json:"id,omitempty"`
 }
 
 type Endpoint struct {
@@ -155,12 +155,12 @@ type Endpoint struct {
 }
 
 type ReplicationStream struct {
-	StreamID    string                `json:"streamId,omitempty"`
-	Name        string                `json:"name"`
-	Version     int                   `json:"version"`
-	Enabled     bool                  `json:"enabled"`
-	Source      *ReplicationSource    `json:"source,omitempty"`
-	Destination *ReplicationDest      `json:"destination,omitempty"`
+	StreamID    string             `json:"streamId,omitempty"`
+	Name        string             `json:"name"`
+	Version     int                `json:"version"`
+	Enabled     bool               `json:"enabled"`
+	Source      *ReplicationSource `json:"source,omitempty"`
+	Destination *ReplicationDest   `json:"destination,omitempty"`
 }
 
 type ReplicationSource struct {
@@ -170,11 +170,11 @@ type ReplicationSource struct {
 }
 
 type ReplicationDest struct {
-	BucketName             string                   `json:"bucketName,omitempty"`
-	Location               string                   `json:"location,omitempty"`
-	Locations              []ReplicationDestLocation `json:"locations,omitempty"`
-	PreferredReadLocation  string                   `json:"preferredReadLocation,omitempty"`
-	Role                   string                   `json:"role,omitempty"`
+	BucketName            string                    `json:"bucketName,omitempty"`
+	Location              string                    `json:"location,omitempty"`
+	Locations             []ReplicationDestLocation `json:"locations,omitempty"`
+	PreferredReadLocation string                    `json:"preferredReadLocation,omitempty"`
+	Role                  string                    `json:"role,omitempty"`
 }
 
 type ReplicationDestLocation struct {
@@ -195,30 +195,30 @@ type WorkflowTag struct {
 }
 
 type BucketWorkflowExpiration struct {
-	WorkflowID                              string          `json:"workflowId,omitempty"`
-	Name                                    string          `json:"name,omitempty"`
-	Enabled                                 bool            `json:"enabled"`
-	BucketName                              string          `json:"bucketName"`
-	Type                                    string          `json:"type"`
-	Filter                                  *WorkflowFilter `json:"filter,omitempty"`
-	CurrentVersionTriggerDelayDate          string          `json:"currentVersionTriggerDelayDate,omitempty"`
-	CurrentVersionTriggerDelayDays          *int            `json:"currentVersionTriggerDelayDays,omitempty"`
-	ExpireDeleteMarkersTrigger              *bool           `json:"expireDeleteMarkersTrigger,omitempty"`
-	IncompleteMultipartUploadTriggerDelayDays *int          `json:"incompleteMultipartUploadTriggerDelayDays,omitempty"`
-	PreviousVersionTriggerDelayDays         *int            `json:"previousVersionTriggerDelayDays,omitempty"`
+	WorkflowID                                string          `json:"workflowId,omitempty"`
+	Name                                      string          `json:"name,omitempty"`
+	Enabled                                   bool            `json:"enabled"`
+	BucketName                                string          `json:"bucketName"`
+	Type                                      string          `json:"type"`
+	Filter                                    *WorkflowFilter `json:"filter,omitempty"`
+	CurrentVersionTriggerDelayDate            string          `json:"currentVersionTriggerDelayDate,omitempty"`
+	CurrentVersionTriggerDelayDays            *int            `json:"currentVersionTriggerDelayDays,omitempty"`
+	ExpireDeleteMarkersTrigger                *bool           `json:"expireDeleteMarkersTrigger,omitempty"`
+	IncompleteMultipartUploadTriggerDelayDays *int            `json:"incompleteMultipartUploadTriggerDelayDays,omitempty"`
+	PreviousVersionTriggerDelayDays           *int            `json:"previousVersionTriggerDelayDays,omitempty"`
 }
 
 type BucketWorkflowTransition struct {
-	WorkflowID                     string          `json:"workflowId,omitempty"`
-	Name                           string          `json:"name,omitempty"`
-	Enabled                        bool            `json:"enabled"`
-	BucketName                     string          `json:"bucketName"`
-	Type                           string          `json:"type"`
-	Filter                         *WorkflowFilter `json:"filter,omitempty"`
-	LocationName                   string          `json:"locationName"`
-	ApplyToVersion                 string          `json:"applyToVersion"`
-	TriggerDelayDate               string          `json:"triggerDelayDate,omitempty"`
-	TriggerDelayDays               *int            `json:"triggerDelayDays,omitempty"`
+	WorkflowID       string          `json:"workflowId,omitempty"`
+	Name             string          `json:"name,omitempty"`
+	Enabled          bool            `json:"enabled"`
+	BucketName       string          `json:"bucketName"`
+	Type             string          `json:"type"`
+	Filter           *WorkflowFilter `json:"filter,omitempty"`
+	LocationName     string          `json:"locationName"`
+	ApplyToVersion   string          `json:"applyToVersion"`
+	TriggerDelayDate string          `json:"triggerDelayDate,omitempty"`
+	TriggerDelayDays *int            `json:"triggerDelayDays,omitempty"`
 }
 
 // --- Overlay Operations ---
@@ -240,7 +240,6 @@ func (c *ManagementClient) GetOverlay(ctx context.Context) (*ConfigOverlay, erro
 
 	return &overlay, nil
 }
-
 
 // --- Location Operations ---
 
@@ -325,8 +324,8 @@ func (c *ManagementClient) GetAccount(ctx context.Context, name string) (*User, 
 }
 
 type createUserRequest struct {
-	UserName  string `json:"userName"`
-	Email     string `json:"email,omitempty"`
+	UserName string `json:"userName"`
+	Email    string `json:"email,omitempty"`
 }
 
 func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email string) (*User, error) {

@@ -5,19 +5,19 @@ import (
 )
 
 type WorkflowExpirationResourceModel struct {
-	InstanceID  types.String       `tfsdk:"instance_id"`
-	AccountID   types.String       `tfsdk:"account_id"`
-	BucketName  types.String       `tfsdk:"bucket_name"`
-	WorkflowID  types.String       `tfsdk:"workflow_id"`
-	Name        types.String       `tfsdk:"name"`
-	Enabled     types.Bool         `tfsdk:"enabled"`
-	Filter      *WorkflowFilterModel `tfsdk:"filter"`
+	InstanceID types.String         `tfsdk:"instance_id"`
+	AccountID  types.String         `tfsdk:"account_id"`
+	BucketName types.String         `tfsdk:"bucket_name"`
+	WorkflowID types.String         `tfsdk:"workflow_id"`
+	Name       types.String         `tfsdk:"name"`
+	Enabled    types.Bool           `tfsdk:"enabled"`
+	Filter     *WorkflowFilterModel `tfsdk:"filter"`
 
-	CurrentVersionTriggerDelayDate             types.String `tfsdk:"current_version_trigger_delay_date"`
-	CurrentVersionTriggerDelayDays             types.Int64  `tfsdk:"current_version_trigger_delay_days"`
-	ExpireDeleteMarkersTrigger                 types.Bool   `tfsdk:"expire_delete_markers_trigger"`
-	IncompleteMultipartUploadTriggerDelayDays  types.Int64  `tfsdk:"incomplete_multipart_upload_trigger_delay_days"`
-	PreviousVersionTriggerDelayDays            types.Int64  `tfsdk:"previous_version_trigger_delay_days"`
+	CurrentVersionTriggerDelayDate            types.String `tfsdk:"current_version_trigger_delay_date"`
+	CurrentVersionTriggerDelayDays            types.Int64  `tfsdk:"current_version_trigger_delay_days"`
+	ExpireDeleteMarkersTrigger                types.Bool   `tfsdk:"expire_delete_markers_trigger"`
+	IncompleteMultipartUploadTriggerDelayDays types.Int64  `tfsdk:"incomplete_multipart_upload_trigger_delay_days"`
+	PreviousVersionTriggerDelayDays           types.Int64  `tfsdk:"previous_version_trigger_delay_days"`
 }
 
 type WorkflowFilterModel struct {

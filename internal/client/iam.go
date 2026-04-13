@@ -118,7 +118,6 @@ func (c *IAMClient) CreateUser(ctx context.Context, accessKey, secretKey, userNa
 	params := url.Values{
 		"Action":   {"CreateUser"},
 		"UserName": {userName},
-
 	}
 
 	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
@@ -138,7 +137,6 @@ func (c *IAMClient) GetUser(ctx context.Context, accessKey, secretKey, userName 
 	params := url.Values{
 		"Action":   {"GetUser"},
 		"UserName": {userName},
-
 	}
 
 	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
@@ -161,7 +159,6 @@ func (c *IAMClient) DeleteUser(ctx context.Context, accessKey, secretKey, userNa
 	params := url.Values{
 		"Action":   {"DeleteUser"},
 		"UserName": {userName},
-
 	}
 
 	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
@@ -252,10 +249,10 @@ type listAccessKeysResponse struct {
 }
 
 type iamAccessKey struct {
-	UserName    string `xml:"UserName"`
-	AccessKeyId string `xml:"AccessKeyId"`
+	UserName        string `xml:"UserName"`
+	AccessKeyId     string `xml:"AccessKeyId"`
 	SecretAccessKey string `xml:"SecretAccessKey"`
-	Status      string `xml:"Status"`
+	Status          string `xml:"Status"`
 }
 
 type iamAccessKeyMetadata struct {
@@ -268,7 +265,6 @@ func (c *IAMClient) CreateAccessKey(ctx context.Context, accessKey, secretKey, u
 	params := url.Values{
 		"Action":   {"CreateAccessKey"},
 		"UserName": {userName},
-
 	}
 
 	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
@@ -288,7 +284,6 @@ func (c *IAMClient) ListAccessKeys(ctx context.Context, accessKey, secretKey, us
 	params := url.Values{
 		"Action":   {"ListAccessKeys"},
 		"UserName": {userName},
-
 	}
 
 	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)

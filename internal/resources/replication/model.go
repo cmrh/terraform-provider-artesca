@@ -5,12 +5,12 @@ import (
 )
 
 type ReplicationResourceModel struct {
-	StreamID    types.String             `tfsdk:"stream_id"`
-	Name        types.String             `tfsdk:"name"`
-	Version     types.Int64              `tfsdk:"version"`
-	Enabled     types.Bool               `tfsdk:"enabled"`
-	Source      *ReplicationSourceModel  `tfsdk:"source"`
-	Destination *ReplicationDestModel    `tfsdk:"destination"`
+	StreamID    types.String            `tfsdk:"stream_id"`
+	Name        types.String            `tfsdk:"name"`
+	Version     types.Int64             `tfsdk:"version"`
+	Enabled     types.Bool              `tfsdk:"enabled"`
+	Source      *ReplicationSourceModel `tfsdk:"source"`
+	Destination *ReplicationDestModel   `tfsdk:"destination"`
 }
 
 type ReplicationSourceModel struct {
@@ -20,11 +20,11 @@ type ReplicationSourceModel struct {
 }
 
 type ReplicationDestModel struct {
-	BucketName            types.String                    `tfsdk:"bucket_name"`
-	Location              types.String                    `tfsdk:"location"`
-	Locations             []ReplicationDestLocationModel  `tfsdk:"locations"`
-	PreferredReadLocation types.String                    `tfsdk:"preferred_read_location"`
-	Role                  types.String                    `tfsdk:"role"`
+	BucketName            types.String                   `tfsdk:"bucket_name"`
+	Location              types.String                   `tfsdk:"location"`
+	Locations             []ReplicationDestLocationModel `tfsdk:"locations"`
+	PreferredReadLocation types.String                   `tfsdk:"preferred_read_location"`
+	Role                  types.String                   `tfsdk:"role"`
 }
 
 type ReplicationDestLocationModel struct {
