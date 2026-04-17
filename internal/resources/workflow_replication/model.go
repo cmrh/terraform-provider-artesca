@@ -23,11 +23,11 @@ type WorkflowReplicationSourceModel struct {
 }
 
 type WorkflowReplicationDestModel struct {
-	BucketName            types.String                         `tfsdk:"bucket_name"`
-	Location              types.String                         `tfsdk:"location"`
-	Locations             []WorkflowReplicationDestLocModel    `tfsdk:"locations"`
-	PreferredReadLocation types.String                         `tfsdk:"preferred_read_location"`
-	Role                  types.String                         `tfsdk:"role"`
+	BucketName            types.String                      `tfsdk:"bucket_name"`
+	Location              types.String                      `tfsdk:"location"`
+	Locations             []WorkflowReplicationDestLocModel `tfsdk:"locations"`
+	PreferredReadLocation types.String                      `tfsdk:"preferred_read_location"`
+	Role                  types.String                      `tfsdk:"role"`
 }
 
 type WorkflowReplicationDestLocModel struct {

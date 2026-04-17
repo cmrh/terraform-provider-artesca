@@ -39,7 +39,7 @@ type oidcTokenResponse struct {
 }
 
 func NewOIDCTokenSource(oidcURL, realm, clientID, username, password string, insecureSkipVerify bool) *OIDCTokenSource {
-	tokenURL := fmt.Sprintf("%s/auth/realms/%s/protocol/openid-connect/token", strings.TrimRight(oidcURL, "/"), realm)
+	tokenURL := fmt.Sprintf("%s/auth/realms/%s/protocol/openid-connect/token", strings.TrimRight(oidcURL, "/"), url.PathEscape(realm))
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
