@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // --- Expiration ---
 
 func (c *ManagementClient) CreateBucketWorkflowExpiration(ctx context.Context, instanceID, accountID, bucketName string, wf *BucketWorkflowExpiration) (*BucketWorkflowExpiration, error) {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/expiration", instanceID, accountID, bucketName)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/expiration", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, wf)
 	if err != nil {
 		return nil, err
@@ -28,7 +29,7 @@ func (c *ManagementClient) CreateBucketWorkflowExpiration(ctx context.Context, i
 }
 
 func (c *ManagementClient) UpdateBucketWorkflowExpiration(ctx context.Context, instanceID, accountID, bucketName, workflowID string, wf *BucketWorkflowExpiration) (*BucketWorkflowExpiration, error) {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/expiration/%s", instanceID, accountID, bucketName, workflowID)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/expiration/%s", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName), url.PathEscape(workflowID))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, wf)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (c *ManagementClient) UpdateBucketWorkflowExpiration(ctx context.Context, i
 }
 
 func (c *ManagementClient) DeleteBucketWorkflowExpiration(ctx context.Context, instanceID, accountID, bucketName, workflowID string) error {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/expiration/%s", instanceID, accountID, bucketName, workflowID)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/expiration/%s", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName), url.PathEscape(workflowID))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
@@ -61,7 +62,7 @@ func (c *ManagementClient) DeleteBucketWorkflowExpiration(ctx context.Context, i
 // --- Transition ---
 
 func (c *ManagementClient) CreateBucketWorkflowTransition(ctx context.Context, instanceID, accountID, bucketName string, wf *BucketWorkflowTransition) (*BucketWorkflowTransition, error) {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/transition", instanceID, accountID, bucketName)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/transition", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, wf)
 	if err != nil {
 		return nil, err
@@ -79,7 +80,7 @@ func (c *ManagementClient) CreateBucketWorkflowTransition(ctx context.Context, i
 }
 
 func (c *ManagementClient) UpdateBucketWorkflowTransition(ctx context.Context, instanceID, accountID, bucketName, workflowID string, wf *BucketWorkflowTransition) (*BucketWorkflowTransition, error) {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/transition/%s", instanceID, accountID, bucketName, workflowID)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/transition/%s", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName), url.PathEscape(workflowID))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, wf)
 	if err != nil {
 		return nil, err
@@ -97,7 +98,7 @@ func (c *ManagementClient) UpdateBucketWorkflowTransition(ctx context.Context, i
 }
 
 func (c *ManagementClient) DeleteBucketWorkflowTransition(ctx context.Context, instanceID, accountID, bucketName, workflowID string) error {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/transition/%s", instanceID, accountID, bucketName, workflowID)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/transition/%s", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName), url.PathEscape(workflowID))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
@@ -112,7 +113,7 @@ func (c *ManagementClient) DeleteBucketWorkflowTransition(ctx context.Context, i
 // --- Replication ---
 
 func (c *ManagementClient) CreateBucketWorkflowReplication(ctx context.Context, instanceID, accountID, bucketName string, stream *ReplicationStream) (*ReplicationStream, error) {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/replication", instanceID, accountID, bucketName)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/replication", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, stream)
 	if err != nil {
 		return nil, err
@@ -130,7 +131,7 @@ func (c *ManagementClient) CreateBucketWorkflowReplication(ctx context.Context, 
 }
 
 func (c *ManagementClient) UpdateBucketWorkflowReplication(ctx context.Context, instanceID, accountID, bucketName, workflowID string, stream *ReplicationStream) (*ReplicationStream, error) {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/replication/%s", instanceID, accountID, bucketName, workflowID)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/replication/%s", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName), url.PathEscape(workflowID))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, stream)
 	if err != nil {
 		return nil, err
@@ -148,7 +149,7 @@ func (c *ManagementClient) UpdateBucketWorkflowReplication(ctx context.Context, 
 }
 
 func (c *ManagementClient) DeleteBucketWorkflowReplication(ctx context.Context, instanceID, accountID, bucketName, workflowID string) error {
-	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/replication/%s", instanceID, accountID, bucketName, workflowID)
+	path := fmt.Sprintf("/instance/%s/account/%s/bucket/%s/workflow/replication/%s", url.PathEscape(instanceID), url.PathEscape(accountID), url.PathEscape(bucketName), url.PathEscape(workflowID))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 func (c *ManagementClient) GetReplicationStream(ctx context.Context, streamID string) (*ReplicationStream, error) {
@@ -23,7 +24,7 @@ func (c *ManagementClient) GetReplicationStream(ctx context.Context, streamID st
 }
 
 func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *ReplicationStream) (*ReplicationStream, error) {
-	path := fmt.Sprintf("/config/%s/replication", c.InstanceID)
+	path := fmt.Sprintf("/config/%s/replication", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, stream)
 	if err != nil {
 		return nil, err
@@ -41,7 +42,7 @@ func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *
 }
 
 func (c *ManagementClient) UpdateReplicationStream(ctx context.Context, streamID string, stream *ReplicationStream) (*ReplicationStream, error) {
-	path := fmt.Sprintf("/config/%s/replication/%s", c.InstanceID, streamID)
+	path := fmt.Sprintf("/config/%s/replication/%s", url.PathEscape(c.InstanceID), url.PathEscape(streamID))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, stream)
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func (c *ManagementClient) UpdateReplicationStream(ctx context.Context, streamID
 }
 
 func (c *ManagementClient) DeleteReplicationStream(ctx context.Context, streamID string) error {
-	path := fmt.Sprintf("/config/%s/replication/%s", c.InstanceID, streamID)
+	path := fmt.Sprintf("/config/%s/replication/%s", url.PathEscape(c.InstanceID), url.PathEscape(streamID))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err

@@ -1,13 +1,13 @@
 package client
 
 type ConfigOverlay struct {
-	InstanceID        string              `json:"instanceId"`
-	Locations         map[string]Location `json:"locations"`
-	Users             []User              `json:"users"`
-	Endpoints         []Endpoint          `json:"endpoints"`
+	InstanceID         string              `json:"instanceId"`
+	Locations          map[string]Location `json:"locations"`
+	Users              []User              `json:"users"`
+	Endpoints          []Endpoint          `json:"endpoints"`
 	ReplicationStreams []ReplicationStream `json:"replicationStreams"`
-	Version           int64               `json:"version"`
-	UpdatedAt         string              `json:"updatedAt"`
+	Version            int64               `json:"version"`
+	UpdatedAt          string              `json:"updatedAt"`
 }
 
 type Location struct {

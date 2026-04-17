@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 func (c *ManagementClient) GetLocation(ctx context.Context, name string) (*Location, error) {
@@ -22,7 +23,7 @@ func (c *ManagementClient) GetLocation(ctx context.Context, name string) (*Locat
 }
 
 func (c *ManagementClient) CreateLocation(ctx context.Context, loc *Location) (*Location, error) {
-	path := fmt.Sprintf("/config/%s/location", c.InstanceID)
+	path := fmt.Sprintf("/config/%s/location", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, loc)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func (c *ManagementClient) CreateLocation(ctx context.Context, loc *Location) (*
 }
 
 func (c *ManagementClient) UpdateLocation(ctx context.Context, name string, loc *Location) (*Location, error) {
-	path := fmt.Sprintf("/config/%s/location/%s", c.InstanceID, name)
+	path := fmt.Sprintf("/config/%s/location/%s", url.PathEscape(c.InstanceID), url.PathEscape(name))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, loc)
 	if err != nil {
 		return nil, err
@@ -58,7 +59,7 @@ func (c *ManagementClient) UpdateLocation(ctx context.Context, name string, loc 
 }
 
 func (c *ManagementClient) DeleteLocation(ctx context.Context, name string) error {
-	path := fmt.Sprintf("/config/%s/location/%s", c.InstanceID, name)
+	path := fmt.Sprintf("/config/%s/location/%s", url.PathEscape(c.InstanceID), url.PathEscape(name))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err

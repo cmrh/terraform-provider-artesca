@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -83,7 +84,7 @@ func (c *ManagementClient) doRequest(ctx context.Context, method, path string, b
 }
 
 func (c *ManagementClient) GetOverlay(ctx context.Context) (*ConfigOverlay, error) {
-	path := fmt.Sprintf("/config/overlay/view/%s", c.InstanceID)
+	path := fmt.Sprintf("/config/overlay/view/%s", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err

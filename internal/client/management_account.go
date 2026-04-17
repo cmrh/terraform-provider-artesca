@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 func (c *ManagementClient) GetAccount(ctx context.Context, name string) (*User, error) {
@@ -28,7 +29,7 @@ type createUserRequest struct {
 }
 
 func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email string) (*User, error) {
-	path := fmt.Sprintf("/config/%s/user", c.InstanceID)
+	path := fmt.Sprintf("/config/%s/user", url.PathEscape(c.InstanceID))
 	reqBody := createUserRequest{
 		UserName: userName,
 		Email:    email,
@@ -50,7 +51,7 @@ func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email st
 }
 
 func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string) error {
-	path := fmt.Sprintf("/config/%s/user?accountName=%s", c.InstanceID, accountName)
+	path := fmt.Sprintf("/config/%s/user?accountName=%s", url.PathEscape(c.InstanceID), url.QueryEscape(accountName))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
@@ -63,7 +64,7 @@ func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string
 }
 
 func (c *ManagementClient) GenerateAccountKey(ctx context.Context, accountName string) (*User, error) {
-	path := fmt.Sprintf("/config/%s/user/%s/key", c.InstanceID, accountName)
+	path := fmt.Sprintf("/config/%s/user/%s/key", url.PathEscape(c.InstanceID), url.PathEscape(accountName))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, nil)
 	if err != nil {
 		return nil, err

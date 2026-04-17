@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 func (c *ManagementClient) GetEndpoint(ctx context.Context, hostname string) (*Endpoint, error) {
@@ -23,7 +24,7 @@ func (c *ManagementClient) GetEndpoint(ctx context.Context, hostname string) (*E
 }
 
 func (c *ManagementClient) CreateEndpoint(ctx context.Context, ep *Endpoint) (*Endpoint, error) {
-	path := fmt.Sprintf("/config/%s/endpoint", c.InstanceID)
+	path := fmt.Sprintf("/config/%s/endpoint", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, ep)
 	if err != nil {
 		return nil, err
@@ -41,7 +42,7 @@ func (c *ManagementClient) CreateEndpoint(ctx context.Context, ep *Endpoint) (*E
 }
 
 func (c *ManagementClient) DeleteEndpoint(ctx context.Context, hostname string) error {
-	path := fmt.Sprintf("/config/%s/endpoint/%s", c.InstanceID, hostname)
+	path := fmt.Sprintf("/config/%s/endpoint/%s", url.PathEscape(c.InstanceID), url.PathEscape(hostname))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
