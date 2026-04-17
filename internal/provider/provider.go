@@ -20,6 +20,7 @@ import (
 	useraccesskey "github.com/scality/terraform-provider-scality-artesca/internal/resources/user_access_key"
 	userpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/user_policy"
 	workflowexpiration "github.com/scality/terraform-provider-scality-artesca/internal/resources/workflow_expiration"
+	workflowreplication "github.com/scality/terraform-provider-scality-artesca/internal/resources/workflow_replication"
 	workflowtransition "github.com/scality/terraform-provider-scality-artesca/internal/resources/workflow_transition"
 )
 
@@ -234,6 +235,7 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 		useraccesskey.NewUserAccessKeyResource,
 		userpolicy.NewUserPolicyResource,
 		workflowexpiration.NewWorkflowExpirationResource,
+		workflowreplication.NewWorkflowReplicationResource,
 		workflowtransition.NewWorkflowTransitionResource,
 	}
 }
