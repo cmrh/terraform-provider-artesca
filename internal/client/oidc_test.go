@@ -35,7 +35,7 @@ func TestTokenFetch(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"access_token":"my-token","expires_in":3600,"token_type":"bearer"}`))
+		_, _ = w.Write([]byte(`{"access_token":"my-token","expires_in":3600,"token_type":"bearer"}`))
 	}))
 	defer server.Close()
 
@@ -56,7 +56,7 @@ func TestTokenCaching(t *testing.T) {
 		callCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"access_token":"cached-token","expires_in":3600,"token_type":"bearer"}`))
+		_, _ = w.Write([]byte(`{"access_token":"cached-token","expires_in":3600,"token_type":"bearer"}`))
 	}))
 	defer server.Close()
 
@@ -118,7 +118,7 @@ func TestTokenRefreshOnExpiry(t *testing.T) {
 func TestTokenFetchError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
-		w.Write([]byte(`{"error":"invalid_grant","error_description":"Invalid credentials"}`))
+		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"Invalid credentials"}`))
 	}))
 	defer server.Close()
 
@@ -136,7 +136,7 @@ func TestTokenEmptyAccessToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"access_token":"","expires_in":3600,"token_type":"bearer"}`))
+		_, _ = w.Write([]byte(`{"access_token":"","expires_in":3600,"token_type":"bearer"}`))
 	}))
 	defer server.Close()
 
@@ -260,7 +260,7 @@ func TestInstanceIDsNeedsPadding(t *testing.T) {
 func TestInstanceIDsTokenError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
-		w.Write([]byte(`unauthorized`))
+		_, _ = w.Write([]byte(`unauthorized`))
 	}))
 	defer server.Close()
 
@@ -346,7 +346,7 @@ func TestInstanceIDsMalformedJWT(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"access_token":"not-a-jwt","expires_in":3600,"token_type":"bearer"}`))
+		_, _ = w.Write([]byte(`{"access_token":"not-a-jwt","expires_in":3600,"token_type":"bearer"}`))
 	}))
 	defer server.Close()
 

@@ -107,7 +107,7 @@ func TestCreateLocation(t *testing.T) {
 func TestCreateLocationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte(`{"error":"invalid"}`))
+		_, _ = w.Write([]byte(`{"error":"invalid"}`))
 	}))
 	defer apiServer.Close()
 
@@ -158,7 +158,7 @@ func TestUpdateLocation(t *testing.T) {
 func TestUpdateLocationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -195,7 +195,7 @@ func TestDeleteLocation(t *testing.T) {
 func TestDeleteLocationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)
-		w.Write([]byte(`{"error":"in use"}`))
+		_, _ = w.Write([]byte(`{"error":"in use"}`))
 	}))
 	defer apiServer.Close()
 

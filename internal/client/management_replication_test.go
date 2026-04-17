@@ -104,7 +104,7 @@ func TestCreateReplicationStream(t *testing.T) {
 func TestCreateReplicationStreamError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte(`bad request`))
+		_, _ = w.Write([]byte(`bad request`))
 	}))
 	defer apiServer.Close()
 
@@ -151,7 +151,7 @@ func TestUpdateReplicationStream(t *testing.T) {
 func TestUpdateReplicationStreamError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -188,7 +188,7 @@ func TestDeleteReplicationStream(t *testing.T) {
 func TestDeleteReplicationStreamError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)
-		w.Write([]byte(`in use`))
+		_, _ = w.Write([]byte(`in use`))
 	}))
 	defer apiServer.Close()
 

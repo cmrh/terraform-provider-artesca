@@ -15,7 +15,7 @@ func newMockOIDCServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"access_token":"mock-token","expires_in":3600,"token_type":"bearer"}`))
+		_, _ = w.Write([]byte(`{"access_token":"mock-token","expires_in":3600,"token_type":"bearer"}`))
 	}))
 }
 

@@ -56,7 +56,7 @@ func TestCreateBucketWorkflowExpiration(t *testing.T) {
 func TestCreateBucketWorkflowExpirationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte(`bad request`))
+		_, _ = w.Write([]byte(`bad request`))
 	}))
 	defer apiServer.Close()
 
@@ -102,7 +102,7 @@ func TestUpdateBucketWorkflowExpiration(t *testing.T) {
 func TestUpdateBucketWorkflowExpirationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -139,7 +139,7 @@ func TestDeleteBucketWorkflowExpiration(t *testing.T) {
 func TestDeleteBucketWorkflowExpirationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -196,7 +196,7 @@ func TestCreateBucketWorkflowTransition(t *testing.T) {
 func TestCreateBucketWorkflowTransitionError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte(`bad`))
+		_, _ = w.Write([]byte(`bad`))
 	}))
 	defer apiServer.Close()
 
@@ -239,7 +239,7 @@ func TestUpdateBucketWorkflowTransition(t *testing.T) {
 func TestUpdateBucketWorkflowTransitionError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -276,7 +276,7 @@ func TestDeleteBucketWorkflowTransition(t *testing.T) {
 func TestDeleteBucketWorkflowTransitionError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -337,7 +337,7 @@ func TestCreateBucketWorkflowReplication(t *testing.T) {
 func TestCreateBucketWorkflowReplicationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte(`bad`))
+		_, _ = w.Write([]byte(`bad`))
 	}))
 	defer apiServer.Close()
 
@@ -380,7 +380,7 @@ func TestUpdateBucketWorkflowReplication(t *testing.T) {
 func TestUpdateBucketWorkflowReplicationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -417,7 +417,7 @@ func TestDeleteBucketWorkflowReplication(t *testing.T) {
 func TestDeleteBucketWorkflowReplicationError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
@@ -450,7 +450,7 @@ func TestWorkflowPathEscapesSpecialChars(t *testing.T) {
 			t.Error("account ID not escaped in URL path")
 		}
 		w.WriteHeader(201)
-		w.Write([]byte(`{"workflowId":"wf-1","enabled":true,"bucketName":"my bucket","type":"bucket-workflow-expiration-v1"}`))
+		_, _ = w.Write([]byte(`{"workflowId":"wf-1","enabled":true,"bucketName":"my bucket","type":"bucket-workflow-expiration-v1"}`))
 	}))
 	defer apiServer.Close()
 

@@ -102,7 +102,7 @@ func TestCreateEndpoint(t *testing.T) {
 func TestCreateEndpointError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
-		w.Write([]byte(`bad request`))
+		_, _ = w.Write([]byte(`bad request`))
 	}))
 	defer apiServer.Close()
 
@@ -139,7 +139,7 @@ func TestDeleteEndpoint(t *testing.T) {
 func TestDeleteEndpointError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
