@@ -25,7 +25,7 @@ func TestDoRequestSetsHeaders(t *testing.T) {
 			t.Errorf("Accept = %q, want application/json", got)
 		}
 		w.WriteHeader(200)
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer apiServer.Close()
 
@@ -57,7 +57,7 @@ func TestDoRequestMarshalsBody(t *testing.T) {
 			t.Errorf("name = %q, want test", payload["name"])
 		}
 		w.WriteHeader(201)
-		w.Write([]byte(`{"created":true}`))
+		_, _ = w.Write([]byte(`{"created":true}`))
 	}))
 	defer apiServer.Close()
 
@@ -98,7 +98,7 @@ func TestDoRequestNilBody(t *testing.T) {
 func TestDoRequestReturnsStatusCode(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
-		w.Write([]byte(`{"error":"not found"}`))
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
 	}))
 	defer apiServer.Close()
 
@@ -182,7 +182,7 @@ func TestGetOverlay(t *testing.T) {
 func TestGetOverlayError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`internal server error`))
+		_, _ = w.Write([]byte(`internal server error`))
 	}))
 	defer apiServer.Close()
 
@@ -202,7 +202,7 @@ func TestGetOverlayEmptyOverlay(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write([]byte(`{"instanceId":"test","locations":{},"users":[],"endpoints":[],"replicationStreams":[],"version":1}`))
+		_, _ = w.Write([]byte(`{"instanceId":"test","locations":{},"users":[],"endpoints":[],"replicationStreams":[],"version":1}`))
 	}))
 	defer apiServer.Close()
 

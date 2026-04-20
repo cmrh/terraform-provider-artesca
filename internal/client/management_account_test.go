@@ -146,7 +146,7 @@ func TestCreateAccount(t *testing.T) {
 func TestCreateAccountError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)
-		w.Write([]byte(`{"error":"conflict"}`))
+		_, _ = w.Write([]byte(`{"error":"conflict"}`))
 	}))
 	defer apiServer.Close()
 
@@ -186,7 +186,7 @@ func TestDeleteAccount(t *testing.T) {
 func TestDeleteAccountError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`server error`))
+		_, _ = w.Write([]byte(`server error`))
 	}))
 	defer apiServer.Close()
 
@@ -253,7 +253,7 @@ func TestGenerateAccountKey(t *testing.T) {
 func TestGenerateAccountKeyError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer apiServer.Close()
 
