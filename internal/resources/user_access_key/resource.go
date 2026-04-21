@@ -8,9 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var _ resource.Resource = &UserAccessKeyResource{}
@@ -48,10 +50,13 @@ func (r *UserAccessKeyResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"username": schema.StringAttribute{
-				Description: "The IAM user to create the access key for.",
+				Description: "The IAM user to create the access key for. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.IAMUsername(),
 				},
 			},
 			"access_key_id": schema.StringAttribute{

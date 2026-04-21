@@ -9,9 +9,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var (
@@ -60,8 +62,11 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "Source configuration for replication.",
 				Attributes: map[string]schema.Attribute{
 					"bucket_name": schema.StringAttribute{
-						Description: "Source bucket name.",
+						Description: "Source bucket name. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 						Required:    true,
+						Validators: []validator.String{
+							validators.BucketName{},
+						},
 					},
 					"prefix": schema.StringAttribute{
 						Description: "Object key prefix filter for replication.",
@@ -77,8 +82,11 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "Destination configuration for replication.",
 				Attributes: map[string]schema.Attribute{
 					"bucket_name": schema.StringAttribute{
-						Description: "Destination bucket name.",
+						Description: "Destination bucket name. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 						Optional:    true,
+						Validators: []validator.String{
+							validators.BucketName{},
+						},
 					},
 					"location": schema.StringAttribute{
 						Description: "Destination location name.",
