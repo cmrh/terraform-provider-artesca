@@ -9,9 +9,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var (
@@ -36,15 +38,21 @@ func (r *AccountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 		Description: "Manages an ARTESCA account (S3 user) via the management API.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description: "The account name.",
+				Description: "The account name. Must be 1–128 characters, ASCII alphanumeric and hyphens only.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.AccountName{},
 				},
 			},
 			"email": schema.StringAttribute{
 				Description: "The email address associated with the account.",
 				Optional:    true,
+				Validators: []validator.String{
+					validators.Email{},
+				},
 			},
 			"access_key": schema.StringAttribute{
 				Description: "The access key for the account. Generated on creation.",
