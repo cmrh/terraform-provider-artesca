@@ -259,7 +259,7 @@ func modelToAPITransition(model *WorkflowTransitionResourceModel) *client.Bucket
 		wf.TriggerDelayDate = model.TriggerDelayDate.ValueString()
 	}
 	if !model.TriggerDelayDays.IsNull() && !model.TriggerDelayDays.IsUnknown() {
-		v := int(model.TriggerDelayDays.ValueInt64())
+		v := model.TriggerDelayDays.ValueInt64()
 		wf.TriggerDelayDays = &v
 	}
 
@@ -295,6 +295,6 @@ func apiTransitionToModel(wf *client.BucketWorkflowTransition, model *WorkflowTr
 		model.TriggerDelayDate = types.StringValue(wf.TriggerDelayDate)
 	}
 	if wf.TriggerDelayDays != nil {
-		model.TriggerDelayDays = types.Int64Value(int64(*wf.TriggerDelayDays))
+		model.TriggerDelayDays = types.Int64Value(*wf.TriggerDelayDays)
 	}
 }

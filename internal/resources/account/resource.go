@@ -127,11 +127,18 @@ func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest
 
 	apiUserToModel(user, &plan)
 
+	// Save state now so Terraform can track the account even if key generation fails.
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// If the create response didn't include keys, generate them.
 	if plan.AccessKey.IsNull() || plan.AccessKey.ValueString() == "" {
 		keyUser, err := r.client.GenerateAccountKey(ctx, plan.Name.ValueString())
 		if err != nil {
-			resp.Diagnostics.AddError("Error generating account key", err.Error())
+			resp.Diagnostics.AddError("Error generating account key",
+				fmt.Sprintf("Account was created but key generation failed: %s", err))
 			return
 		}
 		if keyUser.AccessKey != "" {
@@ -140,9 +147,8 @@ func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest
 		if keyUser.SecretKey != "" {
 			plan.SecretKey = types.StringValue(keyUser.SecretKey)
 		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *AccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

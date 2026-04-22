@@ -17,6 +17,7 @@ const (
 	managementAPIPath     = "/api/v1"
 	managementHTTPTimeout = 60 * time.Second
 	contentTypeJSON       = "application/json"
+	maxResponseBytes      = 1 << 20 // 1 MB
 )
 
 type ManagementClient struct {
@@ -75,7 +76,7 @@ func (c *ManagementClient) doRequest(ctx context.Context, method, path string, b
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return nil, resp.StatusCode, fmt.Errorf("reading response: %w", err)
 	}

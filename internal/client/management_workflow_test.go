@@ -37,7 +37,7 @@ func TestCreateBucketWorkflowExpiration(t *testing.T) {
 	client, cleanup := newTestManagementClient(t, apiServer)
 	defer cleanup()
 
-	days := 30
+	days := int64(30)
 	created, err := client.CreateBucketWorkflowExpiration(context.Background(), "inst-1", "acct-1", "my-bucket", &BucketWorkflowExpiration{
 		Name:                           "expire-old",
 		Enabled:                        true,

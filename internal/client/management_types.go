@@ -71,7 +71,7 @@ type Endpoint struct {
 type ReplicationStream struct {
 	StreamID    string             `json:"streamId,omitempty"`
 	Name        string             `json:"name"`
-	Version     int                `json:"version"`
+	Version     int64              `json:"version"`
 	Enabled     bool               `json:"enabled"`
 	Source      *ReplicationSource `json:"source,omitempty"`
 	Destination *ReplicationDest   `json:"destination,omitempty"`
@@ -114,10 +114,10 @@ type BucketWorkflowExpiration struct {
 	Type                                      string          `json:"type"`
 	Filter                                    *WorkflowFilter `json:"filter,omitempty"`
 	CurrentVersionTriggerDelayDate            string          `json:"currentVersionTriggerDelayDate,omitempty"`
-	CurrentVersionTriggerDelayDays            *int            `json:"currentVersionTriggerDelayDays,omitempty"`
+	CurrentVersionTriggerDelayDays            *int64          `json:"currentVersionTriggerDelayDays,omitempty"`
 	ExpireDeleteMarkersTrigger                *bool           `json:"expireDeleteMarkersTrigger,omitempty"`
-	IncompleteMultipartUploadTriggerDelayDays *int            `json:"incompleteMultipartUploadTriggerDelayDays,omitempty"`
-	PreviousVersionTriggerDelayDays           *int            `json:"previousVersionTriggerDelayDays,omitempty"`
+	IncompleteMultipartUploadTriggerDelayDays *int64          `json:"incompleteMultipartUploadTriggerDelayDays,omitempty"`
+	PreviousVersionTriggerDelayDays           *int64          `json:"previousVersionTriggerDelayDays,omitempty"`
 }
 
 type BucketWorkflowTransition struct {
@@ -130,5 +130,5 @@ type BucketWorkflowTransition struct {
 	LocationName     string          `json:"locationName"`
 	ApplyToVersion   string          `json:"applyToVersion"`
 	TriggerDelayDate string          `json:"triggerDelayDate,omitempty"`
-	TriggerDelayDays *int            `json:"triggerDelayDays,omitempty"`
+	TriggerDelayDays *int64          `json:"triggerDelayDays,omitempty"`
 }

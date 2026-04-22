@@ -215,7 +215,7 @@ func (r *ReplicationResource) ImportState(ctx context.Context, req resource.Impo
 func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationStream {
 	stream := &client.ReplicationStream{
 		Name:    model.Name.ValueString(),
-		Version: int(model.Version.ValueInt64()),
+		Version: model.Version.ValueInt64(),
 		Enabled: model.Enabled.ValueBool(),
 	}
 
@@ -251,7 +251,7 @@ func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationS
 func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationResourceModel) {
 	model.StreamID = types.StringValue(stream.StreamID)
 	model.Name = types.StringValue(stream.Name)
-	model.Version = types.Int64Value(int64(stream.Version))
+	model.Version = types.Int64Value(stream.Version)
 	model.Enabled = types.BoolValue(stream.Enabled)
 
 	if stream.Source != nil {
