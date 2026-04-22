@@ -414,13 +414,15 @@ func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) *client.Loc
 
 	if !d.RepoID.IsNull() && !d.RepoID.IsUnknown() {
 		var repoIDs []string
-		d.RepoID.ElementsAs(ctx, &repoIDs, false)
-		details.RepoID = repoIDs
+		if diags := d.RepoID.ElementsAs(ctx, &repoIDs, false); !diags.HasError() {
+			details.RepoID = repoIDs
+		}
 	}
 	if !d.BootstrapList.IsNull() && !d.BootstrapList.IsUnknown() {
 		var bootstrapList []string
-		d.BootstrapList.ElementsAs(ctx, &bootstrapList, false)
-		details.BootstrapList = bootstrapList
+		if diags := d.BootstrapList.ElementsAs(ctx, &bootstrapList, false); !diags.HasError() {
+			details.BootstrapList = bootstrapList
+		}
 	}
 
 	return details
