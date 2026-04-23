@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
+	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/endpoint"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/location"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/replication"
@@ -40,6 +41,7 @@ type ArtescaProviderModel struct {
 	Password           types.String `tfsdk:"password"`
 	InsecureSkipVerify types.Bool   `tfsdk:"insecure_skip_verify"`
 	IAMRegion          types.String `tfsdk:"iam_region"`
+	S3Endpoint         types.String `tfsdk:"s3_endpoint"`
 }
 
 func New(version string) func() provider.Provider {
@@ -96,6 +98,10 @@ func (p *ArtescaProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 				Description: "The AWS region used for IAM SigV4 request signing. Defaults to 'us-east-1'. Can also be set with ARTESCA_IAM_REGION.",
 				Optional:    true,
 			},
+			"s3_endpoint": schema.StringAttribute{
+				Description: "The ARTESCA S3 endpoint URL (e.g., https://s3.artesca.example.com). Required for bucket resources. Can also be set with ARTESCA_S3_ENDPOINT.",
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -112,6 +118,10 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 	oidcURL := envOrValue(config.OIDCUrl, "ARTESCA_OIDC_URL")
 	oidcRealm := envOrDefault(config.OIDCRealm, "ARTESCA_OIDC_REALM", "artesca")
 	clientID := envOrDefault(config.ClientID, "ARTESCA_CLIENT_ID", "zenko-ui")
+	oidcScope := os.Getenv("ARTESCA_OIDC_SCOPE")
+	if oidcScope == "" {
+		oidcScope = "openid"
+	}
 	username := envOrValue(config.Username, "ARTESCA_USERNAME")
 	password := envOrValue(config.Password, "ARTESCA_PASSWORD")
 	iamRegion := envOrDefault(config.IAMRegion, "ARTESCA_IAM_REGION", "us-east-1")
@@ -158,7 +168,7 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 		"insecure_skip_verify": insecureSkipVerify,
 	})
 
-	tokenSource := client.NewOIDCTokenSource(oidcURL, oidcRealm, clientID, username, password, insecureSkipVerify)
+	tokenSource := client.NewOIDCTokenSource(oidcURL, oidcRealm, clientID, oidcScope, username, password, insecureSkipVerify)
 
 	// Validate credentials by fetching an initial token.
 	_, err := tokenSource.Token(ctx)
@@ -216,9 +226,17 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	iamClient := client.NewIAMClient(iamEndpoint, iamRegion, insecureSkipVerify)
 
+	s3Endpoint := envOrValue(config.S3Endpoint, "ARTESCA_S3_ENDPOINT")
+	var s3Client *client.S3Client
+	if s3Endpoint != "" {
+		s3Client = client.NewS3Client(s3Endpoint, iamRegion, insecureSkipVerify)
+		tflog.Info(ctx, "Configured S3 client", map[string]any{"s3_endpoint": s3Endpoint})
+	}
+
 	clients := &client.ProviderClients{
 		Management: mgmtClient,
 		IAM:        iamClient,
+		S3:         s3Client,
 	}
 
 	resp.ResourceData = clients
@@ -228,6 +246,7 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		account.NewAccountResource,
+		bucket.NewBucketResource,
 		endpoint.NewEndpointResource,
 		location.NewLocationResource,
 		replication.NewReplicationResource,

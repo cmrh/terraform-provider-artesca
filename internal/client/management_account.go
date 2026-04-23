@@ -51,7 +51,10 @@ func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email st
 }
 
 func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string) error {
-	path := fmt.Sprintf("/config/%s/user?accountName=%s", url.PathEscape(c.InstanceID), url.QueryEscape(accountName))
+	path := fmt.Sprintf("/config/%s/user?accountName=%s&roleName=%s",
+		url.PathEscape(c.InstanceID),
+		url.QueryEscape(accountName),
+		url.QueryEscape("scality-internal/storage-manager-role"))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err

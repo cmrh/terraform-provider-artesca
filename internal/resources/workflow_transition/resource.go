@@ -2,6 +2,7 @@ package workflowtransition
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -18,7 +19,7 @@ import (
 var _ resource.Resource = &WorkflowTransitionResource{}
 
 type WorkflowTransitionResource struct {
-	client *client.ManagementClient
+	s3 *client.S3Client
 }
 
 func NewWorkflowTransitionResource() resource.Resource {
@@ -31,26 +32,20 @@ func (r *WorkflowTransitionResource) Metadata(_ context.Context, req resource.Me
 
 func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a bucket transition lifecycle workflow in ARTESCA (v2 schema).",
+		Description: "Manages a bucket transition lifecycle rule in ARTESCA via the S3 API.",
 		Attributes: map[string]schema.Attribute{
-			"instance_id": schema.StringAttribute{
-				Description: "The instance ID. Defaults to the provider's instance_id if omitted.",
-				Optional:    true,
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"account_id": schema.StringAttribute{
-				Description: "The account ID that owns the bucket.",
+			"account_access_key": schema.StringAttribute{
+				Description: "The access key for the account that owns the bucket.",
 				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Sensitive:   true,
+			},
+			"account_secret_key": schema.StringAttribute{
+				Description: "The secret key for the account that owns the bucket.",
+				Required:    true,
+				Sensitive:   true,
 			},
 			"bucket_name": schema.StringAttribute{
-				Description: "The name of the bucket this workflow applies to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Description: "The name of the bucket. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -59,65 +54,35 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 					validators.BucketName{},
 				},
 			},
-			"workflow_id": schema.StringAttribute{
-				Description: "The workflow ID assigned by ARTESCA.",
+			"rule_id": schema.StringAttribute{
+				Description: "The lifecycle rule ID. Auto-generated if not set.",
+				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"name": schema.StringAttribute{
-				Description: "The name of the workflow.",
-				Optional:    true,
-			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the workflow is enabled.",
+				Description: "Whether the lifecycle rule is enabled.",
 				Required:    true,
 			},
 			"location_name": schema.StringAttribute{
-				Description: "The destination location name for transitioning objects. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Description: "The destination location (storage class) for transitioning objects.",
 				Required:    true,
-				Validators: []validator.String{
-					validators.BucketName{},
-				},
-			},
-			"apply_to_version": schema.StringAttribute{
-				Description: "Which object versions to apply the transition to. Must be 'current' or 'noncurrent'.",
-				Required:    true,
-			},
-			"trigger_delay_date": schema.StringAttribute{
-				Description: "Date after which objects are transitioned (format: YYYY-MM-DD).",
-				Optional:    true,
 			},
 			"trigger_delay_days": schema.Int64Attribute{
 				Description: "Number of days after which objects are transitioned.",
-				Optional:    true,
+				Required:    true,
 			},
 		},
 		Blocks: map[string]schema.Block{
 			"filter": schema.SingleNestedBlock{
-				Description: "Filter to scope which objects this workflow applies to.",
+				Description: "Filter to scope which objects this rule applies to.",
 				Attributes: map[string]schema.Attribute{
 					"object_key_prefix": schema.StringAttribute{
 						Description: "Object key prefix filter.",
 						Optional:    true,
-					},
-				},
-				Blocks: map[string]schema.Block{
-					"object_tags": schema.ListNestedBlock{
-						Description: "Object tag filters.",
-						NestedObject: schema.NestedBlockObject{
-							Attributes: map[string]schema.Attribute{
-								"key": schema.StringAttribute{
-									Description: "Tag key.",
-									Required:    true,
-								},
-								"value": schema.StringAttribute{
-									Description: "Tag value.",
-									Required:    true,
-								},
-							},
-						},
 					},
 				},
 			},
@@ -137,7 +102,14 @@ func (r *WorkflowTransitionResource) Configure(_ context.Context, req resource.C
 		)
 		return
 	}
-	r.client = providerData.Management
+	if providerData.S3 == nil {
+		resp.Diagnostics.AddError(
+			"S3 Client Not Configured",
+			"The s3_endpoint must be set in the provider configuration to use bucket workflow resources.",
+		)
+		return
+	}
+	r.s3 = providerData.S3
 }
 
 func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -147,25 +119,35 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&plan)
-	accountID := plan.AccountID.ValueString()
-	bucketName := plan.BucketName.ValueString()
+	ak := plan.AccountAccessKey.ValueString()
+	sk := plan.AccountSecretKey.ValueString()
+	bucket := plan.BucketName.ValueString()
 
-	apiWf := modelToAPITransition(&plan)
+	ruleID := plan.RuleID.ValueString()
+	if ruleID == "" {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		ruleID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	}
 
-	tflog.Debug(ctx, "Creating transition workflow", map[string]any{
-		"bucket":   bucketName,
-		"location": plan.LocationName.ValueString(),
-	})
+	newRule := modelToLifecycleRule(&plan, ruleID)
 
-	created, err := r.client.CreateBucketWorkflowTransition(ctx, instanceID, accountID, bucketName, apiWf)
+	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating transition workflow", err.Error())
+		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
 
-	plan.InstanceID = types.StringValue(instanceID)
-	apiTransitionToModel(created, &plan)
+	rules := append(existing, newRule)
+
+	tflog.Debug(ctx, "Creating transition lifecycle rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
+
+	if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, rules); err != nil {
+		resp.Diagnostics.AddError("Error creating transition lifecycle rule", err.Error())
+		return
+	}
+
+	plan.RuleID = types.StringValue(ruleID)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -176,7 +158,31 @@ func (r *WorkflowTransitionResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	// Workflow reads are not available via the overlay — preserve state as-is.
+	ak := state.AccountAccessKey.ValueString()
+	sk := state.AccountSecretKey.ValueString()
+	bucket := state.BucketName.ValueString()
+	ruleID := state.RuleID.ValueString()
+
+	rules, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading lifecycle rules", err.Error())
+		return
+	}
+
+	var found *client.LifecycleRule
+	for _, rule := range rules {
+		if rule.ID == ruleID {
+			found = &rule
+			break
+		}
+	}
+
+	if found == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	lifecycleRuleToModel(found, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -187,29 +193,34 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	var state WorkflowTransitionResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	ak := plan.AccountAccessKey.ValueString()
+	sk := plan.AccountSecretKey.ValueString()
+	bucket := plan.BucketName.ValueString()
+	ruleID := plan.RuleID.ValueString()
 
-	instanceID := r.resolveInstanceID(&plan)
-	accountID := plan.AccountID.ValueString()
-	bucketName := plan.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
-
-	apiWf := modelToAPITransition(&plan)
-
-	tflog.Debug(ctx, "Updating transition workflow", map[string]any{"workflow_id": workflowID})
-
-	updated, err := r.client.UpdateBucketWorkflowTransition(ctx, instanceID, accountID, bucketName, workflowID, apiWf)
+	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating transition workflow", err.Error())
+		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
 
-	plan.InstanceID = types.StringValue(instanceID)
-	apiTransitionToModel(updated, &plan)
+	updated := modelToLifecycleRule(&plan, ruleID)
+	rules := make([]client.LifecycleRule, 0, len(existing))
+	for _, rule := range existing {
+		if rule.ID == ruleID {
+			rules = append(rules, updated)
+		} else {
+			rules = append(rules, rule)
+		}
+	}
+
+	tflog.Debug(ctx, "Updating transition lifecycle rule", map[string]any{"rule_id": ruleID})
+
+	if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, rules); err != nil {
+		resp.Diagnostics.AddError("Error updating transition lifecycle rule", err.Error())
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -220,81 +231,64 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&state)
-	accountID := state.AccountID.ValueString()
-	bucketName := state.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
+	ak := state.AccountAccessKey.ValueString()
+	sk := state.AccountSecretKey.ValueString()
+	bucket := state.BucketName.ValueString()
+	ruleID := state.RuleID.ValueString()
 
-	tflog.Debug(ctx, "Deleting transition workflow", map[string]any{"workflow_id": workflowID})
-
-	err := r.client.DeleteBucketWorkflowTransition(ctx, instanceID, accountID, bucketName, workflowID)
+	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting transition workflow", err.Error())
+		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
+
+	remaining := make([]client.LifecycleRule, 0, len(existing))
+	for _, rule := range existing {
+		if rule.ID != ruleID {
+			remaining = append(remaining, rule)
+		}
+	}
+
+	tflog.Debug(ctx, "Deleting transition lifecycle rule", map[string]any{"rule_id": ruleID})
+
+	if len(remaining) == 0 {
+		if err := r.s3.DeleteBucketLifecycle(ctx, ak, sk, bucket); err != nil {
+			resp.Diagnostics.AddError("Error deleting lifecycle configuration", err.Error())
+			return
+		}
+	} else {
+		if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, remaining); err != nil {
+			resp.Diagnostics.AddError("Error updating lifecycle configuration", err.Error())
+			return
+		}
+	}
 }
 
-func (r *WorkflowTransitionResource) resolveInstanceID(model *WorkflowTransitionResourceModel) string {
-	if !model.InstanceID.IsNull() && !model.InstanceID.IsUnknown() && model.InstanceID.ValueString() != "" {
-		return model.InstanceID.ValueString()
+func modelToLifecycleRule(model *WorkflowTransitionResourceModel, ruleID string) client.LifecycleRule {
+	status := "Disabled"
+	if model.Enabled.ValueBool() {
+		status = "Enabled"
 	}
-	return r.client.InstanceID
+
+	rule := client.LifecycleRule{
+		ID:                 ruleID,
+		Status:             status,
+		TransitionDays:     int(model.TriggerDelayDays.ValueInt64()),
+		TransitionLocation: model.LocationName.ValueString(),
+	}
+
+	if model.Filter != nil && !model.Filter.ObjectKeyPrefix.IsNull() {
+		rule.Prefix = model.Filter.ObjectKeyPrefix.ValueString()
+	}
+
+	return rule
 }
 
-// --- Conversion helpers ---
-
-func modelToAPITransition(model *WorkflowTransitionResourceModel) *client.BucketWorkflowTransition {
-	wf := &client.BucketWorkflowTransition{
-		Enabled:        model.Enabled.ValueBool(),
-		BucketName:     model.BucketName.ValueString(),
-		Type:           "bucket-workflow-transition-v2",
-		LocationName:   model.LocationName.ValueString(),
-		ApplyToVersion: model.ApplyToVersion.ValueString(),
-	}
-
-	if !model.Name.IsNull() && !model.Name.IsUnknown() {
-		wf.Name = model.Name.ValueString()
-	}
-	if !model.TriggerDelayDate.IsNull() && !model.TriggerDelayDate.IsUnknown() {
-		wf.TriggerDelayDate = model.TriggerDelayDate.ValueString()
-	}
-	if !model.TriggerDelayDays.IsNull() && !model.TriggerDelayDays.IsUnknown() {
-		v := model.TriggerDelayDays.ValueInt64()
-		wf.TriggerDelayDays = &v
-	}
-
+func lifecycleRuleToModel(rule *client.LifecycleRule, model *WorkflowTransitionResourceModel) {
+	model.Enabled = types.BoolValue(rule.Status == "Enabled")
+	model.TriggerDelayDays = types.Int64Value(int64(rule.TransitionDays))
+	model.LocationName = types.StringValue(rule.TransitionLocation)
 	if model.Filter != nil {
-		wf.Filter = &client.WorkflowFilter{}
-		if !model.Filter.ObjectKeyPrefix.IsNull() && !model.Filter.ObjectKeyPrefix.IsUnknown() {
-			wf.Filter.ObjectKeyPrefix = model.Filter.ObjectKeyPrefix.ValueString()
-		}
-		for _, tag := range model.Filter.ObjectTags {
-			wf.Filter.ObjectTags = append(wf.Filter.ObjectTags, client.WorkflowTag{
-				Key:   tag.Key.ValueString(),
-				Value: tag.Value.ValueString(),
-			})
-		}
-	}
-
-	return wf
-}
-
-func apiTransitionToModel(wf *client.BucketWorkflowTransition, model *WorkflowTransitionResourceModel) {
-	if wf.WorkflowID != "" {
-		model.WorkflowID = types.StringValue(wf.WorkflowID)
-	}
-	if wf.Name != "" {
-		model.Name = types.StringValue(wf.Name)
-	}
-	model.Enabled = types.BoolValue(wf.Enabled)
-	model.BucketName = types.StringValue(wf.BucketName)
-	model.LocationName = types.StringValue(wf.LocationName)
-	model.ApplyToVersion = types.StringValue(wf.ApplyToVersion)
-
-	if wf.TriggerDelayDate != "" {
-		model.TriggerDelayDate = types.StringValue(wf.TriggerDelayDate)
-	}
-	if wf.TriggerDelayDays != nil {
-		model.TriggerDelayDays = types.Int64Value(*wf.TriggerDelayDays)
+		model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
 	}
 }

@@ -20,7 +20,7 @@ terraform {
 
 provider "artesca" {
   management_endpoint = "https://management.artesca.example.com"
-  oidc_url            = "https://ui.artesca.example.com"
+  oidc_url            = "https://10.0.0.1:8443"  # see note below
   username            = var.artesca_username
   password            = var.artesca_password
 
@@ -30,6 +30,7 @@ provider "artesca" {
   client_id            = "zenko-ui"         # default
   iam_region           = "us-east-1"        # default
   insecure_skip_verify = false              # default
+  s3_endpoint          = "https://s3.artesca.example.com"  # required for bucket resources
 }
 ```
 
@@ -46,6 +47,14 @@ All attributes can also be set via environment variables:
 | `client_id` | `ARTESCA_CLIENT_ID` |
 | `iam_region` | `ARTESCA_IAM_REGION` |
 | `insecure_skip_verify` | `ARTESCA_INSECURE_SKIP_VERIFY` |
+| `s3_endpoint` | `ARTESCA_S3_ENDPOINT` |
+| _(scope only)_ | `ARTESCA_OIDC_SCOPE` (default: `openid`) |
+
+> **Finding the OIDC URL:** The `oidc_url` must be the control plane ingress endpoint (typically an IP-based URL like `https://10.0.0.1:8443`). Using a DNS alias with a non-standard port may produce OIDC tokens whose issuer doesn't match the internal trust policies, causing account deletion to fail. Retrieve the correct URL from an ARTESCA node:
+>
+> ```bash
+> sudo salt-call metalk8s_network.get_control_plane_ingress_endpoint --out=json | jq -cr '.local'
+> ```
 
 ## Resources
 
@@ -54,6 +63,7 @@ All attributes can also be set via environment variables:
 | Resource | Description |
 |---|---|
 | `artesca_account` | Manage ARTESCA accounts (S3 users) |
+| `artesca_bucket` | Manage S3 buckets on the ARTESCA S3 endpoint |
 | `artesca_location` | Manage storage locations (AWS S3, Azure, GCP, Scality RING, etc.) |
 | `artesca_endpoint` | Manage data service endpoints |
 | `artesca_replication` | Manage cross-region replication streams |

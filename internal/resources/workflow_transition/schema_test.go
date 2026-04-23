@@ -24,14 +24,4 @@ func TestSchema_Validators(t *testing.T) {
 			t.Errorf("expected BucketName validator, got %T", attr.Validators[0])
 		}
 	})
-
-	t.Run("location_name has BucketName validator", func(t *testing.T) {
-		attr := resp.Schema.Attributes["location_name"].(schema.StringAttribute)
-		if len(attr.Validators) != 1 {
-			t.Fatalf("expected 1 validator, got %d", len(attr.Validators))
-		}
-		if _, ok := attr.Validators[0].(validators.BucketName); !ok {
-			t.Errorf("expected BucketName validator, got %T", attr.Validators[0])
-		}
-	})
 }

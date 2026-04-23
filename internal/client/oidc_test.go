@@ -39,7 +39,7 @@ func TestTokenFetch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "test-realm", "test-client", "admin", "secret", false)
+	ts := NewOIDCTokenSource(server.URL, "test-realm", "test-client", "openid", "admin", "secret", false)
 	token, err := ts.Token(context.Background())
 	if err != nil {
 		t.Fatalf("Token returned error: %v", err)
@@ -60,7 +60,7 @@ func TestTokenCaching(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 
 	token1, err := ts.Token(context.Background())
 	if err != nil {
@@ -90,7 +90,7 @@ func TestTokenRefreshOnExpiry(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 
 	token1, err := ts.Token(context.Background())
 	if err != nil {
@@ -122,7 +122,7 @@ func TestTokenFetchError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "badpass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "badpass", false)
 	_, err := ts.Token(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 401 response")
@@ -140,7 +140,7 @@ func TestTokenEmptyAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	_, err := ts.Token(context.Background())
 	if err == nil {
 		t.Fatal("expected error for empty access_token")
@@ -174,7 +174,7 @@ func TestInstanceIDs(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	ids, err := ts.InstanceIDs(context.Background())
 	if err != nil {
 		t.Fatalf("InstanceIDs returned error: %v", err)
@@ -199,7 +199,7 @@ func TestInstanceIDsMultiple(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	ids, err := ts.InstanceIDs(context.Background())
 	if err != nil {
 		t.Fatalf("InstanceIDs returned error: %v", err)
@@ -221,7 +221,7 @@ func TestInstanceIDsEmpty(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	ids, err := ts.InstanceIDs(context.Background())
 	if err != nil {
 		t.Fatalf("InstanceIDs returned error: %v", err)
@@ -247,7 +247,7 @@ func TestInstanceIDsNeedsPadding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	ids, err := ts.InstanceIDs(context.Background())
 	if err != nil {
 		t.Fatalf("InstanceIDs returned error: %v", err)
@@ -264,7 +264,7 @@ func TestInstanceIDsTokenError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "badpass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "badpass", false)
 	_, err := ts.InstanceIDs(context.Background())
 	if err == nil {
 		t.Fatal("expected error when token fetch fails")
@@ -289,7 +289,7 @@ func TestInstanceIDsPaddingCase2(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	ids, err := ts.InstanceIDs(context.Background())
 	if err != nil {
 		t.Fatalf("InstanceIDs returned error: %v", err)
@@ -309,7 +309,7 @@ func TestInstanceIDsInvalidBase64(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	_, err := ts.InstanceIDs(context.Background())
 	if err == nil {
 		t.Fatal("expected error for invalid base64 in JWT payload")
@@ -332,7 +332,7 @@ func TestInstanceIDsInvalidJSONClaims(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	_, err := ts.InstanceIDs(context.Background())
 	if err == nil {
 		t.Fatal("expected error for invalid JSON in JWT claims")
@@ -350,7 +350,7 @@ func TestInstanceIDsMalformedJWT(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ts := NewOIDCTokenSource(server.URL, "realm", "client", "user", "pass", false)
+	ts := NewOIDCTokenSource(server.URL, "realm", "client", "openid", "user", "pass", false)
 	_, err := ts.InstanceIDs(context.Background())
 	if err == nil {
 		t.Fatal("expected error for malformed JWT")

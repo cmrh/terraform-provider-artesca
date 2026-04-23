@@ -101,6 +101,23 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						Optional:    true,
 					},
 				},
+				Blocks: map[string]schema.Block{
+					"locations": schema.ListNestedBlock{
+						Description: "Destination locations with storage class.",
+						NestedObject: schema.NestedBlockObject{
+							Attributes: map[string]schema.Attribute{
+								"name": schema.StringAttribute{
+									Description: "Destination location name.",
+									Required:    true,
+								},
+								"storage_class": schema.StringAttribute{
+									Description: "Storage class at the destination location.",
+									Optional:    true,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -243,6 +260,15 @@ func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationS
 		if !model.Destination.Role.IsNull() && !model.Destination.Role.IsUnknown() {
 			stream.Destination.Role = model.Destination.Role.ValueString()
 		}
+		for _, loc := range model.Destination.Locations {
+			dl := client.ReplicationDestLocation{
+				Name: loc.Name.ValueString(),
+			}
+			if !loc.StorageClass.IsNull() && !loc.StorageClass.IsUnknown() {
+				dl.StorageClass = loc.StorageClass.ValueString()
+			}
+			stream.Destination.Locations = append(stream.Destination.Locations, dl)
+		}
 	}
 
 	return stream
@@ -287,6 +313,18 @@ func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationR
 			model.Destination.Role = types.StringValue(stream.Destination.Role)
 		} else {
 			model.Destination.Role = types.StringNull()
+		}
+		model.Destination.Locations = nil
+		for _, loc := range stream.Destination.Locations {
+			dl := ReplicationDestLocationModel{
+				Name: types.StringValue(loc.Name),
+			}
+			if loc.StorageClass != "" {
+				dl.StorageClass = types.StringValue(loc.StorageClass)
+			} else {
+				dl.StorageClass = types.StringNull()
+			}
+			model.Destination.Locations = append(model.Destination.Locations, dl)
 		}
 	}
 }
