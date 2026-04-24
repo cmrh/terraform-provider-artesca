@@ -8,9 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var _ resource.Resource = &WorkflowTransitionResource{}
@@ -48,10 +50,13 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 				},
 			},
 			"bucket_name": schema.StringAttribute{
-				Description: "The name of the bucket this workflow applies to.",
+				Description: "The name of the bucket this workflow applies to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.BucketName{},
 				},
 			},
 			"workflow_id": schema.StringAttribute{
@@ -70,8 +75,11 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 				Required:    true,
 			},
 			"location_name": schema.StringAttribute{
-				Description: "The destination location name for transitioning objects.",
+				Description: "The destination location name for transitioning objects. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
+				Validators: []validator.String{
+					validators.BucketName{},
+				},
 			},
 			"apply_to_version": schema.StringAttribute{
 				Description: "Which object versions to apply the transition to. Must be 'current' or 'noncurrent'.",
@@ -251,7 +259,7 @@ func modelToAPITransition(model *WorkflowTransitionResourceModel) *client.Bucket
 		wf.TriggerDelayDate = model.TriggerDelayDate.ValueString()
 	}
 	if !model.TriggerDelayDays.IsNull() && !model.TriggerDelayDays.IsUnknown() {
-		v := int(model.TriggerDelayDays.ValueInt64())
+		v := model.TriggerDelayDays.ValueInt64()
 		wf.TriggerDelayDays = &v
 	}
 
@@ -287,6 +295,6 @@ func apiTransitionToModel(wf *client.BucketWorkflowTransition, model *WorkflowTr
 		model.TriggerDelayDate = types.StringValue(wf.TriggerDelayDate)
 	}
 	if wf.TriggerDelayDays != nil {
-		model.TriggerDelayDays = types.Int64Value(int64(*wf.TriggerDelayDays))
+		model.TriggerDelayDays = types.Int64Value(*wf.TriggerDelayDays)
 	}
 }

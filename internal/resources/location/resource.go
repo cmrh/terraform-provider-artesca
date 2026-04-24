@@ -12,9 +12,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var (
@@ -39,10 +41,13 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		Description: "Manages an ARTESCA storage location.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description: "The name of the location. Must be lowercase alphanumeric with hyphens.",
+				Description: "The name of the location. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.BucketName{},
 				},
 			},
 			"location_type": schema.StringAttribute{
@@ -101,8 +106,11 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						},
 					},
 					"bucket_name": schema.StringAttribute{
-						Description: "Name of the target bucket.",
+						Description: "Name of the target bucket. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 						Optional:    true,
+						Validators: []validator.String{
+							validators.BucketName{},
+						},
 					},
 					"bucket_match": schema.BoolAttribute{
 						Description: "Whether the bucket name must match exactly.",
@@ -406,13 +414,15 @@ func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) *client.Loc
 
 	if !d.RepoID.IsNull() && !d.RepoID.IsUnknown() {
 		var repoIDs []string
-		d.RepoID.ElementsAs(ctx, &repoIDs, false)
-		details.RepoID = repoIDs
+		if diags := d.RepoID.ElementsAs(ctx, &repoIDs, false); !diags.HasError() {
+			details.RepoID = repoIDs
+		}
 	}
 	if !d.BootstrapList.IsNull() && !d.BootstrapList.IsUnknown() {
 		var bootstrapList []string
-		d.BootstrapList.ElementsAs(ctx, &bootstrapList, false)
-		details.BootstrapList = bootstrapList
+		if diags := d.BootstrapList.ElementsAs(ctx, &bootstrapList, false); !diags.HasError() {
+			details.BootstrapList = bootstrapList
+		}
 	}
 
 	return details

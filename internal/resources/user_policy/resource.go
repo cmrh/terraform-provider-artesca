@@ -8,8 +8,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var _ resource.Resource = &UserPolicyResource{}
@@ -47,22 +49,31 @@ func (r *UserPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				},
 			},
 			"username": schema.StringAttribute{
-				Description: "The IAM user to attach the policy to.",
+				Description: "The IAM user to attach the policy to. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{
+					validators.IAMUsername(),
+				},
 			},
 			"policy_name": schema.StringAttribute{
-				Description: "The name of the policy.",
+				Description: "The name of the policy. Must be 1–128 characters, alphanumeric and +=,.@-.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.IAMPolicyName(),
 				},
 			},
 			"policy_document": schema.StringAttribute{
 				Description: "The JSON policy document. Can be provided via file(), jsonencode(), or as a raw JSON string.",
 				Required:    true,
+				Validators: []validator.String{
+					validators.JSONDocument{},
+				},
 			},
 		},
 	}

@@ -1,10 +1,9 @@
-package replication
+package workflowreplication
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -16,44 +15,67 @@ import (
 	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
-var (
-	_ resource.Resource                = &ReplicationResource{}
-	_ resource.ResourceWithImportState = &ReplicationResource{}
-)
+var _ resource.Resource = &WorkflowReplicationResource{}
 
-type ReplicationResource struct {
+type WorkflowReplicationResource struct {
 	client *client.ManagementClient
 }
 
-func NewReplicationResource() resource.Resource {
-	return &ReplicationResource{}
+func NewWorkflowReplicationResource() resource.Resource {
+	return &WorkflowReplicationResource{}
 }
 
-func (r *ReplicationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_replication"
+func (r *WorkflowReplicationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_bucket_workflow_replication"
 }
 
-func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages an ARTESCA replication stream between two buckets.",
+		Description: "Manages a bucket replication workflow in ARTESCA.",
 		Attributes: map[string]schema.Attribute{
-			"stream_id": schema.StringAttribute{
-				Description: "The unique ID of the replication stream, assigned by ARTESCA.",
+			"instance_id": schema.StringAttribute{
+				Description: "The instance ID. Defaults to the provider's instance_id if omitted.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"account_id": schema.StringAttribute{
+				Description: "The account ID that owns the bucket.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"bucket_name": schema.StringAttribute{
+				Description: "The name of the bucket this workflow applies to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.BucketName{},
+				},
+			},
+			"workflow_id": schema.StringAttribute{
+				Description: "The workflow ID assigned by ARTESCA.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				Description: "The name of the replication stream.",
+				Description: "The name of the replication workflow.",
 				Required:    true,
 			},
 			"version": schema.Int64Attribute{
-				Description: "The version of the replication stream.",
+				Description: "The version of the replication workflow.",
 				Required:    true,
 			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the replication stream is enabled.",
+				Description: "Whether the replication workflow is enabled.",
 				Required:    true,
 			},
 		},
@@ -101,12 +123,29 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						Optional:    true,
 					},
 				},
+				Blocks: map[string]schema.Block{
+					"locations": schema.ListNestedBlock{
+						Description: "Destination locations with storage class.",
+						NestedObject: schema.NestedBlockObject{
+							Attributes: map[string]schema.Attribute{
+								"name": schema.StringAttribute{
+									Description: "Destination location name.",
+									Required:    true,
+								},
+								"storage_class": schema.StringAttribute{
+									Description: "Storage class at the destination location.",
+									Optional:    true,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
 }
 
-func (r *ReplicationResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *WorkflowReplicationResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
@@ -121,98 +160,110 @@ func (r *ReplicationResource) Configure(_ context.Context, req resource.Configur
 	r.client = providerData.Management
 }
 
-func (r *ReplicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan ReplicationResourceModel
+func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan WorkflowReplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	instanceID := r.resolveInstanceID(&plan)
+	accountID := plan.AccountID.ValueString()
+	bucketName := plan.BucketName.ValueString()
+
 	apiStream := modelToAPIReplication(&plan)
 
-	tflog.Debug(ctx, "Creating replication stream", map[string]any{"name": plan.Name.ValueString()})
+	tflog.Debug(ctx, "Creating bucket workflow replication", map[string]any{
+		"bucket": bucketName,
+		"name":   plan.Name.ValueString(),
+	})
 
-	created, err := r.client.CreateReplicationStream(ctx, apiStream)
+	created, err := r.client.CreateBucketWorkflowReplication(ctx, instanceID, accountID, bucketName, apiStream)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating replication stream", err.Error())
+		resp.Diagnostics.AddError("Error creating bucket workflow replication", err.Error())
 		return
 	}
 
+	plan.InstanceID = types.StringValue(instanceID)
 	apiReplicationToModel(created, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *ReplicationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state ReplicationResourceModel
+func (r *WorkflowReplicationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state WorkflowReplicationResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	stream, err := r.client.GetReplicationStream(ctx, state.StreamID.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading replication stream", err.Error())
-		return
-	}
-	if stream == nil {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
-	apiReplicationToModel(stream, &state)
+	// Workflow reads are not available via a direct endpoint — preserve state as-is.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *ReplicationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan ReplicationResourceModel
+func (r *WorkflowReplicationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan WorkflowReplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var state ReplicationResourceModel
+	var state WorkflowReplicationResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	instanceID := r.resolveInstanceID(&plan)
+	accountID := plan.AccountID.ValueString()
+	bucketName := plan.BucketName.ValueString()
+	workflowID := state.WorkflowID.ValueString()
+
 	apiStream := modelToAPIReplication(&plan)
 
-	tflog.Debug(ctx, "Updating replication stream", map[string]any{"stream_id": state.StreamID.ValueString()})
+	tflog.Debug(ctx, "Updating bucket workflow replication", map[string]any{"workflow_id": workflowID})
 
-	updated, err := r.client.UpdateReplicationStream(ctx, state.StreamID.ValueString(), apiStream)
+	updated, err := r.client.UpdateBucketWorkflowReplication(ctx, instanceID, accountID, bucketName, workflowID, apiStream)
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating replication stream", err.Error())
+		resp.Diagnostics.AddError("Error updating bucket workflow replication", err.Error())
 		return
 	}
 
+	plan.InstanceID = types.StringValue(instanceID)
 	apiReplicationToModel(updated, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *ReplicationResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state ReplicationResourceModel
+func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state WorkflowReplicationResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	tflog.Debug(ctx, "Deleting replication stream", map[string]any{"stream_id": state.StreamID.ValueString()})
+	instanceID := r.resolveInstanceID(&state)
+	accountID := state.AccountID.ValueString()
+	bucketName := state.BucketName.ValueString()
+	workflowID := state.WorkflowID.ValueString()
 
-	err := r.client.DeleteReplicationStream(ctx, state.StreamID.ValueString())
+	tflog.Debug(ctx, "Deleting bucket workflow replication", map[string]any{"workflow_id": workflowID})
+
+	err := r.client.DeleteBucketWorkflowReplication(ctx, instanceID, accountID, bucketName, workflowID)
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting replication stream", err.Error())
+		resp.Diagnostics.AddError("Error deleting bucket workflow replication", err.Error())
 		return
 	}
 }
 
-func (r *ReplicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("stream_id"), req, resp)
+func (r *WorkflowReplicationResource) resolveInstanceID(model *WorkflowReplicationResourceModel) string {
+	if !model.InstanceID.IsNull() && !model.InstanceID.IsUnknown() && model.InstanceID.ValueString() != "" {
+		return model.InstanceID.ValueString()
+	}
+	return r.client.InstanceID
 }
 
 // --- Conversion helpers ---
 
-func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationStream {
+func modelToAPIReplication(model *WorkflowReplicationResourceModel) *client.ReplicationStream {
 	stream := &client.ReplicationStream{
 		Name:    model.Name.ValueString(),
 		Version: model.Version.ValueInt64(),
@@ -243,19 +294,30 @@ func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationS
 		if !model.Destination.Role.IsNull() && !model.Destination.Role.IsUnknown() {
 			stream.Destination.Role = model.Destination.Role.ValueString()
 		}
+		for _, loc := range model.Destination.Locations {
+			destLoc := client.ReplicationDestLocation{
+				Name: loc.Name.ValueString(),
+			}
+			if !loc.StorageClass.IsNull() && !loc.StorageClass.IsUnknown() {
+				destLoc.StorageClass = loc.StorageClass.ValueString()
+			}
+			stream.Destination.Locations = append(stream.Destination.Locations, destLoc)
+		}
 	}
 
 	return stream
 }
 
-func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationResourceModel) {
-	model.StreamID = types.StringValue(stream.StreamID)
+func apiReplicationToModel(stream *client.ReplicationStream, model *WorkflowReplicationResourceModel) {
+	if stream.StreamID != "" {
+		model.WorkflowID = types.StringValue(stream.StreamID)
+	}
 	model.Name = types.StringValue(stream.Name)
 	model.Version = types.Int64Value(stream.Version)
 	model.Enabled = types.BoolValue(stream.Enabled)
 
 	if stream.Source != nil {
-		model.Source = &ReplicationSourceModel{
+		model.Source = &WorkflowReplicationSourceModel{
 			BucketName: types.StringValue(stream.Source.BucketName),
 			Prefix:     types.StringValue(stream.Source.Prefix),
 		}
@@ -267,7 +329,7 @@ func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationR
 	}
 
 	if stream.Destination != nil {
-		model.Destination = &ReplicationDestModel{}
+		model.Destination = &WorkflowReplicationDestModel{}
 		if stream.Destination.BucketName != "" {
 			model.Destination.BucketName = types.StringValue(stream.Destination.BucketName)
 		} else {
@@ -287,6 +349,19 @@ func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationR
 			model.Destination.Role = types.StringValue(stream.Destination.Role)
 		} else {
 			model.Destination.Role = types.StringNull()
+		}
+		if len(stream.Destination.Locations) > 0 {
+			model.Destination.Locations = make([]WorkflowReplicationDestLocModel, len(stream.Destination.Locations))
+			for i, loc := range stream.Destination.Locations {
+				model.Destination.Locations[i] = WorkflowReplicationDestLocModel{
+					Name: types.StringValue(loc.Name),
+				}
+				if loc.StorageClass != "" {
+					model.Destination.Locations[i].StorageClass = types.StringValue(loc.StorageClass)
+				} else {
+					model.Destination.Locations[i].StorageClass = types.StringNull()
+				}
+			}
 		}
 	}
 }

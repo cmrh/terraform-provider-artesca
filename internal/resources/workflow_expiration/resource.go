@@ -8,9 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var _ resource.Resource = &WorkflowExpirationResource{}
@@ -48,10 +50,13 @@ func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.Schema
 				},
 			},
 			"bucket_name": schema.StringAttribute{
-				Description: "The name of the bucket this workflow applies to.",
+				Description: "The name of the bucket this workflow applies to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.BucketName{},
 				},
 			},
 			"workflow_id": schema.StringAttribute{
@@ -254,7 +259,7 @@ func modelToAPIExpiration(model *WorkflowExpirationResourceModel) *client.Bucket
 		wf.CurrentVersionTriggerDelayDate = model.CurrentVersionTriggerDelayDate.ValueString()
 	}
 	if !model.CurrentVersionTriggerDelayDays.IsNull() && !model.CurrentVersionTriggerDelayDays.IsUnknown() {
-		v := int(model.CurrentVersionTriggerDelayDays.ValueInt64())
+		v := model.CurrentVersionTriggerDelayDays.ValueInt64()
 		wf.CurrentVersionTriggerDelayDays = &v
 	}
 	if !model.ExpireDeleteMarkersTrigger.IsNull() && !model.ExpireDeleteMarkersTrigger.IsUnknown() {
@@ -262,11 +267,11 @@ func modelToAPIExpiration(model *WorkflowExpirationResourceModel) *client.Bucket
 		wf.ExpireDeleteMarkersTrigger = &v
 	}
 	if !model.IncompleteMultipartUploadTriggerDelayDays.IsNull() && !model.IncompleteMultipartUploadTriggerDelayDays.IsUnknown() {
-		v := int(model.IncompleteMultipartUploadTriggerDelayDays.ValueInt64())
+		v := model.IncompleteMultipartUploadTriggerDelayDays.ValueInt64()
 		wf.IncompleteMultipartUploadTriggerDelayDays = &v
 	}
 	if !model.PreviousVersionTriggerDelayDays.IsNull() && !model.PreviousVersionTriggerDelayDays.IsUnknown() {
-		v := int(model.PreviousVersionTriggerDelayDays.ValueInt64())
+		v := model.PreviousVersionTriggerDelayDays.ValueInt64()
 		wf.PreviousVersionTriggerDelayDays = &v
 	}
 
@@ -300,15 +305,15 @@ func apiExpirationToModel(wf *client.BucketWorkflowExpiration, model *WorkflowEx
 		model.CurrentVersionTriggerDelayDate = types.StringValue(wf.CurrentVersionTriggerDelayDate)
 	}
 	if wf.CurrentVersionTriggerDelayDays != nil {
-		model.CurrentVersionTriggerDelayDays = types.Int64Value(int64(*wf.CurrentVersionTriggerDelayDays))
+		model.CurrentVersionTriggerDelayDays = types.Int64Value(*wf.CurrentVersionTriggerDelayDays)
 	}
 	if wf.ExpireDeleteMarkersTrigger != nil {
 		model.ExpireDeleteMarkersTrigger = types.BoolValue(*wf.ExpireDeleteMarkersTrigger)
 	}
 	if wf.IncompleteMultipartUploadTriggerDelayDays != nil {
-		model.IncompleteMultipartUploadTriggerDelayDays = types.Int64Value(int64(*wf.IncompleteMultipartUploadTriggerDelayDays))
+		model.IncompleteMultipartUploadTriggerDelayDays = types.Int64Value(*wf.IncompleteMultipartUploadTriggerDelayDays)
 	}
 	if wf.PreviousVersionTriggerDelayDays != nil {
-		model.PreviousVersionTriggerDelayDays = types.Int64Value(int64(*wf.PreviousVersionTriggerDelayDays))
+		model.PreviousVersionTriggerDelayDays = types.Int64Value(*wf.PreviousVersionTriggerDelayDays)
 	}
 }

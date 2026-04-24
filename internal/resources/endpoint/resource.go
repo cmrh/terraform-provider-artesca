@@ -10,9 +10,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
 var (
@@ -37,17 +39,23 @@ func (r *EndpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		Description: "Manages an ARTESCA data service endpoint.",
 		Attributes: map[string]schema.Attribute{
 			"hostname": schema.StringAttribute{
-				Description: "The hostname for the endpoint (e.g., 'mybucket.example.com').",
+				Description: "The hostname for the endpoint (e.g., 'mybucket.example.com'). Must be a valid DNS hostname or IP address.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{
+					validators.Hostname{},
+				},
 			},
 			"location_name": schema.StringAttribute{
-				Description: "The name of the location this endpoint points to.",
+				Description: "The name of the location this endpoint points to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.BucketName{},
 				},
 			},
 			"is_builtin": schema.BoolAttribute{
