@@ -34,12 +34,12 @@ type lifecycleTransition struct {
 }
 
 type LifecycleRule struct {
-	ID                   string
-	Status               string
-	Prefix               string
-	ExpirationDays       int
-	TransitionDays       int
-	TransitionLocation   string
+	ID                 string
+	Status             string
+	Prefix             string
+	ExpirationDays     int
+	TransitionDays     int
+	TransitionLocation string
 }
 
 func (c *S3Client) GetBucketLifecycle(ctx context.Context, accessKey, secretKey, bucket string) ([]LifecycleRule, error) {

@@ -32,7 +32,7 @@ func TestSchema_Attributes(t *testing.T) {
 	resp := resource.SchemaResponse{}
 	r.Schema(ctx, resource.SchemaRequest{}, &resp)
 
-	requiredAttrs := []string{"name", "location_constraint", "account_access_key", "account_secret_key"}
+	requiredAttrs := []string{"name", "account_access_key", "account_secret_key"}
 	for _, name := range requiredAttrs {
 		t.Run(name+" is required", func(t *testing.T) {
 			attr, ok := resp.Schema.Attributes[name]

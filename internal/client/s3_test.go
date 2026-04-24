@@ -8,63 +8,6 @@ import (
 	"testing"
 )
 
-func TestDeriveS3Endpoint(t *testing.T) {
-	got, err := DeriveS3Endpoint("https://management.artesca.example.com")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "https://s3.artesca.example.com" {
-		t.Errorf("got %q, want https://s3.artesca.example.com", got)
-	}
-}
-
-func TestDeriveS3EndpointWithPort(t *testing.T) {
-	got, err := DeriveS3Endpoint("https://management.artesca.example.com:8443")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "https://s3.artesca.example.com:8443" {
-		t.Errorf("got %q, want https://s3.artesca.example.com:8443", got)
-	}
-}
-
-func TestDeriveS3EndpointHTTP(t *testing.T) {
-	got, err := DeriveS3Endpoint("http://management.artesca.local:8080")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "http://s3.artesca.local:8080" {
-		t.Errorf("got %q, want http://s3.artesca.local:8080", got)
-	}
-}
-
-func TestDeriveS3EndpointStripsPath(t *testing.T) {
-	got, err := DeriveS3Endpoint("https://management.artesca.example.com/api/v1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "https://s3.artesca.example.com" {
-		t.Errorf("got %q, want https://s3.artesca.example.com", got)
-	}
-}
-
-func TestDeriveS3EndpointNonManagement(t *testing.T) {
-	_, err := DeriveS3Endpoint("https://api.artesca.example.com")
-	if err == nil {
-		t.Fatal("expected error for non-management hostname")
-	}
-	if !strings.Contains(err.Error(), "does not start with 'management.'") {
-		t.Errorf("error = %q, want 'does not start with management.'", err.Error())
-	}
-}
-
-func TestDeriveS3EndpointInvalidURL(t *testing.T) {
-	_, err := DeriveS3Endpoint("://bad")
-	if err == nil {
-		t.Fatal("expected error for invalid URL")
-	}
-}
-
 func TestCreateBucket(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
@@ -195,20 +138,6 @@ func TestDeleteBucket(t *testing.T) {
 	err := client.DeleteBucket(context.Background(), "AKID", "secret", "my-bucket")
 	if err != nil {
 		t.Fatalf("DeleteBucket returned error: %v", err)
-	}
-}
-
-func TestDeleteBucketNoSuchBucket(t *testing.T) {
-	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(404)
-		_, _ = w.Write([]byte(`<Error><Code>NoSuchBucket</Code><Message>not found</Message></Error>`))
-	}))
-	defer apiServer.Close()
-
-	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.DeleteBucket(context.Background(), "AKID", "secret", "my-bucket")
-	if err != nil {
-		t.Fatalf("DeleteBucket should not error for NoSuchBucket, got: %v", err)
 	}
 }
 

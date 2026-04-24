@@ -99,11 +99,7 @@ func (p *ArtescaProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 				Optional:    true,
 			},
 			"s3_endpoint": schema.StringAttribute{
-<<<<<<< Updated upstream
 				Description: "The ARTESCA S3 endpoint URL (e.g., https://s3.artesca.example.com). Required for bucket resources. Can also be set with ARTESCA_S3_ENDPOINT.",
-=======
-				Description: "The S3 endpoint URL (e.g., https://s3.artesca.example.com). If omitted, derived from management_endpoint. Can also be set with ARTESCA_S3_ENDPOINT.",
->>>>>>> Stashed changes
 				Optional:    true,
 			},
 		},
@@ -231,29 +227,11 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	iamClient := client.NewIAMClient(iamEndpoint, iamRegion, insecureSkipVerify)
 
-<<<<<<< Updated upstream
-	s3Endpoint := envOrValue(config.S3Endpoint, "ARTESCA_S3_ENDPOINT")
 	var s3Client *client.S3Client
 	if s3Endpoint != "" {
 		s3Client = client.NewS3Client(s3Endpoint, iamRegion, insecureSkipVerify)
 		tflog.Info(ctx, "Configured S3 client", map[string]any{"s3_endpoint": s3Endpoint})
 	}
-=======
-	if s3Endpoint == "" {
-		derived, err := client.DeriveS3Endpoint(managementEndpoint)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"S3 Endpoint Derivation Failed",
-				fmt.Sprintf("Failed to derive S3 endpoint from management endpoint: %s\n\nPlease set s3_endpoint explicitly.", err),
-			)
-			return
-		}
-		s3Endpoint = derived
-	}
-	tflog.Info(ctx, "Using S3 endpoint", map[string]any{"s3_endpoint": s3Endpoint})
-
-	s3Client := client.NewS3Client(s3Endpoint, iamRegion, insecureSkipVerify)
->>>>>>> Stashed changes
 
 	clients := &client.ProviderClients{
 		Management: mgmtClient,

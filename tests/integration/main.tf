@@ -195,7 +195,8 @@ resource "artesca_location" "dest" {
   name          = "inttest-ring-dest"
   location_type = "location-scality-ring-s3-v1"
 
-  depends_on = [artesca_account.test]
+  # Serialize location creation to avoid lost-update on the management overlay.
+  depends_on = [artesca_location.test]
 
   details {
     endpoint               = var.dest_ring_s3_endpoint
@@ -244,9 +245,10 @@ output "endpoint_hostname" {
 # --- Workflow: Expiration ---
 
 resource "artesca_bucket_workflow_expiration" "test" {
-  account_id  = artesca_account.test.id
-  bucket_name = artesca_bucket.test.name
-  enabled     = true
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  bucket_name        = artesca_bucket.test.name
+  enabled            = true
 
   current_version_trigger_delay_days = 30
 
@@ -255,27 +257,31 @@ resource "artesca_bucket_workflow_expiration" "test" {
   }
 }
 
-output "expiration_workflow_id" {
-  value = artesca_bucket_workflow_expiration.test.workflow_id
+output "expiration_rule_id" {
+  value = artesca_bucket_workflow_expiration.test.rule_id
 }
 
 # --- Workflow: Transition ---
 
 resource "artesca_bucket_workflow_transition" "test" {
-  account_id         = artesca_account.test.id
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
   bucket_name        = artesca_bucket.test.name
   enabled            = true
   location_name      = artesca_location.dest.name
-  apply_to_version   = "current"
   trigger_delay_days = 60
+
+  # Both lifecycle rules modify the same S3 lifecycle configuration;
+  # serialize to avoid a read-modify-write race.
+  depends_on = [artesca_bucket_workflow_expiration.test]
 
   filter {
     object_key_prefix = "archive/"
   }
 }
 
-output "transition_workflow_id" {
-  value = artesca_bucket_workflow_transition.test.workflow_id
+output "transition_rule_id" {
+  value = artesca_bucket_workflow_transition.test.rule_id
 }
 
 # --- Replication ---

@@ -103,19 +103,11 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				},
 				Blocks: map[string]schema.Block{
 					"locations": schema.ListNestedBlock{
-<<<<<<< Updated upstream
 						Description: "Destination locations with storage class.",
 						NestedObject: schema.NestedBlockObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
 									Description: "Destination location name.",
-=======
-						Description: "Destination storage locations for replication.",
-						NestedObject: schema.NestedBlockObject{
-							Attributes: map[string]schema.Attribute{
-								"name": schema.StringAttribute{
-									Description: "Location name.",
->>>>>>> Stashed changes
 									Required:    true,
 								},
 								"storage_class": schema.StringAttribute{
@@ -269,7 +261,6 @@ func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationS
 			stream.Destination.Role = model.Destination.Role.ValueString()
 		}
 		for _, loc := range model.Destination.Locations {
-<<<<<<< Updated upstream
 			dl := client.ReplicationDestLocation{
 				Name: loc.Name.ValueString(),
 			}
@@ -277,15 +268,6 @@ func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationS
 				dl.StorageClass = loc.StorageClass.ValueString()
 			}
 			stream.Destination.Locations = append(stream.Destination.Locations, dl)
-=======
-			apiLoc := client.ReplicationDestLocation{
-				Name: loc.Name.ValueString(),
-			}
-			if !loc.StorageClass.IsNull() && !loc.StorageClass.IsUnknown() {
-				apiLoc.StorageClass = loc.StorageClass.ValueString()
-			}
-			stream.Destination.Locations = append(stream.Destination.Locations, apiLoc)
->>>>>>> Stashed changes
 		}
 	}
 
@@ -334,7 +316,6 @@ func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationR
 		}
 		model.Destination.Locations = nil
 		for _, loc := range stream.Destination.Locations {
-<<<<<<< Updated upstream
 			dl := ReplicationDestLocationModel{
 				Name: types.StringValue(loc.Name),
 			}
@@ -344,17 +325,6 @@ func apiReplicationToModel(stream *client.ReplicationStream, model *ReplicationR
 				dl.StorageClass = types.StringNull()
 			}
 			model.Destination.Locations = append(model.Destination.Locations, dl)
-=======
-			destLoc := ReplicationDestLocationModel{
-				Name: types.StringValue(loc.Name),
-			}
-			if loc.StorageClass != "" {
-				destLoc.StorageClass = types.StringValue(loc.StorageClass)
-			} else {
-				destLoc.StorageClass = types.StringNull()
-			}
-			model.Destination.Locations = append(model.Destination.Locations, destLoc)
->>>>>>> Stashed changes
 		}
 	}
 }
