@@ -126,6 +126,10 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"region": schema.StringAttribute{
 						Description: "Region for the storage location.",
 						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
 					},
 					"server_side_encryption": schema.BoolAttribute{
 						Description: "Whether to enable server-side encryption.",
@@ -244,6 +248,12 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 
 	tflog.Debug(ctx, "Creating location", map[string]any{"name": plan.Name.ValueString()})
 
+	var planSecretKey, planPassword types.String
+	if plan.Details != nil {
+		planSecretKey = plan.Details.SecretKey
+		planPassword = plan.Details.Password
+	}
+
 	created, err := r.client.CreateLocation(ctx, apiLoc)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating location", err.Error())
@@ -251,6 +261,16 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	apiLocationToModel(ctx, created, &plan)
+
+	if plan.Details != nil {
+		if !planSecretKey.IsNull() && !planSecretKey.IsUnknown() {
+			plan.Details.SecretKey = planSecretKey
+		}
+		if !planPassword.IsNull() && !planPassword.IsUnknown() {
+			plan.Details.Password = planPassword
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -259,6 +279,12 @@ func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, r
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var stateSecretKey, statePassword types.String
+	if state.Details != nil {
+		stateSecretKey = state.Details.SecretKey
+		statePassword = state.Details.Password
 	}
 
 	loc, err := r.client.GetLocation(ctx, state.Name.ValueString())
@@ -272,6 +298,16 @@ func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	apiLocationToModel(ctx, loc, &state)
+
+	if state.Details != nil {
+		if !stateSecretKey.IsNull() && !stateSecretKey.IsUnknown() {
+			state.Details.SecretKey = stateSecretKey
+		}
+		if !statePassword.IsNull() && !statePassword.IsUnknown() {
+			state.Details.Password = statePassword
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

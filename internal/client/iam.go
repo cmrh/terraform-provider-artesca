@@ -396,4 +396,7 @@ func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 
 	return respBody, nil
 }
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
