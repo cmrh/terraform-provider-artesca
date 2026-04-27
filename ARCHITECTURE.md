@@ -20,7 +20,7 @@ This document explains the architectural decisions, design patterns, and impleme
 7. [State Management](#state-management) — drift detection, sensitive fields, state-only reads
 8. [Security Patterns](#security-patterns) — credentials, sensitivity, env vars, TLS
 9. [Testing Strategy](#testing-strategy) — acceptance tests, manual verification
-10. [Future Extensibility](#future-extensibility) — adding resources, data sources, client enhancements
+10. [Future Extensibility](#future-extensibility) — adding resources, client enhancements
 
 ---
 
@@ -40,10 +40,10 @@ This document explains the architectural decisions, design patterns, and impleme
 ┌──────────────────────────────────────────────────────────────┐
 │                  ARTESCA Terraform Provider                  │
 │                                                              │
-│   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐     │
-│   │   Provider   │   │  Resources   │   │ Data Sources │     │
-│   │ (provider.go)│   │  (11 total)  │   │   (future)   │     │
-│   └──────┬───────┘   └──────┬───────┘   └──────────────┘     │
+│   ┌──────────────┐   ┌──────────────┐                         │
+│   │   Provider   │   │  Resources   │                         │
+│   │ (provider.go)│   │ (11 types)   │                         │
+│   └──────┬───────┘   └──────┬───────┘                         │
 │          │                  │                                │
 │          ▼                  ▼                                │
 │   ┌───────────────────────────────────────────────────────┐  │
@@ -115,7 +115,16 @@ terraform-provider-scality-artesca/
 │   ├── provider/main.tf                 # Provider config with OIDC
 │   └── resources/
 │       ├── artesca_account/main.tf      # Account + AWS provider integration
-│       └── artesca_location/main.tf     # AWS S3 and RING location examples
+│       ├── artesca_bucket/main.tf       # Bucket with location constraint
+│       ├── artesca_bucket_workflow_expiration/main.tf
+│       ├── artesca_bucket_workflow_replication/main.tf
+│       ├── artesca_bucket_workflow_transition/main.tf
+│       ├── artesca_endpoint/main.tf     # DNS endpoint for a location
+│       ├── artesca_location/main.tf     # AWS S3 and RING location examples
+│       ├── artesca_replication/main.tf  # Overlay (location-based) replication
+│       ├── artesca_user/main.tf         # IAM user
+│       ├── artesca_user_access_key/main.tf
+│       └── artesca_user_policy/main.tf
 ├── internal/
 │   ├── client/
 │   │   ├── provider_clients.go          # ProviderClients bundle (Management + IAM + S3)
@@ -637,7 +646,7 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 | `artesca_user_access_key` | IAM | CR_D | No | Secret key only available at creation |
 | `artesca_user_policy` | IAM | CRUD | No | Policy document is the only updatable field |
 | `artesca_bucket_workflow_expiration` | Management | CUD* | No | *Read preserves state (no API read) |
-| `artesca_bucket_workflow_replication` | Management | CUD* | No | *Read preserves state (no API read) |
+| `artesca_bucket_workflow_replication` | Management | CUD* | No | *Read preserves state; ValidateConfig rejects `destination.location`/`locations` (bucket-to-bucket only) |
 | `artesca_bucket_workflow_transition` | Management | CUD* | No | *Read preserves state (no API read) |
 
 ---
@@ -881,7 +890,7 @@ The `artesca_user_access_key` resource's `secret_access_key` is only available a
 
 ### State-Only Read
 
-Workflow resources (`expiration` and `transition`) have no read API endpoint. Their Read method simply preserves the current state:
+Workflow resources (`expiration`, `transition`, and `replication`) have no read API endpoint. Their Read method simply preserves the current state:
 
 ```go
 func (r *WorkflowExpirationResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -891,6 +900,17 @@ func (r *WorkflowExpirationResource) Read(ctx context.Context, req resource.Read
     resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 ```
+
+### Replication: Two Resource Types
+
+Two distinct replication resources exist, backed by different APIs:
+
+| Resource | API | Destination | Use Case |
+|----------|-----|-------------|----------|
+| `artesca_replication` | Overlay (Management) | `location` or `locations` with storage class | Location-based, multi-backend replication |
+| `artesca_bucket_workflow_replication` | Per-bucket workflow | `bucket_name` only | Bucket-to-bucket S3-native replication |
+
+The per-bucket API reshapes replication to S3-native format and rejects `destination.location` or `destination.locations` with an opaque 400 error. `ValidateConfig` catches this at plan time. Do not use both resource types on the same bucket pair — they conflict during destroy and can leave orphaned resources.
 
 ---
 
@@ -1030,19 +1050,6 @@ Pattern is established — for each new resource:
 2. Create `internal/resources/<name>/model.go` and `resource.go`
 3. Register in `provider.go`
 
-### Data Sources
-
-Currently no data sources are implemented. Future candidates:
-
-```go
-func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-    return []func() datasource.DataSource{
-        // data.artesca_account — look up existing account
-        // data.artesca_config_overlay — full config overlay
-    }
-}
-```
-
 ### Client Enhancements
 
 Adding features to the helper methods benefits all operations automatically:
@@ -1128,6 +1135,6 @@ The goal is code that a new developer can understand in 30 minutes and confident
 
 ---
 
-Document Version: 1.1
-Last Updated: 2026-04-24
+Document Version: 1.2
+Last Updated: 2026-04-27
 Status: Living Document (update as architecture evolves)
