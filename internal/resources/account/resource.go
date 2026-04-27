@@ -48,8 +48,11 @@ func (r *AccountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"email": schema.StringAttribute{
-				Description: "The email address associated with the account.",
+				Description: "The email address associated with the account. Cannot be changed after creation.",
 				Optional:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 				Validators: []validator.String{
 					validators.Email{},
 				},
@@ -149,6 +152,7 @@ func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	}
+
 }
 
 func (r *AccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

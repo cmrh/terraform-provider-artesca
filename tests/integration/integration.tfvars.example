@@ -1,0 +1,14 @@
+# RING S3 variables for integration tests.
+# Copy to integration.tfvars and fill in real values.
+
+# Source RING S3 location
+ring_s3_endpoint    = "http://ring-connector:8080"
+ring_s3_access_key  = ""
+ring_s3_secret_key  = ""
+ring_s3_bucket_name = "artesca-bucket"
+
+# Destination RING S3 location (for replication/transition tests)
+dest_ring_s3_endpoint    = "http://ring-connector-dest:8080"
+dest_ring_s3_access_key  = ""
+dest_ring_s3_secret_key  = ""
+dest_ring_s3_bucket_name = "artesca-bucket"

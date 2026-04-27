@@ -22,7 +22,7 @@ func newMockOIDCServer(t *testing.T) *httptest.Server {
 func newTestManagementClient(t *testing.T, apiServer *httptest.Server) (*ManagementClient, func()) {
 	t.Helper()
 	oidcServer := newMockOIDCServer(t)
-	ts := NewOIDCTokenSource(oidcServer.URL, "test-realm", "test-client", "user", "pass", false)
+	ts := NewOIDCTokenSource(oidcServer.URL, "test-realm", "test-client", "openid", "user", "pass", false)
 
 	client := NewManagementClient(apiServer.URL, "test-instance-id", ts, false)
 

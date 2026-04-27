@@ -136,6 +136,22 @@ func TestDeleteEndpoint(t *testing.T) {
 	}
 }
 
+func TestDeleteEndpointNotFound(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(`not found`))
+	}))
+	defer apiServer.Close()
+
+	client, cleanup := newTestManagementClient(t, apiServer)
+	defer cleanup()
+
+	err := client.DeleteEndpoint(context.Background(), "gone.example.com")
+	if err != nil {
+		t.Fatalf("expected 404 to be treated as success, got error: %v", err)
+	}
+}
+
 func TestDeleteEndpointError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)

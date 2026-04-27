@@ -24,6 +24,9 @@ func (c *ManagementClient) GetEndpoint(ctx context.Context, hostname string) (*E
 }
 
 func (c *ManagementClient) CreateEndpoint(ctx context.Context, ep *Endpoint) (*Endpoint, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/endpoint", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, ep)
 	if err != nil {
@@ -42,10 +45,16 @@ func (c *ManagementClient) CreateEndpoint(ctx context.Context, ep *Endpoint) (*E
 }
 
 func (c *ManagementClient) DeleteEndpoint(ctx context.Context, hostname string) error {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/endpoint/%s", url.PathEscape(c.InstanceID), url.PathEscape(hostname))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
+	}
+	if status == http.StatusNotFound {
+		return nil
 	}
 	if status != http.StatusNoContent && status != http.StatusOK {
 		return fmt.Errorf("delete endpoint failed (status %d): %s", status, string(body))

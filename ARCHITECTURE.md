@@ -11,16 +11,16 @@ This document explains the architectural decisions, design patterns, and impleme
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Design Principles](#design-principles)
-3. [Client Architecture](#client-architecture)
-4. [Resource Pattern](#resource-pattern)
-5. [Adding New API Calls](#adding-new-api-calls)
-6. [Error Handling Strategy](#error-handling-strategy)
-7. [State Management](#state-management)
-8. [Security Patterns](#security-patterns)
-9. [Testing Strategy](#testing-strategy)
-10. [Future Extensibility](#future-extensibility)
+1. [Architecture Overview](#architecture-overview) — high-level structure, three API surfaces, directory layout
+2. [Design Principles](#design-principles) — separation of concerns, DRY, context-first, overlay reads
+3. [Client Architecture](#client-architecture) — Management, OIDC, IAM, and S3 clients
+4. [Resource Pattern](#resource-pattern) — standard structure, CRUD pattern, resource summary
+5. [Adding New API Calls](#adding-new-api-calls) — step-by-step guide, decision tree
+6. [Error Handling Strategy](#error-handling-strategy) — wrapping, user-facing messages, not-found
+7. [State Management](#state-management) — drift detection, sensitive fields, state-only reads
+8. [Security Patterns](#security-patterns) — credentials, sensitivity, env vars, TLS
+9. [Testing Strategy](#testing-strategy) — acceptance tests, manual verification
+10. [Future Extensibility](#future-extensibility) — adding resources, data sources, client enhancements
 
 ---
 
@@ -29,45 +29,45 @@ This document explains the architectural decisions, design patterns, and impleme
 ### High-Level Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Terraform / OpenTofu Core                 │
-│           (Handles plan, apply, destroy lifecycle)           │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         │ Plugin Protocol (gRPC)
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│             ARTESCA Terraform Provider                      │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   Provider   │  │  Resources   │  │ Data Sources │     │
-│  │ (provider.go)│  │   (9 total)  │  │   (future)   │     │
-│  └──────┬───────┘  └──────┬───────┘  └──────────────┘     │
-│         │                  │                                │
-│         ▼                  ▼                                │
-│  ┌──────────────────────────────────────────────────┐      │
-│  │          Client Layer (ProviderClients)           │      │
-│  │                                                   │      │
-│  │  ┌─────────────────┐  ┌─────────────────┐       │      │
-│  │  │ ManagementClient│  │   IAMClient      │       │      │
-│  │  │  (OIDC Token)   │  │  (AWS SigV4)     │       │      │
-│  │  └────────┬────────┘  └────────┬─────────┘       │      │
-│  │           │                    │                  │      │
-│  │  ┌────────┴────────┐          │                  │      │
-│  │  │ OIDCTokenSource │          │                  │      │
-│  │  │ (Token Cache)   │          │                  │      │
-│  │  └─────────────────┘          │                  │      │
-│  └───────────┼────────────────────┼──────────────────┘      │
-│              │                    │                          │
-└──────────────┼────────────────────┼──────────────────────────┘
-               │                    │
-               ▼                    ▼
-    ┌──────────────────┐  ┌──────────────────┐
-    │   Management API │  │   IAM (Vault)    │
-    │  X-Auth-Token    │  │   API            │
-    │  JSON / REST     │  │   AWS SigV4      │
-    └──────────────────┘  └──────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                    Terraform / OpenTofu Core                  │
+│            (Handles plan, apply, destroy lifecycle)           │
+└─────────────────────────────┬─────────────────────────────────┘
+                              │
+                              │ Plugin Protocol (gRPC)
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  ARTESCA Terraform Provider                  │
+│                                                              │
+│   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐     │
+│   │   Provider   │   │  Resources   │   │ Data Sources │     │
+│   │ (provider.go)│   │  (11 total)  │   │   (future)   │     │
+│   └──────┬───────┘   └──────┬───────┘   └──────────────┘     │
+│          │                  │                                │
+│          ▼                  ▼                                │
+│   ┌───────────────────────────────────────────────────────┐  │
+│   │            Client Layer (ProviderClients)             │  │
+│   │                                                       │  │
+│   │   ┌────────────────┐  ┌───────────┐  ┌───────────┐    │  │
+│   │   │ManagementClient│  │ IAMClient │  │ S3Client  │    │  │
+│   │   │  (OIDC Token)  │  │ (AWS SigV4│  │ (AWS SigV4│    │  │
+│   │   └───────┬────────┘  └─────┬─────┘  └─────┬─────┘    │  │
+│   │           │                 │              │          │  │
+│   │   ┌───────┴────────┐        │              │          │  │
+│   │   │ OIDCTokenSource│  ┌─────┴──────────────┘─┐        │  │
+│   │   │ (Token Cache)  │  │  sigv4.go (shared)   │        │  │
+│   │   └────────────────┘  └──────────────────────┘        │  │
+│   └───────────┼───────────────────┼──────────┼────────────┘  │
+│               │                   │          │               │
+└───────────────┼───────────────────┼──────────┼───────────────┘
+                │                   │          │
+                ▼                   ▼          ▼
+     ┌──────────────────┐  ┌────────────┐  ┌──────────┐
+     │  Management API  │  │IAM (Vault) │  │  S3 API  │
+     │  X-Auth-Token    │  │ AWS SigV4  │  │ AWS SigV4│
+     │  JSON / REST     │  │ XML / Form │  │ XML/REST │
+     └──────────────────┘  └────────────┘  └──────────┘
 ```
 
 ### Key Components
@@ -75,22 +75,25 @@ This document explains the architectural decisions, design patterns, and impleme
 | Component | Purpose | Files |
 |-----------|---------|-------|
 | **Provider** | Configuration, auth, client setup | `internal/provider/provider.go` |
-| **Management Client** | OIDC-authenticated REST API | `internal/client/management.go` |
+| **Management Client** | OIDC-authenticated REST API | `internal/client/management*.go` |
 | **OIDC Token Source** | Token fetch, cache, refresh | `internal/client/oidc.go` |
 | **IAM Client** | AWS SigV4 signed API calls | `internal/client/iam.go` |
-| **ProviderClients** | Bundles both clients | `internal/client/provider_clients.go` |
+| **S3 Client** | AWS SigV4 signed S3 operations | `internal/client/s3.go`, `s3_lifecycle.go` |
+| **SigV4 Helpers** | Shared signing primitives | `internal/client/sigv4.go` |
+| **ProviderClients** | Bundles all three clients | `internal/client/provider_clients.go` |
 | **Resources** | Terraform resource implementations | `internal/resources/*/` |
 
-### Two API Surfaces
+### Three API Surfaces
 
-ARTESCA exposes two distinct APIs that the provider interacts with:
+ARTESCA exposes three distinct APIs that the provider interacts with:
 
 | API | Auth | Format | Purpose |
 |-----|------|--------|---------|
 | **Management API** | OIDC Bearer (custom `X-Authentication-Token` header) | JSON/REST | Accounts, locations, endpoints, replication, workflows |
 | **IAM (Vault) API** | AWS SigV4 per-account credentials | XML/Form-encoded | Users, policies, access keys within accounts |
+| **S3 API** | AWS SigV4 per-account credentials | XML/REST | Bucket creation, deletion, lifecycle configuration |
 
-S3 and STS are AWS-compatible and handled by users via the standard `aws` provider pointed at ARTESCA endpoints. This provider focuses solely on management and IAM operations.
+The IAM and S3 clients share SigV4 signing primitives extracted into `sigv4.go`.
 
 ### Directory Structure
 
@@ -99,6 +102,15 @@ terraform-provider-scality-artesca/
 ├── main.go                              # Provider server entry point
 ├── go.mod                               # Module: github.com/scality/terraform-provider-scality-artesca
 ├── Makefile                             # build, install, test, testacc, lint, fmt
+├── .github/workflows/
+│   ├── test.yml                         # Unit tests + build matrix (self-hosted)
+│   ├── integration.yml                  # Integration tests against real ARTESCA (self-hosted)
+│   └── release.yml                      # Tagged release builds
+├── tests/integration/
+│   ├── main.tf                          # 12-resource lifecycle config
+│   ├── run.sh                           # Local test runner (build + apply + plan + destroy)
+│   ├── integration.tfvars.example       # RING S3 variable template
+│   └── README.md                        # Maintainer guide
 ├── examples/
 │   ├── provider/main.tf                 # Provider config with OIDC
 │   └── resources/
@@ -106,14 +118,25 @@ terraform-provider-scality-artesca/
 │       └── artesca_location/main.tf     # AWS S3 and RING location examples
 ├── internal/
 │   ├── client/
-│   │   ├── provider_clients.go          # ProviderClients bundle
-│   │   ├── management.go               # Management API client + data types
+│   │   ├── provider_clients.go          # ProviderClients bundle (Management + IAM + S3)
+│   │   ├── management.go               # Management API base client + overlay
+│   │   ├── management_account.go        # Account CRUD operations
+│   │   ├── management_endpoint.go       # Endpoint CRUD operations
+│   │   ├── management_location.go       # Location CRUD operations
+│   │   ├── management_replication.go    # Replication stream operations
+│   │   ├── management_workflow.go       # Workflow CRUD operations
+│   │   ├── management_types.go          # Shared Management API data types
 │   │   ├── oidc.go                      # OIDC token lifecycle
-│   │   └── iam.go                       # IAM SigV4 client + crypto helpers
+│   │   ├── iam.go                       # IAM SigV4 client
+│   │   ├── s3.go                        # S3 SigV4 client (buckets)
+│   │   ├── s3_lifecycle.go              # S3 lifecycle configuration
+│   │   └── sigv4.go                     # Shared AWS SigV4 signing primitives
 │   ├── provider/
 │   │   └── provider.go                  # Schema, Configure, resource registration
+│   ├── validators/                      # Custom schema validators (BucketName, etc.)
 │   └── resources/
 │       ├── account/                     # artesca_account
+│       ├── bucket/                      # artesca_bucket
 │       ├── endpoint/                    # artesca_endpoint
 │       ├── location/                    # artesca_location
 │       ├── replication/                 # artesca_replication
@@ -121,12 +144,16 @@ terraform-provider-scality-artesca/
 │       ├── user_access_key/             # artesca_user_access_key
 │       ├── user_policy/                 # artesca_user_policy
 │       ├── workflow_expiration/         # artesca_bucket_workflow_expiration
+│       ├── workflow_replication/        # artesca_bucket_workflow_replication
 │       └── workflow_transition/         # artesca_bucket_workflow_transition
 ```
 
-Each resource directory contains exactly two files:
+Each resource directory typically contains:
 - `model.go` — Terraform schema model structs with `tfsdk` tags
 - `resource.go` — CRUD implementation and conversion helpers
+- `schema_test.go` — Schema validation tests (optional)
+
+The `bucket` resource is an exception: the model is defined inline in `resource.go` since the schema is small enough not to warrant a separate file.
 
 ---
 
@@ -134,21 +161,23 @@ Each resource directory contains exactly two files:
 
 ### 1. Separation of Concerns
 
-Decision: Split Management and IAM clients into separate files with a shared bundle.
+Decision: Split Management, IAM, and S3 clients into separate files with a shared bundle.
 
 Reasoning:
 - Different authentication mechanisms (OIDC token vs AWS SigV4)
 - Different wire formats (JSON vs XML)
-- Different API patterns (REST vs form-encoded actions)
+- Different API patterns (REST vs form-encoded actions vs path-style S3)
 - Independent evolution of each API surface
 
 ```
-management.go   → Management API (accounts, locations, endpoints, replication, workflows)
+management*.go  → Management API (accounts, locations, endpoints, replication, workflows)
 iam.go          → IAM API (users, policies, access keys)
+s3.go           → S3 API (buckets, lifecycle)
+sigv4.go        → AWS SigV4 signing (shared by IAM and S3 clients)
 oidc.go         → OIDC token lifecycle (shared by Management client)
 ```
 
-The `ProviderClients` struct bundles both clients into a single value passed through `resp.ResourceData`, so each resource extracts only the client it needs:
+The `ProviderClients` struct bundles all three clients into a single value passed through `resp.ResourceData`, so each resource extracts only the client it needs:
 
 ```go
 // Management API resources:
@@ -156,9 +185,12 @@ r.client = providerData.Management
 
 // IAM resources:
 r.iamClient = providerData.IAM
+
+// S3 resources:
+r.s3Client = providerData.S3
 ```
 
-Benefits: Clear responsibility boundaries, no coupling between API types, easy to add a third client if needed.
+Benefits: Clear responsibility boundaries, no coupling between API types, SigV4 helpers shared without duplication.
 
 ---
 
@@ -365,6 +397,7 @@ The helper returns status codes to callers because different operations interpre
 type OIDCTokenSource struct {
     tokenURL   string
     clientID   string
+    scope      string
     username   string
     password   string
     httpClient *http.Client
@@ -380,7 +413,8 @@ Key design decisions:
 1. **Thread-safe** — `sync.Mutex` protects cached token since Terraform may call resources in parallel
 2. **Pre-expiry refresh** — Refreshes `oidcTokenPreExpiry` (30s) before actual expiry to prevent mid-request failures
 3. **Lazy initialization** — First call to `Token(ctx)` fetches; subsequent calls return cache
-4. **JWT introspection** — `InstanceIDs(ctx)` decodes the JWT payload to extract custom `instanceIds` claim for auto-discovery
+4. **Configurable scope** — The `scope` field (default `openid`) is sent in the token request, allowing different deployments to request additional claims
+5. **JWT introspection** — `InstanceIDs(ctx)` decodes the JWT payload to extract custom `instanceIds` claim for auto-discovery
 
 ```go
 func (s *OIDCTokenSource) Token(ctx context.Context) (string, error) {
@@ -412,23 +446,20 @@ The `region` field is configurable via the provider's `iam_region` attribute (de
 
 #### SigV4 Signing
 
-All IAM operations use AWS Signature Version 4:
+Both the IAM and S3 clients use AWS Signature Version 4. The signing primitives (`sha256Hex`, `hmacSHA256`, `getSignatureKey`) are extracted into `sigv4.go` and shared between both clients.
 
 ```go
-func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey string, params url.Values) ([]byte, error) {
-    // 1. Set API version automatically
-    params.Set("Version", iamAPIVersion)
-
-    // 2. Build canonical request (method, path, headers, payload hash)
-    // 3. Create string to sign (timestamp, credential scope, request hash)
-    // 4. Derive signing key (HMAC chain: date → region → service → "aws4_request")
-    // 5. Calculate signature
-    // 6. Set Authorization header
-    // 7. Execute and handle XML errors
-}
+// sigv4.go — shared by IAM (service="iam") and S3 (service="s3")
+func sha256Hex(data []byte) string { ... }
+func hmacSHA256(key, data []byte) []byte { ... }
+func getSignatureKey(secretKey, datestamp, region, service string) []byte { ... }
 ```
 
-The helper handles API version injection, signing, and XML error parsing. All 9 IAM operations (CreateUser, GetUser, DeleteUser, PutUserPolicy, GetUserPolicy, DeleteUserPolicy, CreateAccessKey, ListAccessKeys, DeleteAccessKey) are thin wrappers around this helper.
+Each client has its own `doSignedRequest` method that uses these primitives with its own service name, headers, and payload format.
+
+The IAM helper handles API version injection, signing, and XML error parsing. All 9 IAM operations (CreateUser, GetUser, DeleteUser, PutUserPolicy, GetUserPolicy, DeleteUserPolicy, CreateAccessKey, ListAccessKeys, DeleteAccessKey) are thin wrappers around this helper.
+
+The low-level signing primitives (`sha256Hex`, `hmacSHA256`, `getSignatureKey`) live in `sigv4.go` and are shared between the IAM and S3 clients.
 
 #### Error Handling
 
@@ -454,13 +485,50 @@ if strings.Contains(err.Error(), "NoSuchEntity") {
 
 ---
 
-### Why Two Different Error Patterns?
+### S3 Client (`s3.go`, `s3_lifecycle.go`)
 
-The Management client returns `(body, statusCode, error)` and lets callers decide. The IAM client handles status codes internally and returns `(body, error)`.
+#### Design
+
+```go
+type S3Client struct {
+    endpoint   string
+    region     string
+    httpClient *http.Client
+}
+```
+
+The S3 client performs path-style bucket operations (PUT, HEAD, DELETE on `/{bucket}`) and lifecycle configuration. It uses the shared `sigv4.go` helpers with `service="s3"` and the additional `X-Amz-Content-Sha256` header required by S3.
+
+S3 operations include retry logic for location propagation: after a location is created in the management API, S3 may take time to recognize it. The client retries `CreateBucket` when it receives an `InvalidLocationConstraint` error.
+
+#### Endpoint Discovery
+
+The S3 endpoint can be configured explicitly via the `s3_endpoint` provider attribute or `ARTESCA_S3_ENDPOINT` env var. If not set, it is derived automatically from the management endpoint:
+
+```go
+func DeriveS3Endpoint(managementEndpoint string) (string, error) {
+    // "https://management.artesca.example.com" → "https://s3.artesca.example.com"
+}
+```
+
+#### Operations
+
+| Method | HTTP | Purpose |
+|--------|------|---------|
+| `CreateBucket` | `PUT /{bucket}` | Creates bucket with optional LocationConstraint XML body |
+| `HeadBucket` | `HEAD /{bucket}` | Returns `(true, nil)` if exists, `(false, nil)` for 404 |
+| `DeleteBucket` | `DELETE /{bucket}` | Idempotent — ignores NoSuchBucket (404) |
+
+---
+
+### Why Different Error Patterns Per Client?
+
+The Management client returns `(body, statusCode, error)` and lets callers decide. The IAM and S3 clients handle status codes internally and return `(body, error)` or typed results.
 
 This is intentional:
 - **Management API** uses HTTP status codes as the primary error signal. Different operations need different status handling (201 vs 200 for create, 204 vs 200 for delete).
 - **IAM API** uses structured XML error codes inside the response body. The status code is secondary — `NoSuchEntity` is the meaningful signal, not 404.
+- **S3 API** also uses structured XML error codes (`BucketAlreadyOwnedByYou`, `NoSuchBucket`, `InvalidLocationConstraint`), handled internally with specific retry and tolerance logic.
 
 ---
 
@@ -561,13 +629,15 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 | Resource | Client | CRUD | Import | Notes |
 |----------|--------|------|--------|-------|
 | `artesca_account` | Management | CR_D | By name | Keys auto-generated |
+| `artesca_bucket` | S3 | CR_D | By name | All fields ForceNew, retries for location propagation |
 | `artesca_endpoint` | Management | CR_D | By hostname | Immutable (both fields ForceNew) |
-| `artesca_location` | Management | CRUD | By name | 20+ detail fields, flat block pattern |
-| `artesca_replication` | Management | CRUD | By stream_id | Nested source/destination blocks |
+| `artesca_location` | Management | CRUD | By name | 20+ detail fields, sensitive field preservation |
+| `artesca_replication` | Management | CRUD | By stream_id | Nested source/destination/locations blocks |
 | `artesca_user` | IAM | CR_D | By username | Uses account credentials for auth |
 | `artesca_user_access_key` | IAM | CR_D | No | Secret key only available at creation |
 | `artesca_user_policy` | IAM | CRUD | No | Policy document is the only updatable field |
 | `artesca_bucket_workflow_expiration` | Management | CUD* | No | *Read preserves state (no API read) |
+| `artesca_bucket_workflow_replication` | Management | CUD* | No | *Read preserves state (no API read) |
 | `artesca_bucket_workflow_transition` | Management | CUD* | No | *Read preserves state (no API read) |
 
 ---
@@ -578,7 +648,7 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 
 #### For Management API Resources
 
-**Step 1: Add client methods to `management.go`**
+**Step 1: Add client methods to `management_<domain>.go`**
 
 ```go
 func (c *ManagementClient) CreateWidget(ctx context.Context, w *Widget) (*Widget, error) {
@@ -655,14 +725,19 @@ func (c *IAMClient) CreateWidget(ctx context.Context, accessKey, secretKey, name
 Is this an API call?
 ├─ Yes
 │  ├─ Management API (OIDC token)?
-│  │  └─ Add to management.go, use doRequest helper
+│  │  └─ Add to management_<domain>.go, use doRequest helper
 │  │     → Returns (body, statusCode, error)
 │  │     → Caller handles status code interpretation
 │  │
-│  └─ IAM API (SigV4)?
-│     └─ Add to iam.go, use doSignedRequest helper
-│        → Returns (body, error)
-│        → Helper handles status codes and XML errors
+│  ├─ IAM API (SigV4, service="iam")?
+│  │  └─ Add to iam.go, use doSignedRequest helper
+│  │     → Returns (body, error)
+│  │     → Helper handles status codes and XML errors
+│  │
+│  └─ S3 API (SigV4, service="s3")?
+│     └─ Add to s3.go or s3_lifecycle.go, use doSignedS3Request helper
+│        → Uses shared sigv4.go primitives
+│        → Path-style operations on /{bucket}
 │
 └─ No
    └─ Is this a Terraform resource?
@@ -764,14 +839,25 @@ func (r *AccountResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 ### Sensitive Fields Preservation
 
-Some API responses redact sensitive fields (secret keys, passwords). To prevent false drift, these are preserved from state:
+Some API responses redact sensitive fields (secret keys, passwords). To prevent false drift, these are preserved from state.
+
+For fields that are empty in the API response (like account credentials):
 
 ```go
-// Account Read — preserve credentials from state since API won't return them
 if account.AccessKey == "" {
     // Keep existing state value
 } else {
     state.AccessKey = types.StringValue(account.AccessKey)
+}
+```
+
+For fields where the API returns a redacted non-empty value (like location secret keys), the plan value must be unconditionally preserved:
+
+```go
+planSecretKey := plan.Details.SecretKey
+// ... API call ...
+if !planSecretKey.IsNull() && !planSecretKey.IsUnknown() {
+    plan.Details.SecretKey = planSecretKey
 }
 ```
 
@@ -786,6 +872,8 @@ Combined with the `UseStateForUnknown` plan modifier:
     },
 },
 ```
+
+Server-default fields (e.g., location `region` defaults to `us-east-1`) use Optional+Computed with `UseStateForUnknown` to avoid null-vs-value drift.
 
 ### Write-Only Fields
 
@@ -843,12 +931,16 @@ All provider configuration supports environment variable overrides:
 
 ```bash
 export ARTESCA_MANAGEMENT_ENDPOINT="https://management.artesca.example.com"
-export ARTESCA_OIDC_URL="https://ui.artesca.example.com"
+export ARTESCA_OIDC_URL="https://10.0.0.1:8443"
 export ARTESCA_USERNAME="admin"
 export ARTESCA_PASSWORD="secret"
 export ARTESCA_INSECURE_SKIP_VERIFY="true"
 export ARTESCA_IAM_REGION="us-east-1"
+export ARTESCA_S3_ENDPOINT="https://s3.artesca.example.com"
+export ARTESCA_OIDC_SCOPE="openid"
 ```
+
+The S3 endpoint is optional — if not set, it is derived from the management endpoint by replacing `management.` with `s3.` in the hostname.
 
 The provider reads config first, falls back to environment:
 
@@ -879,9 +971,27 @@ transport := &http.Transport{
 
 ## Testing Strategy
 
+### Unit Tests
+
+All client packages have httptest-based unit tests that verify request signing, HTTP method/path, error handling, and response parsing without a real ARTESCA instance:
+
+```bash
+go test ./... -v
+```
+
+### Integration Tests
+
+A full 12-resource create→plan→destroy lifecycle test runs against a real ARTESCA instance. See `tests/integration/README.md` for setup.
+
+```bash
+tests/integration/run.sh
+```
+
+The integration test creates all resource types, verifies no drift on a second plan, then destroys everything. It runs on self-hosted GitHub Actions runners via `.github/workflows/integration.yml`.
+
 ### Acceptance Testing
 
-Tests run against a real ARTESCA instance with `TF_ACC=1`:
+Terraform plugin acceptance tests run against a real ARTESCA instance with `TF_ACC=1`:
 
 ```go
 func TestAccArtescaAccount_basic(t *testing.T) {
@@ -899,17 +1009,6 @@ func TestAccArtescaAccount_basic(t *testing.T) {
     })
 }
 ```
-
-### Manual Verification Workflow
-
-Each resource has been verified with a full lifecycle:
-
-1. `tofu plan` — verify plan output is correct
-2. `tofu apply` — create the resource
-3. `tofu plan` (again) — verify no drift
-4. Verify in ARTESCA UI — confirm resource exists
-5. `tofu destroy` — delete the resource
-6. Verify in ARTESCA UI — confirm deletion
 
 ### Makefile Targets
 
@@ -1012,13 +1111,14 @@ When adding new code:
 
 ### Key Takeaways
 
-1. **Two API surfaces, two clients** — Management (OIDC/JSON) and IAM (SigV4/XML), bundled in ProviderClients
-2. **DRY with pragmatism** — Helper methods where patterns are identical; separate when abstraction adds complexity
-3. **Context-first** — All public methods accept context for cancellation, timeouts, and logging
-4. **Constants over magic values** — No hardcoded strings; configurable where appropriate (e.g., `iam_region`)
-5. **Overlay read pattern** — Single GET for all resources, extract what's needed
-6. **Sensitive field preservation** — UseStateForUnknown + state preservation prevents false drift
-7. **Consistent resource structure** — Every resource is model.go + resource.go with identical CRUD patterns
+1. **Three API surfaces, three clients** — Management (OIDC/JSON), IAM (SigV4/XML), and S3 (SigV4/XML), bundled in ProviderClients
+2. **Shared SigV4 signing** — `sigv4.go` provides HMAC/SHA256 primitives used by both IAM and S3 clients
+3. **DRY with pragmatism** — Helper methods where patterns are identical; separate when abstraction adds complexity
+4. **Context-first** — All public methods accept context for cancellation, timeouts, and logging
+5. **Constants over magic values** — No hardcoded strings; configurable where appropriate (e.g., `iam_region`)
+6. **Overlay read pattern** — Single GET for all management resources, extract what's needed
+7. **Sensitive field preservation** — UseStateForUnknown + plan value preservation prevents false drift from redacted API responses
+8. **Consistent resource structure** — Every resource is model.go + resource.go with identical CRUD patterns
 
 Design Philosophy:
 
@@ -1028,6 +1128,6 @@ The goal is code that a new developer can understand in 30 minutes and confident
 
 ---
 
-Document Version: 1.0
-Last Updated: 2026-04-03
+Document Version: 1.1
+Last Updated: 2026-04-24
 Status: Living Document (update as architecture evolves)

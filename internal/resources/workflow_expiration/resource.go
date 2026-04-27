@@ -2,6 +2,7 @@ package workflowexpiration
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -18,7 +19,7 @@ import (
 var _ resource.Resource = &WorkflowExpirationResource{}
 
 type WorkflowExpirationResource struct {
-	client *client.ManagementClient
+	s3 *client.S3Client
 }
 
 func NewWorkflowExpirationResource() resource.Resource {
@@ -31,26 +32,20 @@ func (r *WorkflowExpirationResource) Metadata(_ context.Context, req resource.Me
 
 func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a bucket expiration lifecycle workflow in ARTESCA.",
+		Description: "Manages a bucket expiration lifecycle rule in ARTESCA via the S3 API.",
 		Attributes: map[string]schema.Attribute{
-			"instance_id": schema.StringAttribute{
-				Description: "The instance ID. Defaults to the provider's instance_id if omitted.",
-				Optional:    true,
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"account_id": schema.StringAttribute{
-				Description: "The account ID that owns the bucket.",
+			"account_access_key": schema.StringAttribute{
+				Description: "The access key for the account that owns the bucket.",
 				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Sensitive:   true,
+			},
+			"account_secret_key": schema.StringAttribute{
+				Description: "The secret key for the account that owns the bucket.",
+				Required:    true,
+				Sensitive:   true,
 			},
 			"bucket_name": schema.StringAttribute{
-				Description: "The name of the bucket this workflow applies to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Description: "The name of the bucket. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -59,66 +54,31 @@ func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.Schema
 					validators.BucketName{},
 				},
 			},
-			"workflow_id": schema.StringAttribute{
-				Description: "The workflow ID assigned by ARTESCA.",
+			"rule_id": schema.StringAttribute{
+				Description: "The lifecycle rule ID. Auto-generated if not set.",
+				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"name": schema.StringAttribute{
-				Description: "The name of the workflow.",
-				Optional:    true,
-			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the workflow is enabled.",
+				Description: "Whether the lifecycle rule is enabled.",
 				Required:    true,
-			},
-			"current_version_trigger_delay_date": schema.StringAttribute{
-				Description: "Date after which current version objects expire (format: YYYY-MM-DD).",
-				Optional:    true,
 			},
 			"current_version_trigger_delay_days": schema.Int64Attribute{
 				Description: "Number of days after which current version objects expire.",
-				Optional:    true,
-			},
-			"expire_delete_markers_trigger": schema.BoolAttribute{
-				Description: "Whether to expire delete markers.",
-				Optional:    true,
-			},
-			"incomplete_multipart_upload_trigger_delay_days": schema.Int64Attribute{
-				Description: "Number of days after which incomplete multipart uploads are cleaned up.",
-				Optional:    true,
-			},
-			"previous_version_trigger_delay_days": schema.Int64Attribute{
-				Description: "Number of days after which previous version objects expire.",
-				Optional:    true,
+				Required:    true,
 			},
 		},
 		Blocks: map[string]schema.Block{
 			"filter": schema.SingleNestedBlock{
-				Description: "Filter to scope which objects this workflow applies to.",
+				Description: "Filter to scope which objects this rule applies to.",
 				Attributes: map[string]schema.Attribute{
 					"object_key_prefix": schema.StringAttribute{
 						Description: "Object key prefix filter.",
 						Optional:    true,
-					},
-				},
-				Blocks: map[string]schema.Block{
-					"object_tags": schema.ListNestedBlock{
-						Description: "Object tag filters.",
-						NestedObject: schema.NestedBlockObject{
-							Attributes: map[string]schema.Attribute{
-								"key": schema.StringAttribute{
-									Description: "Tag key.",
-									Required:    true,
-								},
-								"value": schema.StringAttribute{
-									Description: "Tag value.",
-									Required:    true,
-								},
-							},
-						},
 					},
 				},
 			},
@@ -138,7 +98,14 @@ func (r *WorkflowExpirationResource) Configure(_ context.Context, req resource.C
 		)
 		return
 	}
-	r.client = providerData.Management
+	if providerData.S3 == nil {
+		resp.Diagnostics.AddError(
+			"S3 Client Not Configured",
+			"The s3_endpoint must be set in the provider configuration to use bucket workflow resources.",
+		)
+		return
+	}
+	r.s3 = providerData.S3
 }
 
 func (r *WorkflowExpirationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -148,25 +115,38 @@ func (r *WorkflowExpirationResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&plan)
-	accountID := plan.AccountID.ValueString()
-	bucketName := plan.BucketName.ValueString()
+	ak := plan.AccountAccessKey.ValueString()
+	sk := plan.AccountSecretKey.ValueString()
+	bucket := plan.BucketName.ValueString()
 
-	apiWf := modelToAPIExpiration(&plan)
+	ruleID := plan.RuleID.ValueString()
+	if ruleID == "" {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		ruleID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	}
 
-	tflog.Debug(ctx, "Creating expiration workflow", map[string]any{
-		"bucket": bucketName,
-		"name":   plan.Name.ValueString(),
-	})
+	newRule := modelToLifecycleRule(&plan, ruleID)
 
-	created, err := r.client.CreateBucketWorkflowExpiration(ctx, instanceID, accountID, bucketName, apiWf)
+	r.s3.LockLifecycle()
+	defer r.s3.UnlockLifecycle()
+
+	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating expiration workflow", err.Error())
+		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
 
-	plan.InstanceID = types.StringValue(instanceID)
-	apiExpirationToModel(created, &plan)
+	rules := append(existing, newRule)
+
+	tflog.Debug(ctx, "Creating expiration lifecycle rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
+
+	if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, rules); err != nil {
+		resp.Diagnostics.AddError("Error creating expiration lifecycle rule", err.Error())
+		return
+	}
+
+	plan.RuleID = types.StringValue(ruleID)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -177,8 +157,31 @@ func (r *WorkflowExpirationResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	// Workflow reads are not available via the overlay — we preserve state as-is.
-	// The workflow was created successfully, so we trust the stored state.
+	ak := state.AccountAccessKey.ValueString()
+	sk := state.AccountSecretKey.ValueString()
+	bucket := state.BucketName.ValueString()
+	ruleID := state.RuleID.ValueString()
+
+	rules, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading lifecycle rules", err.Error())
+		return
+	}
+
+	var found *client.LifecycleRule
+	for _, rule := range rules {
+		if rule.ID == ruleID {
+			found = &rule
+			break
+		}
+	}
+
+	if found == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	lifecycleRuleToModel(found, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -189,29 +192,37 @@ func (r *WorkflowExpirationResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	var state WorkflowExpirationResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	ak := plan.AccountAccessKey.ValueString()
+	sk := plan.AccountSecretKey.ValueString()
+	bucket := plan.BucketName.ValueString()
+	ruleID := plan.RuleID.ValueString()
 
-	instanceID := r.resolveInstanceID(&plan)
-	accountID := plan.AccountID.ValueString()
-	bucketName := plan.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
+	r.s3.LockLifecycle()
+	defer r.s3.UnlockLifecycle()
 
-	apiWf := modelToAPIExpiration(&plan)
-
-	tflog.Debug(ctx, "Updating expiration workflow", map[string]any{"workflow_id": workflowID})
-
-	updated, err := r.client.UpdateBucketWorkflowExpiration(ctx, instanceID, accountID, bucketName, workflowID, apiWf)
+	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating expiration workflow", err.Error())
+		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
 
-	plan.InstanceID = types.StringValue(instanceID)
-	apiExpirationToModel(updated, &plan)
+	updated := modelToLifecycleRule(&plan, ruleID)
+	rules := make([]client.LifecycleRule, 0, len(existing))
+	for _, rule := range existing {
+		if rule.ID == ruleID {
+			rules = append(rules, updated)
+		} else {
+			rules = append(rules, rule)
+		}
+	}
+
+	tflog.Debug(ctx, "Updating expiration lifecycle rule", map[string]any{"rule_id": ruleID})
+
+	if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, rules); err != nil {
+		resp.Diagnostics.AddError("Error updating expiration lifecycle rule", err.Error())
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -222,98 +233,65 @@ func (r *WorkflowExpirationResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&state)
-	accountID := state.AccountID.ValueString()
-	bucketName := state.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
+	ak := state.AccountAccessKey.ValueString()
+	sk := state.AccountSecretKey.ValueString()
+	bucket := state.BucketName.ValueString()
+	ruleID := state.RuleID.ValueString()
 
-	tflog.Debug(ctx, "Deleting expiration workflow", map[string]any{"workflow_id": workflowID})
+	r.s3.LockLifecycle()
+	defer r.s3.UnlockLifecycle()
 
-	err := r.client.DeleteBucketWorkflowExpiration(ctx, instanceID, accountID, bucketName, workflowID)
+	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting expiration workflow", err.Error())
+		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
+
+	remaining := make([]client.LifecycleRule, 0, len(existing))
+	for _, rule := range existing {
+		if rule.ID != ruleID {
+			remaining = append(remaining, rule)
+		}
+	}
+
+	tflog.Debug(ctx, "Deleting expiration lifecycle rule", map[string]any{"rule_id": ruleID})
+
+	if len(remaining) == 0 {
+		if err := r.s3.DeleteBucketLifecycle(ctx, ak, sk, bucket); err != nil {
+			resp.Diagnostics.AddError("Error deleting lifecycle configuration", err.Error())
+			return
+		}
+	} else {
+		if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, remaining); err != nil {
+			resp.Diagnostics.AddError("Error updating lifecycle configuration", err.Error())
+			return
+		}
+	}
 }
 
-func (r *WorkflowExpirationResource) resolveInstanceID(model *WorkflowExpirationResourceModel) string {
-	if !model.InstanceID.IsNull() && !model.InstanceID.IsUnknown() && model.InstanceID.ValueString() != "" {
-		return model.InstanceID.ValueString()
+func modelToLifecycleRule(model *WorkflowExpirationResourceModel, ruleID string) client.LifecycleRule {
+	status := "Disabled"
+	if model.Enabled.ValueBool() {
+		status = "Enabled"
 	}
-	return r.client.InstanceID
+
+	rule := client.LifecycleRule{
+		ID:             ruleID,
+		Status:         status,
+		ExpirationDays: int(model.CurrentVersionTriggerDelayDays.ValueInt64()),
+	}
+
+	if model.Filter != nil && !model.Filter.ObjectKeyPrefix.IsNull() {
+		rule.Prefix = model.Filter.ObjectKeyPrefix.ValueString()
+	}
+
+	return rule
 }
 
-// --- Conversion helpers ---
-
-func modelToAPIExpiration(model *WorkflowExpirationResourceModel) *client.BucketWorkflowExpiration {
-	wf := &client.BucketWorkflowExpiration{
-		Enabled:    model.Enabled.ValueBool(),
-		BucketName: model.BucketName.ValueString(),
-		Type:       "bucket-workflow-expiration-v1",
-	}
-
-	if !model.Name.IsNull() && !model.Name.IsUnknown() {
-		wf.Name = model.Name.ValueString()
-	}
-	if !model.CurrentVersionTriggerDelayDate.IsNull() && !model.CurrentVersionTriggerDelayDate.IsUnknown() {
-		wf.CurrentVersionTriggerDelayDate = model.CurrentVersionTriggerDelayDate.ValueString()
-	}
-	if !model.CurrentVersionTriggerDelayDays.IsNull() && !model.CurrentVersionTriggerDelayDays.IsUnknown() {
-		v := model.CurrentVersionTriggerDelayDays.ValueInt64()
-		wf.CurrentVersionTriggerDelayDays = &v
-	}
-	if !model.ExpireDeleteMarkersTrigger.IsNull() && !model.ExpireDeleteMarkersTrigger.IsUnknown() {
-		v := model.ExpireDeleteMarkersTrigger.ValueBool()
-		wf.ExpireDeleteMarkersTrigger = &v
-	}
-	if !model.IncompleteMultipartUploadTriggerDelayDays.IsNull() && !model.IncompleteMultipartUploadTriggerDelayDays.IsUnknown() {
-		v := model.IncompleteMultipartUploadTriggerDelayDays.ValueInt64()
-		wf.IncompleteMultipartUploadTriggerDelayDays = &v
-	}
-	if !model.PreviousVersionTriggerDelayDays.IsNull() && !model.PreviousVersionTriggerDelayDays.IsUnknown() {
-		v := model.PreviousVersionTriggerDelayDays.ValueInt64()
-		wf.PreviousVersionTriggerDelayDays = &v
-	}
-
+func lifecycleRuleToModel(rule *client.LifecycleRule, model *WorkflowExpirationResourceModel) {
+	model.Enabled = types.BoolValue(rule.Status == "Enabled")
+	model.CurrentVersionTriggerDelayDays = types.Int64Value(int64(rule.ExpirationDays))
 	if model.Filter != nil {
-		wf.Filter = &client.WorkflowFilter{}
-		if !model.Filter.ObjectKeyPrefix.IsNull() && !model.Filter.ObjectKeyPrefix.IsUnknown() {
-			wf.Filter.ObjectKeyPrefix = model.Filter.ObjectKeyPrefix.ValueString()
-		}
-		for _, tag := range model.Filter.ObjectTags {
-			wf.Filter.ObjectTags = append(wf.Filter.ObjectTags, client.WorkflowTag{
-				Key:   tag.Key.ValueString(),
-				Value: tag.Value.ValueString(),
-			})
-		}
-	}
-
-	return wf
-}
-
-func apiExpirationToModel(wf *client.BucketWorkflowExpiration, model *WorkflowExpirationResourceModel) {
-	if wf.WorkflowID != "" {
-		model.WorkflowID = types.StringValue(wf.WorkflowID)
-	}
-	if wf.Name != "" {
-		model.Name = types.StringValue(wf.Name)
-	}
-	model.Enabled = types.BoolValue(wf.Enabled)
-	model.BucketName = types.StringValue(wf.BucketName)
-
-	if wf.CurrentVersionTriggerDelayDate != "" {
-		model.CurrentVersionTriggerDelayDate = types.StringValue(wf.CurrentVersionTriggerDelayDate)
-	}
-	if wf.CurrentVersionTriggerDelayDays != nil {
-		model.CurrentVersionTriggerDelayDays = types.Int64Value(*wf.CurrentVersionTriggerDelayDays)
-	}
-	if wf.ExpireDeleteMarkersTrigger != nil {
-		model.ExpireDeleteMarkersTrigger = types.BoolValue(*wf.ExpireDeleteMarkersTrigger)
-	}
-	if wf.IncompleteMultipartUploadTriggerDelayDays != nil {
-		model.IncompleteMultipartUploadTriggerDelayDays = types.Int64Value(*wf.IncompleteMultipartUploadTriggerDelayDays)
-	}
-	if wf.PreviousVersionTriggerDelayDays != nil {
-		model.PreviousVersionTriggerDelayDays = types.Int64Value(*wf.PreviousVersionTriggerDelayDays)
+		model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
 	}
 }

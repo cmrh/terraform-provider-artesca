@@ -23,6 +23,7 @@ const (
 type OIDCTokenSource struct {
 	tokenURL   string
 	clientID   string
+	scope      string
 	username   string
 	password   string
 	httpClient *http.Client
@@ -38,7 +39,7 @@ type oidcTokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-func NewOIDCTokenSource(oidcURL, realm, clientID, username, password string, insecureSkipVerify bool) *OIDCTokenSource {
+func NewOIDCTokenSource(oidcURL, realm, clientID, scope, username, password string, insecureSkipVerify bool) *OIDCTokenSource {
 	tokenURL := fmt.Sprintf("%s/auth/realms/%s/protocol/openid-connect/token", strings.TrimRight(oidcURL, "/"), url.PathEscape(realm))
 
 	transport := &http.Transport{
@@ -50,6 +51,7 @@ func NewOIDCTokenSource(oidcURL, realm, clientID, username, password string, ins
 	return &OIDCTokenSource{
 		tokenURL: tokenURL,
 		clientID: clientID,
+		scope:    scope,
 		username: username,
 		password: password,
 		httpClient: &http.Client{
@@ -72,7 +74,7 @@ func (s *OIDCTokenSource) Token(ctx context.Context) (string, error) {
 		"client_id":  {s.clientID},
 		"username":   {s.username},
 		"password":   {s.password},
-		"scope":      {"openid"},
+		"scope":      {s.scope},
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(data.Encode()))

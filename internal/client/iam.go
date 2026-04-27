@@ -2,8 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/xml"
@@ -163,6 +161,9 @@ func (c *IAMClient) DeleteUser(ctx context.Context, accessKey, secretKey, userNa
 
 	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchEntity") {
+			return nil
+		}
 		return fmt.Errorf("delete user: %w", err)
 	}
 
@@ -226,6 +227,9 @@ func (c *IAMClient) DeleteUserPolicy(ctx context.Context, accessKey, secretKey, 
 
 	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchEntity") {
+			return nil
+		}
 		return fmt.Errorf("delete user policy: %w", err)
 	}
 
@@ -309,6 +313,9 @@ func (c *IAMClient) DeleteAccessKey(ctx context.Context, accountAccessKey, accou
 
 	_, err := c.doSignedRequest(ctx, accountAccessKey, accountSecretKey, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchEntity") {
+			return nil
+		}
 		return fmt.Errorf("delete access key: %w", err)
 	}
 
@@ -397,23 +404,4 @@ func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 	}
 
 	return respBody, nil
-}
-
-func sha256Hex(data []byte) string {
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}
-
-func hmacSHA256(key, data []byte) []byte {
-	h := hmac.New(sha256.New, key)
-	h.Write(data)
-	return h.Sum(nil)
-}
-
-func getSignatureKey(secretKey, datestamp, region, service string) []byte {
-	kDate := hmacSHA256([]byte("AWS4"+secretKey), []byte(datestamp))
-	kRegion := hmacSHA256(kDate, []byte(region))
-	kService := hmacSHA256(kRegion, []byte(service))
-	kSigning := hmacSHA256(kService, []byte("aws4_request"))
-	return kSigning
 }

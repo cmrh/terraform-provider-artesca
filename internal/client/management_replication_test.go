@@ -185,6 +185,22 @@ func TestDeleteReplicationStream(t *testing.T) {
 	}
 }
 
+func TestDeleteReplicationStreamNotFound(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(`not found`))
+	}))
+	defer apiServer.Close()
+
+	client, cleanup := newTestManagementClient(t, apiServer)
+	defer cleanup()
+
+	err := client.DeleteReplicationStream(context.Background(), "gone-stream")
+	if err != nil {
+		t.Fatalf("expected 404 to be treated as success, got error: %v", err)
+	}
+}
+
 func TestDeleteReplicationStreamError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(409)

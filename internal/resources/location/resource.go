@@ -115,6 +115,9 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"bucket_match": schema.BoolAttribute{
 						Description: "Whether the bucket name must match exactly.",
 						Optional:    true,
+						PlanModifiers: []planmodifier.Bool{
+							boolplanmodifier.RequiresReplace(),
+						},
 					},
 					"endpoint": schema.StringAttribute{
 						Description: "Custom endpoint URL for the storage service.",
@@ -123,6 +126,10 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"region": schema.StringAttribute{
 						Description: "Region for the storage location.",
 						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
 					},
 					"server_side_encryption": schema.BoolAttribute{
 						Description: "Whether to enable server-side encryption.",
@@ -241,6 +248,12 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 
 	tflog.Debug(ctx, "Creating location", map[string]any{"name": plan.Name.ValueString()})
 
+	var planSecretKey, planPassword types.String
+	if plan.Details != nil {
+		planSecretKey = plan.Details.SecretKey
+		planPassword = plan.Details.Password
+	}
+
 	created, err := r.client.CreateLocation(ctx, apiLoc)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating location", err.Error())
@@ -248,6 +261,16 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	apiLocationToModel(ctx, created, &plan)
+
+	if plan.Details != nil {
+		if !planSecretKey.IsNull() && !planSecretKey.IsUnknown() {
+			plan.Details.SecretKey = planSecretKey
+		}
+		if !planPassword.IsNull() && !planPassword.IsUnknown() {
+			plan.Details.Password = planPassword
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -256,6 +279,12 @@ func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, r
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var stateSecretKey, statePassword types.String
+	if state.Details != nil {
+		stateSecretKey = state.Details.SecretKey
+		statePassword = state.Details.Password
 	}
 
 	loc, err := r.client.GetLocation(ctx, state.Name.ValueString())
@@ -269,6 +298,16 @@ func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	apiLocationToModel(ctx, loc, &state)
+
+	if state.Details != nil {
+		if !stateSecretKey.IsNull() && !stateSecretKey.IsUnknown() {
+			state.Details.SecretKey = stateSecretKey
+		}
+		if !statePassword.IsNull() && !statePassword.IsUnknown() {
+			state.Details.Password = statePassword
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -452,42 +491,38 @@ func apiLocationToModel(ctx context.Context, loc *client.Location, model *Locati
 }
 
 func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *LocationDetailsModel) {
-	setStringIfNotEmpty := func(target *types.String, value string) {
-		if value != "" {
+	// Only update a field from the API if the user configured it (non-null in state)
+	// or the value is non-empty from the API. This avoids null→value drift for
+	// API-defaulted fields the user never set.
+	setIfConfigured := func(target *types.String, value string) {
+		if value != "" && !target.IsNull() {
 			*target = types.StringValue(value)
 		}
 	}
 
-	setStringIfNotEmpty(&model.AccessKey, d.AccessKey)
-	// SecretKey may be redacted — only update if non-empty
-	if d.SecretKey != "" {
-		model.SecretKey = types.StringValue(d.SecretKey)
-	}
-	setStringIfNotEmpty(&model.BucketName, d.BucketName)
+	setIfConfigured(&model.AccessKey, d.AccessKey)
+	// Sensitive fields: preserve state value, API may return redacted data
+	setIfConfigured(&model.BucketName, d.BucketName)
 	if d.BucketMatch != nil {
 		model.BucketMatch = types.BoolValue(*d.BucketMatch)
 	}
-	setStringIfNotEmpty(&model.Endpoint, d.Endpoint)
-	setStringIfNotEmpty(&model.Region, d.Region)
+	setIfConfigured(&model.Endpoint, d.Endpoint)
+	setIfConfigured(&model.Region, d.Region)
 	if d.ServerSideEncryption != nil {
 		model.ServerSideEncryption = types.BoolValue(*d.ServerSideEncryption)
 	}
-	setStringIfNotEmpty(&model.StorageClass, d.StorageClass)
-	setStringIfNotEmpty(&model.MpuBucketName, d.MpuBucketName)
-	setStringIfNotEmpty(&model.Username, d.Username)
-	// Password may be redacted — only update if non-empty
-	if d.Password != "" {
-		model.Password = types.StringValue(d.Password)
-	}
-	setStringIfNotEmpty(&model.TenantName, d.TenantName)
-	setStringIfNotEmpty(&model.SubscriptionID, d.SubscriptionID)
-	setStringIfNotEmpty(&model.ResourceGroup, d.ResourceGroup)
-	setStringIfNotEmpty(&model.StorageAccountName, d.StorageAccountName)
-	setStringIfNotEmpty(&model.StorageContainerName, d.StorageContainerName)
-	setStringIfNotEmpty(&model.NsID, d.NsID)
-	setStringIfNotEmpty(&model.ProxyPath, d.ProxyPath)
-	setStringIfNotEmpty(&model.GcpEndpoint, d.GcpEndpoint)
-	setStringIfNotEmpty(&model.BucketPrefix, d.BucketPrefix)
+	setIfConfigured(&model.StorageClass, d.StorageClass)
+	setIfConfigured(&model.MpuBucketName, d.MpuBucketName)
+	setIfConfigured(&model.Username, d.Username)
+	setIfConfigured(&model.TenantName, d.TenantName)
+	setIfConfigured(&model.SubscriptionID, d.SubscriptionID)
+	setIfConfigured(&model.ResourceGroup, d.ResourceGroup)
+	setIfConfigured(&model.StorageAccountName, d.StorageAccountName)
+	setIfConfigured(&model.StorageContainerName, d.StorageContainerName)
+	setIfConfigured(&model.NsID, d.NsID)
+	setIfConfigured(&model.ProxyPath, d.ProxyPath)
+	setIfConfigured(&model.GcpEndpoint, d.GcpEndpoint)
+	setIfConfigured(&model.BucketPrefix, d.BucketPrefix)
 
 	if d.ChordCos != nil {
 		model.ChordCos = types.Int64Value(*d.ChordCos)

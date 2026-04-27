@@ -23,6 +23,9 @@ func (c *ManagementClient) GetLocation(ctx context.Context, name string) (*Locat
 }
 
 func (c *ManagementClient) CreateLocation(ctx context.Context, loc *Location) (*Location, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/location", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, loc)
 	if err != nil {
@@ -41,6 +44,9 @@ func (c *ManagementClient) CreateLocation(ctx context.Context, loc *Location) (*
 }
 
 func (c *ManagementClient) UpdateLocation(ctx context.Context, name string, loc *Location) (*Location, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/location/%s", url.PathEscape(c.InstanceID), url.PathEscape(name))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, loc)
 	if err != nil {
@@ -59,10 +65,16 @@ func (c *ManagementClient) UpdateLocation(ctx context.Context, name string, loc 
 }
 
 func (c *ManagementClient) DeleteLocation(ctx context.Context, name string) error {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/location/%s", url.PathEscape(c.InstanceID), url.PathEscape(name))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
+	}
+	if status == http.StatusNotFound {
+		return nil
 	}
 	if status != http.StatusNoContent && status != http.StatusOK {
 		return fmt.Errorf("delete location failed (status %d): %s", status, string(body))

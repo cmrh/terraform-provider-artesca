@@ -4,4 +4,5 @@ package client
 type ProviderClients struct {
 	Management *ManagementClient
 	IAM        *IAMClient
+	S3         *S3Client
 }
