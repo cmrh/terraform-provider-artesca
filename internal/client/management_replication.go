@@ -39,6 +39,9 @@ func (c *ManagementClient) findReplicationStreamByName(ctx context.Context, name
 }
 
 func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *ReplicationStream) (*ReplicationStream, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	apiPath := fmt.Sprintf("/config/%s/replication", url.PathEscape(c.InstanceID))
 
 	deadline := time.Now().Add(propagationTimeout)
@@ -86,6 +89,9 @@ func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *
 }
 
 func (c *ManagementClient) UpdateReplicationStream(ctx context.Context, streamID string, stream *ReplicationStream) (*ReplicationStream, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/replication/%s", url.PathEscape(c.InstanceID), url.PathEscape(streamID))
 	body, status, err := c.doRequest(ctx, http.MethodPut, path, stream)
 	if err != nil {
@@ -104,10 +110,16 @@ func (c *ManagementClient) UpdateReplicationStream(ctx context.Context, streamID
 }
 
 func (c *ManagementClient) DeleteReplicationStream(ctx context.Context, streamID string) error {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/replication/%s", url.PathEscape(c.InstanceID), url.PathEscape(streamID))
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
+	}
+	if status == http.StatusNotFound {
+		return nil
 	}
 	if status != http.StatusNoContent && status != http.StatusOK {
 		return fmt.Errorf("delete replication stream failed (status %d): %s", status, string(body))

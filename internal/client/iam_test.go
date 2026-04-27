@@ -205,6 +205,20 @@ func TestDeleteUser(t *testing.T) {
 	}
 }
 
+func TestDeleteUserNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "user not found")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	err := client.DeleteUser(context.Background(), "test-ak", "test-sk", "gone-user")
+	if err != nil {
+		t.Fatalf("expected NoSuchEntity to be treated as success, got error: %v", err)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // IAM Policy CRUD
 // ---------------------------------------------------------------------------
@@ -293,6 +307,20 @@ func TestDeleteUserPolicy(t *testing.T) {
 	}
 }
 
+func TestDeleteUserPolicyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "policy not found")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	err := client.DeleteUserPolicy(context.Background(), "test-ak", "test-sk", "testuser", "gone-policy")
+	if err != nil {
+		t.Fatalf("expected NoSuchEntity to be treated as success, got error: %v", err)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // IAM Access Key CRUD
 // ---------------------------------------------------------------------------
@@ -371,6 +399,20 @@ func TestDeleteAccessKey(t *testing.T) {
 	err := client.DeleteAccessKey(context.Background(), "test-ak", "test-sk", "testuser", "AKIATEST")
 	if err != nil {
 		t.Fatalf("DeleteAccessKey returned error: %v", err)
+	}
+}
+
+func TestDeleteAccessKeyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "access key not found")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	err := client.DeleteAccessKey(context.Background(), "test-ak", "test-sk", "testuser", "AKIAGONE")
+	if err != nil {
+		t.Fatalf("expected NoSuchEntity to be treated as success, got error: %v", err)
 	}
 }
 

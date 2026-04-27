@@ -128,6 +128,9 @@ func (r *WorkflowExpirationResource) Create(ctx context.Context, req resource.Cr
 
 	newRule := modelToLifecycleRule(&plan, ruleID)
 
+	r.s3.LockLifecycle()
+	defer r.s3.UnlockLifecycle()
+
 	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
@@ -194,6 +197,9 @@ func (r *WorkflowExpirationResource) Update(ctx context.Context, req resource.Up
 	bucket := plan.BucketName.ValueString()
 	ruleID := plan.RuleID.ValueString()
 
+	r.s3.LockLifecycle()
+	defer r.s3.UnlockLifecycle()
+
 	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
@@ -231,6 +237,9 @@ func (r *WorkflowExpirationResource) Delete(ctx context.Context, req resource.De
 	sk := state.AccountSecretKey.ValueString()
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
+
+	r.s3.LockLifecycle()
+	defer r.s3.UnlockLifecycle()
 
 	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
 	if err != nil {

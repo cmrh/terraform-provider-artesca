@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,10 +20,14 @@ const (
 )
 
 type S3Client struct {
-	endpoint   string
-	region     string
-	httpClient *http.Client
+	endpoint    string
+	region      string
+	httpClient  *http.Client
+	lifecycleMu sync.Mutex
 }
+
+func (c *S3Client) LockLifecycle()   { c.lifecycleMu.Lock() }
+func (c *S3Client) UnlockLifecycle() { c.lifecycleMu.Unlock() }
 
 func NewS3Client(endpoint, region string, insecureSkipVerify bool) *S3Client {
 	transport := &http.Transport{
@@ -92,6 +97,46 @@ func (c *S3Client) CreateBucket(ctx context.Context, accessKey, secretKey, bucke
 	}
 }
 
+func (c *S3Client) PutBucketVersioning(ctx context.Context, accessKey, secretKey, bucket string, enabled bool) error {
+	status := "Suspended"
+	if enabled {
+		status = "Enabled"
+	}
+	body := fmt.Sprintf(
+		`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>%s</Status></VersioningConfiguration>`,
+		status,
+	)
+	_, httpStatus, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "versioning", body, accessKey, secretKey)
+	if err != nil {
+		return err
+	}
+	if httpStatus != http.StatusOK && httpStatus != http.StatusNoContent {
+		return fmt.Errorf("put bucket versioning failed (status %d)", httpStatus)
+	}
+
+	return nil
+}
+
+func (c *S3Client) GetBucketVersioning(ctx context.Context, accessKey, secretKey, bucket string) (bool, error) {
+	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "versioning", "", accessKey, secretKey)
+	if err != nil {
+		return false, err
+	}
+	if status != http.StatusOK {
+		return false, fmt.Errorf("get bucket versioning failed (status %d)", status)
+	}
+
+	var conf struct {
+		XMLName xml.Name `xml:"VersioningConfiguration"`
+		Status  string   `xml:"Status"`
+	}
+	if err := xml.Unmarshal(respBody, &conf); err != nil {
+		return false, fmt.Errorf("parsing versioning response: %w", err)
+	}
+
+	return conf.Status == "Enabled", nil
+}
+
 func (c *S3Client) HeadBucket(ctx context.Context, accessKey, secretKey, bucket string) (bool, error) {
 	_, status, err := c.doSignedRequest(ctx, http.MethodHead, "/"+bucket, "", "", accessKey, secretKey)
 	if err != nil {
@@ -132,6 +177,9 @@ func (c *S3Client) GetBucketLocation(ctx context.Context, accessKey, secretKey, 
 
 func (c *S3Client) DeleteBucket(ctx context.Context, accessKey, secretKey, bucket string) error {
 	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "", "", accessKey, secretKey)
+	if status == http.StatusNotFound {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -188,7 +236,7 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 
 	fullURL := c.endpoint + path
 	if query != "" {
-		fullURL += "?" + query
+		fullURL += "?" + canonicalQueryString
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(body))

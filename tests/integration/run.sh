@@ -51,15 +51,29 @@ TOFU="${TF_ACC_TERRAFORM_PATH:-tofu}"
 
 cd "$SCRIPT_DIR"
 
+cleanup() {
+  echo "==> Cleaning up: running tofu destroy..."
+  "$TOFU" destroy -auto-approve -var-file="$TFVARS_FILE" 2>&1 || echo "WARNING: destroy failed during cleanup"
+}
+
 echo "==> Running tofu apply..."
-"$TOFU" apply -auto-approve -var-file="$TFVARS_FILE"
+if ! "$TOFU" apply -auto-approve -var-file="$TFVARS_FILE"; then
+  echo "ERROR: apply failed, attempting cleanup..."
+  cleanup
+  exit 1
+fi
 
 echo "==> Running tofu plan (drift check)..."
+PLAN_EXIT=0
 "$TOFU" plan -detailed-exitcode -var-file="$TFVARS_FILE" || PLAN_EXIT=$?
-PLAN_EXIT="${PLAN_EXIT:-0}"
+
 if [ "$PLAN_EXIT" -eq 2 ]; then
   echo "ERROR: Drift detected after apply — plan shows changes."
-  "$TOFU" destroy -auto-approve -var-file="$TFVARS_FILE" 2>/dev/null || true
+  cleanup
+  exit 1
+elif [ "$PLAN_EXIT" -ne 0 ]; then
+  echo "ERROR: Plan command failed (exit code $PLAN_EXIT)."
+  cleanup
   exit 1
 fi
 

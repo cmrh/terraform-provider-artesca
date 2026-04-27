@@ -161,6 +161,9 @@ func (c *IAMClient) DeleteUser(ctx context.Context, accessKey, secretKey, userNa
 
 	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchEntity") {
+			return nil
+		}
 		return fmt.Errorf("delete user: %w", err)
 	}
 
@@ -224,6 +227,9 @@ func (c *IAMClient) DeleteUserPolicy(ctx context.Context, accessKey, secretKey, 
 
 	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchEntity") {
+			return nil
+		}
 		return fmt.Errorf("delete user policy: %w", err)
 	}
 
@@ -307,6 +313,9 @@ func (c *IAMClient) DeleteAccessKey(ctx context.Context, accountAccessKey, accou
 
 	_, err := c.doSignedRequest(ctx, accountAccessKey, accountSecretKey, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchEntity") {
+			return nil
+		}
 		return fmt.Errorf("delete access key: %w", err)
 	}
 

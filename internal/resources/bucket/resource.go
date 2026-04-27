@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -50,6 +51,12 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+			},
+			"versioning_enabled": schema.BoolAttribute{
+				Description: "Whether versioning is enabled on the ARTESCA S3 bucket. Required for replication workflows.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 			"account_access_key": schema.StringAttribute{
 				Description: "The access key of the account that owns this bucket.",
@@ -114,6 +121,13 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 	}
 
+	if plan.VersioningEnabled.ValueBool() {
+		if err := r.s3Client.PutBucketVersioning(ctx, accessKey, secretKey, bucketName, true); err != nil {
+			resp.Diagnostics.AddError("Error enabling bucket versioning", err.Error())
+			return
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -149,6 +163,13 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 
+	versioning, err := r.s3Client.GetBucketVersioning(ctx, accessKey, secretKey, bucketName)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading bucket versioning", err.Error())
+		return
+	}
+	state.VersioningEnabled = types.BoolValue(versioning)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -157,6 +178,22 @@ func (r *BucketResource) Update(ctx context.Context, req resource.UpdateRequest,
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var state BucketResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !plan.VersioningEnabled.Equal(state.VersioningEnabled) {
+		bucketName := plan.Name.ValueString()
+		accessKey := plan.AccountAccessKey.ValueString()
+		secretKey := plan.AccountSecretKey.ValueString()
+		if err := r.s3Client.PutBucketVersioning(ctx, accessKey, secretKey, bucketName, plan.VersioningEnabled.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("Error updating bucket versioning", err.Error())
+			return
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

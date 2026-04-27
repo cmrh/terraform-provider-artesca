@@ -160,6 +160,31 @@ func (r *WorkflowReplicationResource) Configure(_ context.Context, req resource.
 	r.client = providerData.Management
 }
 
+func (r *WorkflowReplicationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config WorkflowReplicationResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if config.Destination != nil {
+		if !config.Destination.Location.IsNull() && !config.Destination.Location.IsUnknown() {
+			resp.Diagnostics.AddError(
+				"Invalid destination configuration",
+				"The per-bucket workflow replication API does not support destination.location. "+
+					"Use destination.bucket_name only. For location-based replication, use the artesca_replication resource instead.",
+			)
+		}
+		if len(config.Destination.Locations) > 0 {
+			resp.Diagnostics.AddError(
+				"Invalid destination configuration",
+				"The per-bucket workflow replication API does not support destination.locations. "+
+					"Use destination.bucket_name only. For multi-backend replication, use the artesca_replication resource instead.",
+			)
+		}
+	}
+}
+
 func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan WorkflowReplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)

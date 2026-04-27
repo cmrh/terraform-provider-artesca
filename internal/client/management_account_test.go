@@ -183,6 +183,22 @@ func TestDeleteAccount(t *testing.T) {
 	}
 }
 
+func TestDeleteAccountNotFound(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(`not found`))
+	}))
+	defer apiServer.Close()
+
+	client, cleanup := newTestManagementClient(t, apiServer)
+	defer cleanup()
+
+	err := client.DeleteAccount(context.Background(), "gone-account")
+	if err != nil {
+		t.Fatalf("expected 404 to be treated as success, got error: %v", err)
+	}
+}
+
 func TestDeleteAccountError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)

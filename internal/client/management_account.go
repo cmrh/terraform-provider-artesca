@@ -29,6 +29,9 @@ type createUserRequest struct {
 }
 
 func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email string) (*User, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/user", url.PathEscape(c.InstanceID))
 	reqBody := createUserRequest{
 		UserName: userName,
@@ -51,6 +54,9 @@ func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email st
 }
 
 func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string) error {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/user?accountName=%s&roleName=%s",
 		url.PathEscape(c.InstanceID),
 		url.QueryEscape(accountName),
@@ -58,6 +64,9 @@ func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string
 	body, status, err := c.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
+	}
+	if status == http.StatusNotFound {
+		return nil
 	}
 	if status != http.StatusNoContent && status != http.StatusOK {
 		return fmt.Errorf("delete account failed (status %d): %s", status, string(body))
@@ -67,6 +76,9 @@ func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string
 }
 
 func (c *ManagementClient) GenerateAccountKey(ctx context.Context, accountName string) (*User, error) {
+	c.overlayMu.Lock()
+	defer c.overlayMu.Unlock()
+
 	path := fmt.Sprintf("/config/%s/user/%s/key", url.PathEscape(c.InstanceID), url.PathEscape(accountName))
 	body, status, err := c.doRequest(ctx, http.MethodPost, path, nil)
 	if err != nil {

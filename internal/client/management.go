@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type ManagementClient struct {
 	InstanceID  string
 	TokenSource *OIDCTokenSource
 	HTTPClient  *http.Client
+	overlayMu   sync.Mutex
 }
 
 func NewManagementClient(baseURL, instanceID string, tokenSource *OIDCTokenSource, insecureSkipVerify bool) *ManagementClient {
