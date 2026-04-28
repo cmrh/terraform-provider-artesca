@@ -9,7 +9,7 @@ on:
 jobs:
   integration:
     name: Integration Tests
-    runs-on: self-hosted
+    runs-on: cm-tf-provider-artesca
     env:
       TF_ACC_TERRAFORM_PATH: /usr/bin/tofu
       TF_ACC_PROVIDER_NAMESPACE: scality
