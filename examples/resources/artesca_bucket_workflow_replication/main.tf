@@ -1,18 +1,18 @@
+# Per-bucket workflow replication: bucket-to-bucket only.
+# For location-based or multi-backend replication, use artesca_replication instead.
 resource "artesca_bucket_workflow_replication" "example" {
-  account_id  = artesca_account.example.canonical_id
-  bucket_name = "my-source-bucket"
+  account_id  = artesca_account.example.id
+  bucket_name = artesca_bucket.source.name
   name        = "replicate-to-backup"
   version     = 1
   enabled     = true
 
   source {
-    bucket_name = "my-source-bucket"
+    bucket_name = artesca_bucket.source.name
     prefix      = ""
   }
 
   destination {
-    locations {
-      name = artesca_location.backup.name
-    }
+    bucket_name = artesca_bucket.dest.name
   }
 }
