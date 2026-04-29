@@ -1,15 +1,11 @@
 name: Test
-
 on:
   push:
     branches:
       - main
-      - develop
   pull_request:
     branches:
       - main
-      - develop
-
 jobs:
   test:
     name: Test
@@ -17,21 +13,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-
       - name: Download dependencies
         run: go mod download
-
       - name: Run tests
         run: go test ./... -v -coverprofile=coverage.txt -covermode=atomic
-
       - name: Run go vet
         run: go vet ./...
-
       - name: Check formatting
         run: |
           if [ -n "$(gofmt -l .)" ]; then
@@ -39,7 +30,6 @@ jobs:
             gofmt -d .
             exit 1
           fi
-
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         if: success()
@@ -49,6 +39,7 @@ jobs:
         continue-on-error: true
   build:
     name: Build Test
+    if: github.event_name == 'push'
     runs-on: cm-tf-provider-artesca
     strategy:
       matrix:
@@ -60,12 +51,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
