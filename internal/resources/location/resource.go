@@ -362,6 +362,10 @@ func modelToAPILocation(ctx context.Context, model *LocationResourceModel) *clie
 		LegacyAwsBehavior: model.LegacyAwsBehavior.ValueBool(),
 	}
 
+	if !model.ObjectID.IsNull() && !model.ObjectID.IsUnknown() {
+		loc.ObjectID = model.ObjectID.ValueString()
+	}
+
 	if !model.SizeLimitGB.IsNull() && !model.SizeLimitGB.IsUnknown() {
 		loc.SizeLimitGB = model.SizeLimitGB.ValueInt64()
 	}
@@ -537,9 +541,13 @@ func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *Lo
 	if len(d.RepoID) > 0 {
 		repoIDs, _ := types.ListValueFrom(ctx, types.StringType, d.RepoID)
 		model.RepoID = repoIDs
+	} else {
+		model.RepoID = types.ListNull(types.StringType)
 	}
 	if len(d.BootstrapList) > 0 {
 		bootstrapList, _ := types.ListValueFrom(ctx, types.StringType, d.BootstrapList)
 		model.BootstrapList = bootstrapList
+	} else {
+		model.BootstrapList = types.ListNull(types.StringType)
 	}
 }
