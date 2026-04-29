@@ -256,7 +256,7 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 	if err != nil {
 		return nil, 0, fmt.Errorf("executing request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {

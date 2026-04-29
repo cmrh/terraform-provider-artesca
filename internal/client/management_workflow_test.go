@@ -22,7 +22,7 @@ func TestCreateBucketWorkflowReplication(t *testing.T) {
 			t.Errorf("path = %q, want /workflow/replication", r.URL.Path)
 		}
 		var stream ReplicationStream
-		json.NewDecoder(r.Body).Decode(&stream)
+		_ = json.NewDecoder(r.Body).Decode(&stream)
 		if stream.Name != "replicate" {
 			t.Errorf("Name = %q, want replicate", stream.Name)
 		}
@@ -30,7 +30,7 @@ func TestCreateBucketWorkflowReplication(t *testing.T) {
 		stream.StreamID = "wf-rep-1"
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(stream)
+		_ = json.NewEncoder(w).Encode(stream)
 	}))
 	defer apiServer.Close()
 
@@ -76,10 +76,10 @@ func TestUpdateBucketWorkflowReplication(t *testing.T) {
 			t.Errorf("path = %q", r.URL.Path)
 		}
 		var stream ReplicationStream
-		json.NewDecoder(r.Body).Decode(&stream)
+		_ = json.NewDecoder(r.Body).Decode(&stream)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(stream)
+		_ = json.NewEncoder(w).Encode(stream)
 	}))
 	defer apiServer.Close()
 
