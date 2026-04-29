@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -16,10 +15,7 @@ import (
 	validators "github.com/scality/terraform-provider-scality-artesca/internal/validators"
 )
 
-var (
-	_ resource.Resource                = &UserResource{}
-	_ resource.ResourceWithImportState = &UserResource{}
-)
+var _ resource.Resource = &UserResource{}
 
 type UserResource struct {
 	iamClient *client.IAMClient
@@ -181,8 +177,4 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		resp.Diagnostics.AddError("Error deleting IAM user", err.Error())
 		return
 	}
-}
-
-func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("username"), req, resp)
 }
