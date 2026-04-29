@@ -244,6 +244,7 @@ func (r *WorkflowReplicationResource) Update(ctx context.Context, req resource.U
 	workflowID := state.WorkflowID.ValueString()
 
 	apiStream := modelToAPIReplication(&plan)
+	apiStream.StreamID = workflowID
 
 	tflog.Debug(ctx, "Updating bucket workflow replication", map[string]any{"workflow_id": workflowID})
 

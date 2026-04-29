@@ -49,8 +49,11 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required:    true,
 			},
 			"version": schema.Int64Attribute{
-				Description: "The version of the replication stream.",
-				Required:    true,
+				Description: "The version of the replication stream. Auto-incremented by the server on each update.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					serverManagedVersion{},
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Description: "Whether the replication stream is enabled.",
@@ -194,6 +197,7 @@ func (r *ReplicationResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	apiStream := modelToAPIReplication(&plan)
+	apiStream.StreamID = state.StreamID.ValueString()
 
 	tflog.Debug(ctx, "Updating replication stream", map[string]any{"stream_id": state.StreamID.ValueString()})
 
@@ -227,12 +231,36 @@ func (r *ReplicationResource) ImportState(ctx context.Context, req resource.Impo
 	resource.ImportStatePassthroughID(ctx, path.Root("stream_id"), req, resp)
 }
 
+// serverManagedVersion marks version as unknown during updates since the API auto-increments it.
+type serverManagedVersion struct{}
+
+func (m serverManagedVersion) Description(_ context.Context) string {
+	return "Server auto-increments version on each update."
+}
+
+func (m serverManagedVersion) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m serverManagedVersion) PlanModifyInt64(_ context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	if !req.Plan.Raw.Equal(req.State.Raw) {
+		resp.PlanValue = types.Int64Unknown()
+	}
+}
+
 // --- Conversion helpers ---
 
 func modelToAPIReplication(model *ReplicationResourceModel) *client.ReplicationStream {
+	version := model.Version.ValueInt64()
+	if model.Version.IsNull() || model.Version.IsUnknown() {
+		version = 1
+	}
 	stream := &client.ReplicationStream{
 		Name:    model.Name.ValueString(),
-		Version: model.Version.ValueInt64(),
+		Version: version,
 		Enabled: model.Enabled.ValueBool(),
 	}
 
