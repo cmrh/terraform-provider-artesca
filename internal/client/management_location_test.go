@@ -19,7 +19,7 @@ func TestGetLocation(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -50,7 +50,7 @@ func TestGetLocationNotFound(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -85,7 +85,7 @@ func TestCreateLocation(t *testing.T) {
 		loc.ObjectID = "generated-id"
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(loc)
+		_ = json.NewEncoder(w).Encode(loc)
 	}))
 	defer apiServer.Close()
 
@@ -132,10 +132,10 @@ func TestUpdateLocation(t *testing.T) {
 			t.Errorf("path = %q, want /location/my-loc", r.URL.Path)
 		}
 		var loc Location
-		json.NewDecoder(r.Body).Decode(&loc)
+		_ = json.NewDecoder(r.Body).Decode(&loc)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(loc)
+		_ = json.NewEncoder(w).Encode(loc)
 	}))
 	defer apiServer.Close()
 

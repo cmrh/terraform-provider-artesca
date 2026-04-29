@@ -19,7 +19,7 @@ func TestGetAccount(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -50,7 +50,7 @@ func TestGetAccountNotFound(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -75,7 +75,7 @@ func TestGetAccountMatchesByUserName(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -115,7 +115,7 @@ func TestCreateAccount(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(User{
+		_ = json.NewEncoder(w).Encode(User{
 			AccountName: "new-account",
 			AccessKey:   "AKIANEW",
 			SecretKey:   "secret-new",
@@ -243,7 +243,7 @@ func TestGenerateAccountKey(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(User{
+		_ = json.NewEncoder(w).Encode(User{
 			AccountName: "team-a",
 			AccessKey:   "AKIANEWKEY",
 			SecretKey:   "new-secret",

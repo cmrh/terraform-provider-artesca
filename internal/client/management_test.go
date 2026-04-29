@@ -145,7 +145,7 @@ func TestGetOverlay(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 

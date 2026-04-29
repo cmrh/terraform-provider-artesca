@@ -19,7 +19,7 @@ func TestGetReplicationStream(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -50,7 +50,7 @@ func TestGetReplicationStreamNotFound(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -72,7 +72,7 @@ func TestCreateReplicationStream(t *testing.T) {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
 		var stream ReplicationStream
-		json.NewDecoder(r.Body).Decode(&stream)
+		_ = json.NewDecoder(r.Body).Decode(&stream)
 		if stream.Name != "new-stream" {
 			t.Errorf("Name = %q, want new-stream", stream.Name)
 		}
@@ -80,7 +80,7 @@ func TestCreateReplicationStream(t *testing.T) {
 		stream.StreamID = "rs-new"
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(stream)
+		_ = json.NewEncoder(w).Encode(stream)
 	}))
 	defer apiServer.Close()
 
@@ -126,10 +126,10 @@ func TestUpdateReplicationStream(t *testing.T) {
 			t.Errorf("path = %q, want /replication/rs-1", r.URL.Path)
 		}
 		var stream ReplicationStream
-		json.NewDecoder(r.Body).Decode(&stream)
+		_ = json.NewDecoder(r.Body).Decode(&stream)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(stream)
+		_ = json.NewEncoder(w).Encode(stream)
 	}))
 	defer apiServer.Close()
 

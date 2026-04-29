@@ -86,7 +86,7 @@ func TestTokenRefreshOnExpiry(t *testing.T) {
 		n := callCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"token-%d","expires_in":1,"token_type":"bearer"}`, n)
+		_, _ = fmt.Fprintf(w, `{"access_token":"token-%d","expires_in":1,"token_type":"bearer"}`, n)
 	}))
 	defer server.Close()
 
@@ -170,7 +170,7 @@ func TestInstanceIDs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 
@@ -195,7 +195,7 @@ func TestInstanceIDsMultiple(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 
@@ -217,7 +217,7 @@ func TestInstanceIDsEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 
@@ -243,7 +243,7 @@ func TestInstanceIDsNeedsPadding(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 
@@ -285,7 +285,7 @@ func TestInstanceIDsPaddingCase2(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 
@@ -305,7 +305,7 @@ func TestInstanceIDsInvalidBase64(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 
@@ -328,7 +328,7 @@ func TestInstanceIDsInvalidJSONClaims(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","expires_in":3600,"token_type":"bearer"}`, jwt)
 	}))
 	defer server.Close()
 

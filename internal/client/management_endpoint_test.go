@@ -19,7 +19,7 @@ func TestGetEndpoint(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -50,7 +50,7 @@ func TestGetEndpointNotFound(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(overlay)
+		_ = json.NewEncoder(w).Encode(overlay)
 	}))
 	defer apiServer.Close()
 
@@ -80,7 +80,7 @@ func TestCreateEndpoint(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(ep)
+		_ = json.NewEncoder(w).Encode(ep)
 	}))
 	defer apiServer.Close()
 
