@@ -638,16 +638,16 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 | Resource | Client | CRUD | Import | Notes |
 |----------|--------|------|--------|-------|
 | `artesca_account` | Management | CR_D | By name | Keys auto-generated |
-| `artesca_bucket` | S3 | CR_D | By name | All fields ForceNew, retries for location propagation |
+| `artesca_bucket` | S3 | CRUD | Planned | Versioning is updatable; retries for location propagation |
 | `artesca_endpoint` | Management | CR_D | By hostname | Immutable (both fields ForceNew) |
 | `artesca_location` | Management | CRUD | By name | 20+ detail fields, sensitive field preservation |
-| `artesca_replication` | Management | CRUD | By stream_id | Nested source/destination/locations blocks |
+| `artesca_replication` | Management | CRUD | By stream_id | Nested source/destination/locations blocks; version is server-managed |
 | `artesca_user` | IAM | CR_D | By username | Uses account credentials for auth |
 | `artesca_user_access_key` | IAM | CR_D | No | Secret key only available at creation |
-| `artesca_user_policy` | IAM | CRUD | No | Policy document is the only updatable field |
-| `artesca_bucket_workflow_expiration` | Management | CUD* | No | *Read preserves state (no API read) |
-| `artesca_bucket_workflow_replication` | Management | CUD* | No | *Read preserves state; ValidateConfig rejects `destination.location`/`locations` (bucket-to-bucket only) |
-| `artesca_bucket_workflow_transition` | Management | CUD* | No | *Read preserves state (no API read) |
+| `artesca_user_policy` | IAM | CRUD | Planned | Policy document is the only updatable field |
+| `artesca_bucket_workflow_expiration` | S3 | CRUD | Planned | Reads lifecycle rules via S3 API |
+| `artesca_bucket_workflow_replication` | Management | CRUD | Planned | ValidateConfig rejects `destination.location`/`locations` (bucket-to-bucket only) |
+| `artesca_bucket_workflow_transition` | S3 | CRUD | Planned | Reads lifecycle rules via S3 API |
 
 ---
 
