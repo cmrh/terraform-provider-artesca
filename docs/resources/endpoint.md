@@ -1,3 +1,10 @@
+---
+page_title: "artesca_endpoint Resource - artesca"
+subcategory: "Infrastructure"
+description: |-
+  Manages an ARTESCA S3 data service endpoint that maps a hostname to a storage location.
+---
+
 # artesca_endpoint
 
 Manages an ARTESCA S3 data service endpoint. Endpoints map a hostname to a storage location, allowing S3 clients to access data at a specific location via the assigned hostname.

@@ -14,6 +14,7 @@ func TestAccLocation_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckLocationDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccLocationSourceConfig(rName),
@@ -35,6 +36,7 @@ func TestAccLocation_update(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckLocationDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccLocationWithSSE(rName, true),
@@ -58,6 +60,7 @@ func TestAccLocation_importState(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckLocationDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccLocationSourceConfig(rName),

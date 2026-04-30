@@ -1,3 +1,10 @@
+---
+page_title: "artesca_account Resource - artesca"
+subcategory: "Accounts"
+description: |-
+  Manages an ARTESCA account (S3 user) via the management API. Automatically generates S3 credentials on creation.
+---
+
 # artesca_account
 
 Manages an ARTESCA account (S3 user) via the management API. Automatically generates S3 credentials on creation.
@@ -32,7 +39,7 @@ output "team_a_credentials" {
 |------|-------------|
 | `id` | Account ID. |
 | `arn` | Account ARN. |
-| `canonical_id` | Canonical ID (used as `account_id` in workflow resources). |
+| `canonical_id` | Canonical ID of the account. |
 | `access_key` | S3 access key. Sensitive. Only available at creation. |
 | `secret_key` | S3 secret key. Sensitive. Only available at creation. |
 

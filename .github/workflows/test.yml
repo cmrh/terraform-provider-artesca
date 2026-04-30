@@ -30,6 +30,10 @@ jobs:
             gofmt -d .
             exit 1
           fi
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         if: success()

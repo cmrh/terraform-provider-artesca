@@ -2,7 +2,6 @@
 # For bucket-to-bucket replication, use artesca_bucket_workflow_replication instead.
 resource "artesca_replication" "example" {
   name    = "replicate-to-archive"
-  version = 1
   enabled = true
 
   source {

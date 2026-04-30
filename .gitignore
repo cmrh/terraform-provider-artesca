@@ -1,50 +1,37 @@
-<<<<<<< Updated upstream
 # Provider binaries
 terraform-provider-artesca
 terraform-provider-scality-artesca
 
 # OpenTofu / Terraform
 .terraform/
+.terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
 *.tfvars
 crash.log
+crash.*.log
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
 
+# Environment files
+.env
+*.env
+!.env.example
+
 # Go
 *.exe
 *.exe~
-=======
-# Provider binary
-terraform-provider-artesca
-terraform-provider-scality-artesca
-
-# OpenTofu / Terraform state
-*.tfstate
-*.tfstate.backup
-.terraform/
-.terraform.lock.hcl
-
-# Environment and variable files with credentials
-*.env
-!.env.example
-tests/integration/integration.tfvars
-
-# Go
-*.exe
->>>>>>> Stashed changes
 *.dll
 *.so
 *.dylib
 *.test
-<<<<<<< Updated upstream
-=======
 *.out
 vendor/
->>>>>>> Stashed changes
+
+# Build
+dist/
 
 # IDE
 .idea/
@@ -56,10 +43,8 @@ vendor/
 .DS_Store
 Thumbs.db
 
-<<<<<<< Updated upstream
-# CodeQL
-.codeql/
-=======
 # Coverage
 coverage.txt
->>>>>>> Stashed changes
+
+# CodeQL
+.codeql/

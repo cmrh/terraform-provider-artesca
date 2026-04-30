@@ -14,6 +14,7 @@ func TestAccEndpoint_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckEndpointDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccEndpointConfig(rLocName, rHostname),
@@ -33,6 +34,7 @@ func TestAccEndpoint_importState(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckEndpointDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccEndpointConfig(rLocName, rHostname),

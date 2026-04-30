@@ -1,3 +1,10 @@
+---
+page_title: "artesca_user_policy Resource - artesca"
+subcategory: "IAM"
+description: |-
+  Attaches an inline IAM policy to a user within an ARTESCA account.
+---
+
 # artesca_user_policy
 
 Attaches an inline IAM policy to a user within an ARTESCA account. The policy document follows the standard AWS IAM policy JSON format.
@@ -38,8 +45,11 @@ resource "artesca_user_policy" "operator_s3" {
 | `policy_name` | String | Yes | Name of the inline policy. Forces replacement. |
 | `policy_document` | String | Yes | JSON policy document. Updated in-place on change. |
 
+## Import
+
+Import is planned for a future release.
+
 ## Notes
 
 - Only `policy_document` can be updated in-place. Changing any other attribute forces replacement.
 - The `policy_document` is URL-decoded when read back from the API.
-- Import is not supported.

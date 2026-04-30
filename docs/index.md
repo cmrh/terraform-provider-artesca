@@ -1,4 +1,11 @@
-# ARTESCA Terraform/OpenTofu Provider
+---
+page_title: "ARTESCA Provider"
+subcategory: ""
+description: |-
+  Terraform/OpenTofu provider for managing Scality ARTESCA storage infrastructure.
+---
+
+# ARTESCA Provider
 
 Terraform/OpenTofu provider for managing Scality ARTESCA storage infrastructure. Supports account management, storage locations, endpoints, IAM (users, policies, access keys), replication streams, and bucket lifecycle workflows.
 
@@ -36,26 +43,27 @@ provider "artesca" {
 
 | Resource | Description |
 |----------|-------------|
-| [artesca_account](artesca_account.md) | Account (S3 user) via management API |
-| [artesca_location](artesca_location.md) | Storage location (AWS S3, Azure, GCP, Scality RING, etc.) |
-| [artesca_endpoint](artesca_endpoint.md) | S3 data service endpoint |
-| [artesca_replication](artesca_replication.md) | Config-scoped replication stream |
+| [artesca_account](resources/account.md) | Account (S3 user) via management API |
+| [artesca_bucket](resources/bucket.md) | S3 bucket with versioning and location constraint |
+| [artesca_location](resources/location.md) | Storage location (AWS S3, Azure, GCP, Scality RING, etc.) |
+| [artesca_endpoint](resources/endpoint.md) | S3 data service endpoint |
+| [artesca_replication](resources/replication.md) | Config-scoped replication stream |
 
 ### IAM
 
 | Resource | Description |
 |----------|-------------|
-| [artesca_user](artesca_user.md) | IAM user within an account |
-| [artesca_user_access_key](artesca_user_access_key.md) | Access key for a user |
-| [artesca_user_policy](artesca_user_policy.md) | Inline policy attached to a user |
+| [artesca_user](resources/user.md) | IAM user within an account |
+| [artesca_user_access_key](resources/user_access_key.md) | Access key for a user |
+| [artesca_user_policy](resources/user_policy.md) | Inline policy attached to a user |
 
 ### Bucket Workflows
 
 | Resource | Description |
 |----------|-------------|
-| [artesca_bucket_workflow_expiration](artesca_bucket_workflow_expiration.md) | Object expiration lifecycle workflow |
-| [artesca_bucket_workflow_transition](artesca_bucket_workflow_transition.md) | Object transition lifecycle workflow |
-| [artesca_bucket_workflow_replication](artesca_bucket_workflow_replication.md) | Bucket-scoped replication workflow |
+| [artesca_bucket_workflow_expiration](resources/bucket_workflow_expiration.md) | Object expiration lifecycle workflow |
+| [artesca_bucket_workflow_transition](resources/bucket_workflow_transition.md) | Object transition lifecycle workflow |
+| [artesca_bucket_workflow_replication](resources/bucket_workflow_replication.md) | Bucket-scoped replication workflow |
 
 ## Credential Pattern
 
