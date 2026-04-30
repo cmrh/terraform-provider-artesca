@@ -14,6 +14,7 @@ func TestAccUserPolicy_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserPolicyDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccUserPolicyConfig(rAcct, rUser, "s3:GetObject"),
@@ -34,6 +35,7 @@ func TestAccUserPolicy_update(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserPolicyDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccUserPolicyConfig(rAcct, rUser, "s3:GetObject"),

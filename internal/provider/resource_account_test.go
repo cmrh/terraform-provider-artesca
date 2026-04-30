@@ -12,6 +12,7 @@ func TestAccAccount_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAccountDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAccountConfig(rName),
@@ -35,6 +36,7 @@ func TestAccAccount_importState(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAccountDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAccountConfig(rName),

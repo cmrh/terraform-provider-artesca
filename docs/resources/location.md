@@ -1,3 +1,10 @@
+---
+page_title: "artesca_location Resource - artesca"
+subcategory: "Infrastructure"
+description: |-
+  Manages an ARTESCA storage location backed by AWS S3, Azure Blob, GCP Cloud Storage, Scality RING, or other S3-compatible backends.
+---
+
 # artesca_location
 
 Manages an ARTESCA storage location. Locations define where data is physically stored -- AWS S3, Azure Blob, GCP Cloud Storage, Scality RING, or other S3-compatible backends.

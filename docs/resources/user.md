@@ -1,3 +1,10 @@
+---
+page_title: "artesca_user Resource - artesca"
+subcategory: "IAM"
+description: |-
+  Creates an IAM user within an ARTESCA account for S3 operations.
+---
+
 # artesca_user
 
 Creates an IAM user within an ARTESCA account. Users can be assigned policies and access keys for day-to-day S3 operations.
@@ -22,7 +29,7 @@ output "user_arn" {
 |------|------|----------|-------------|
 | `account_access_key` | String | Yes | Access key of the owning account. Sensitive. Forces replacement. |
 | `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. Forces replacement. |
-| `username` | String | Yes | IAM username. Forces replacement. |
+| `username` | String | Yes | IAM username. Must be 1-64 characters, alphanumeric and `+=,.@-`. Forces replacement. |
 
 ## Attributes Exported
 
@@ -34,9 +41,7 @@ output "user_arn" {
 
 ## Import
 
-```bash
-tofu import artesca_user.operator bucket-operator
-```
+Import is planned for a future release.
 
 ## Notes
 

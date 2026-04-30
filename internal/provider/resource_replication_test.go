@@ -17,6 +17,7 @@ func TestAccReplication_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, true),
@@ -42,6 +43,7 @@ func TestAccReplication_update(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, true),
@@ -68,6 +70,7 @@ func TestAccReplication_importState(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, true),

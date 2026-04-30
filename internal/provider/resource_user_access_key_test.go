@@ -13,6 +13,7 @@ func TestAccUserAccessKey_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserAccessKeyDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccUserAccessKeyConfig(rAcct, rUser),

@@ -82,6 +82,7 @@ All attributes can also be set via environment variables:
 |---|---|
 | `artesca_bucket_workflow_expiration` | Manage object expiration lifecycle rules |
 | `artesca_bucket_workflow_transition` | Manage object transition lifecycle rules |
+| `artesca_bucket_workflow_replication` | Manage bucket-scoped replication workflows |
 
 ## Usage Examples
 
@@ -218,7 +219,7 @@ This triggers the release workflow which:
 
 1. Runs tests, `go vet`, and format checks
 2. Builds binaries for linux, darwin, and windows (amd64/arm64)
-3. Generates SHA256 checksums
+3. Generates SHA256 checksums and GPG-signs them
 4. Uploads all artifacts as a GitHub release
 
 ## License

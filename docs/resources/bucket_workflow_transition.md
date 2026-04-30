@@ -1,3 +1,10 @@
+---
+page_title: "artesca_bucket_workflow_transition Resource - artesca"
+subcategory: "Bucket Workflows"
+description: |-
+  Manages a bucket object transition lifecycle workflow that automatically moves objects to a different storage location.
+---
+
 # artesca_bucket_workflow_transition
 
 Manages a bucket object transition lifecycle workflow in ARTESCA. Transition workflows automatically move objects to a different storage location based on age or date criteria.
@@ -6,12 +13,12 @@ Manages a bucket object transition lifecycle workflow in ARTESCA. Transition wor
 
 ```hcl
 resource "artesca_bucket_workflow_transition" "archive" {
-  account_id       = artesca_account.app.canonical_id
-  bucket_name      = "app-data"
-  name             = "archive-to-cold"
-  enabled          = true
-  location_name    = artesca_location.cold_storage.name
-  apply_to_version = "current"
+  account_id         = artesca_account.app.id
+  bucket_name        = "app-data"
+  name               = "archive-to-cold"
+  enabled            = true
+  location_name      = artesca_location.cold_storage.name
+  apply_to_version   = "current"
   trigger_delay_days = 30
 
   filter {
@@ -24,12 +31,12 @@ resource "artesca_bucket_workflow_transition" "archive" {
 
 ```hcl
 resource "artesca_bucket_workflow_transition" "old_versions" {
-  account_id       = artesca_account.app.canonical_id
-  bucket_name      = "versioned-data"
-  name             = "move-old-versions"
-  enabled          = true
-  location_name    = artesca_location.archive.name
-  apply_to_version = "noncurrent"
+  account_id         = artesca_account.app.id
+  bucket_name        = "versioned-data"
+  name               = "move-old-versions"
+  enabled            = true
+  location_name      = artesca_location.archive.name
+  apply_to_version   = "noncurrent"
   trigger_delay_days = 90
 }
 ```
@@ -39,7 +46,7 @@ resource "artesca_bucket_workflow_transition" "old_versions" {
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `instance_id` | String | No | Instance UUID. Defaults to the provider's auto-discovered instance ID. Forces replacement. |
-| `account_id` | String | Yes | Account canonical ID (from `artesca_account.canonical_id`). Forces replacement. |
+| `account_id` | String | Yes | Account ID (from `artesca_account.id`). Forces replacement. |
 | `bucket_name` | String | Yes | Target bucket name. Forces replacement. |
 | `name` | String | No | Workflow name. |
 | `enabled` | Boolean | Yes | Whether the workflow is active. |
@@ -70,10 +77,12 @@ resource "artesca_bucket_workflow_transition" "old_versions" {
 | `workflow_id` | Unique workflow identifier assigned by the server. |
 | `instance_id` | The resolved instance ID (useful when auto-discovered). |
 
+## Import
+
+Import is planned for a future release.
+
 ## Notes
 
 - `instance_id`, `account_id`, and `bucket_name` force replacement -- the workflow cannot be moved.
-- There is no read API for workflows. State is preserved as-is between applies.
 - Exactly one of `trigger_delay_date` or `trigger_delay_days` should typically be set.
 - The destination `location_name` must reference an existing storage location.
-- Import is not supported.

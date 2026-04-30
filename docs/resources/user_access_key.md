@@ -1,3 +1,10 @@
+---
+page_title: "artesca_user_access_key Resource - artesca"
+subcategory: "IAM"
+description: |-
+  Creates an IAM access key pair for a user within an ARTESCA account.
+---
+
 # artesca_user_access_key
 
 Creates an IAM access key pair for a user within an ARTESCA account. The secret key is only available at creation and is preserved in state.

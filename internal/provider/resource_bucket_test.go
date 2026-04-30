@@ -14,6 +14,7 @@ func TestAccBucket_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAccountConfig(rAcct) +
@@ -37,6 +38,7 @@ func TestAccBucket_versioning(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAccountConfig(rAcct) +
