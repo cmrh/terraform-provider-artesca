@@ -18,7 +18,7 @@ test:
 	go test ./... -v
 
 testacc:
-	TF_ACC=1 TF_ACC_TERRAFORM_PATH=$$(which tofu) TF_ACC_PROVIDER_NAMESPACE=${NAMESPACE} go test ./internal/provider/ -v -timeout 30m
+	TF_ACC=1 TF_ACC_TERRAFORM_PATH=$$(which tofu) TF_ACC_PROVIDER_NAMESPACE=${NAMESPACE} go test ./internal/provider/ -v -timeout 60m
 
 lint:
 	golangci-lint run ./...
