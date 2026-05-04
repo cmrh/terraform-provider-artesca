@@ -24,10 +24,10 @@ const (
 )
 
 type S3Client struct {
-	endpoint               string
-	region                 string
-	httpClient             *http.Client
-	lifecycleMu            sync.Mutex
+	endpoint                 string
+	region                   string
+	httpClient               *http.Client
+	lifecycleMu              sync.Mutex
 	transientBackoffOverride time.Duration
 }
 
