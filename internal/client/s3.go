@@ -17,17 +17,29 @@ import (
 const (
 	s3AWSService  = "s3"
 	s3HTTPTimeout = 30 * time.Second
+
+	transientGatewayMaxAttempts = 4
+	transientGatewayBackoff     = 500 * time.Millisecond
+	transientGatewayBackoffMax  = 8 * time.Second
 )
 
 type S3Client struct {
-	endpoint    string
-	region      string
-	httpClient  *http.Client
-	lifecycleMu sync.Mutex
+	endpoint               string
+	region                 string
+	httpClient             *http.Client
+	lifecycleMu            sync.Mutex
+	transientBackoffOverride time.Duration
 }
 
 func (c *S3Client) LockLifecycle()   { c.lifecycleMu.Lock() }
 func (c *S3Client) UnlockLifecycle() { c.lifecycleMu.Unlock() }
+
+func (c *S3Client) transientBackoff() time.Duration {
+	if c.transientBackoffOverride > 0 {
+		return c.transientBackoffOverride
+	}
+	return transientGatewayBackoff
+}
 
 func NewS3Client(endpoint, region string, insecureSkipVerify bool) *S3Client {
 	transport := &http.Transport{
@@ -50,6 +62,15 @@ type s3ErrorResponse struct {
 	XMLName xml.Name `xml:"Error"`
 	Code    string   `xml:"Code"`
 	Message string   `xml:"Message"`
+}
+
+// isTransientGatewayStatus returns true for upstream/proxy statuses that
+// commonly clear on retry (502/503/504). 500 is excluded because it usually
+// signals a real server-side error rather than transient unavailability.
+func isTransientGatewayStatus(status int) bool {
+	return status == http.StatusBadGateway ||
+		status == http.StatusServiceUnavailable ||
+		status == http.StatusGatewayTimeout
 }
 
 // isLocationPropagationError returns true when the S3 service has not yet
@@ -197,78 +218,103 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 	}
 
 	host := u.Host
-	now := time.Now().UTC()
-	datestamp := now.Format("20060102")
-	amzdate := now.Format("20060102T150405Z")
-
 	payloadHash := sha256Hex([]byte(body))
 
 	canonicalQueryString := ""
 	if query != "" {
 		canonicalQueryString = query + "="
 	}
-
-	canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-content-sha256:%s\nx-amz-date:%s\n", host, payloadHash, amzdate)
 	signedHeaders := "host;x-amz-content-sha256;x-amz-date"
-
-	canonicalRequest := strings.Join([]string{
-		method,
-		path,
-		canonicalQueryString,
-		canonicalHeaders,
-		signedHeaders,
-		payloadHash,
-	}, "\n")
-
-	credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, c.region, s3AWSService)
-	stringToSign := strings.Join([]string{
-		"AWS4-HMAC-SHA256",
-		amzdate,
-		credentialScope,
-		sha256Hex([]byte(canonicalRequest)),
-	}, "\n")
-
-	signingKey := getSignatureKey(secretKey, datestamp, c.region, s3AWSService)
-	signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
-
-	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
-		accessKey, credentialScope, signedHeaders, signature)
 
 	fullURL := c.endpoint + path
 	if query != "" {
 		fullURL += "?" + canonicalQueryString
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(body))
-	if err != nil {
-		return nil, 0, fmt.Errorf("creating request: %w", err)
+	backoff := c.transientBackoff()
+
+	var (
+		respBody   []byte
+		statusCode int
+	)
+
+	for attempt := range transientGatewayMaxAttempts {
+		now := time.Now().UTC()
+		datestamp := now.Format("20060102")
+		amzdate := now.Format("20060102T150405Z")
+
+		canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-content-sha256:%s\nx-amz-date:%s\n", host, payloadHash, amzdate)
+
+		canonicalRequest := strings.Join([]string{
+			method,
+			path,
+			canonicalQueryString,
+			canonicalHeaders,
+			signedHeaders,
+			payloadHash,
+		}, "\n")
+
+		credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, c.region, s3AWSService)
+		stringToSign := strings.Join([]string{
+			"AWS4-HMAC-SHA256",
+			amzdate,
+			credentialScope,
+			sha256Hex([]byte(canonicalRequest)),
+		}, "\n")
+
+		signingKey := getSignatureKey(secretKey, datestamp, c.region, s3AWSService)
+		signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
+
+		authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
+			accessKey, credentialScope, signedHeaders, signature)
+
+		req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(body))
+		if err != nil {
+			return nil, 0, fmt.Errorf("creating request: %w", err)
+		}
+
+		req.Header.Set("Host", host)
+		req.Header.Set("X-Amz-Date", amzdate)
+		req.Header.Set("X-Amz-Content-Sha256", payloadHash)
+		req.Header.Set("Authorization", authHeader)
+		if body != "" {
+			req.Header.Set("Content-Type", "application/xml")
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, 0, fmt.Errorf("executing request: %w", err)
+		}
+
+		respBody, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, 0, fmt.Errorf("reading response: %w", err)
+		}
+		statusCode = resp.StatusCode
+
+		if isTransientGatewayStatus(statusCode) && attempt < transientGatewayMaxAttempts-1 {
+			timer := time.NewTimer(backoff)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return respBody, statusCode, ctx.Err()
+			case <-timer.C:
+			}
+			if backoff < transientGatewayBackoffMax {
+				backoff *= 2
+			}
+			continue
+		}
+		break
 	}
 
-	req.Header.Set("Host", host)
-	req.Header.Set("X-Amz-Date", amzdate)
-	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
-	req.Header.Set("Authorization", authHeader)
-	if body != "" {
-		req.Header.Set("Content-Type", "application/xml")
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("executing request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return nil, 0, fmt.Errorf("reading response: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
+	if statusCode >= 400 {
 		var s3Err s3ErrorResponse
 		if xmlErr := xml.Unmarshal(respBody, &s3Err); xmlErr == nil && s3Err.Code != "" {
-			return respBody, resp.StatusCode, fmt.Errorf("%s: %s", s3Err.Code, s3Err.Message)
+			return respBody, statusCode, fmt.Errorf("%s: %s", s3Err.Code, s3Err.Message)
 		}
 	}
 
-	return respBody, resp.StatusCode, nil
+	return respBody, statusCode, nil
 }

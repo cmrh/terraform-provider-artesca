@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestCreateBucket(t *testing.T) {
@@ -299,5 +301,84 @@ func TestS3ClientTrailingSlash(t *testing.T) {
 	client := NewS3Client("https://s3.example.com/", "us-east-1", false)
 	if client.endpoint != "https://s3.example.com" {
 		t.Errorf("endpoint = %q, want trailing slash stripped", client.endpoint)
+	}
+}
+
+func TestDoSignedRequestRetriesTransientGatewayStatus(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+	}{
+		{"502", http.StatusBadGateway},
+		{"503", http.StatusServiceUnavailable},
+		{"504", http.StatusGatewayTimeout},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var attempts int32
+			apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if atomic.AddInt32(&attempts, 1) == 1 {
+					w.WriteHeader(tc.status)
+					return
+				}
+				w.WriteHeader(200)
+			}))
+			defer apiServer.Close()
+
+			client := NewS3Client(apiServer.URL, "us-east-1", false)
+			client.transientBackoffOverride = time.Millisecond
+
+			err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+			if err != nil {
+				t.Fatalf("CreateBucket returned error: %v", err)
+			}
+			if got := atomic.LoadInt32(&attempts); got != 2 {
+				t.Errorf("attempts = %d, want 2", got)
+			}
+		})
+	}
+}
+
+func TestDoSignedRequestNoRetryOn500(t *testing.T) {
+	var attempts int32
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(`<Error><Code>InternalError</Code><Message>fail</Message></Error>`))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	client.transientBackoffOverride = time.Millisecond
+
+	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+	if err == nil {
+		t.Fatal("expected error for 500 response")
+	}
+	if got := atomic.LoadInt32(&attempts); got != 1 {
+		t.Errorf("attempts = %d, want 1 (500 must not retry)", got)
+	}
+}
+
+func TestDoSignedRequestGivesUpAfterMaxAttempts(t *testing.T) {
+	var attempts int32
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	client.transientBackoffOverride = time.Millisecond
+
+	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+	if err == nil {
+		t.Fatal("expected error after exhausting retries")
+	}
+	if !strings.Contains(err.Error(), "502") {
+		t.Errorf("error = %q, want status 502 surfaced", err.Error())
+	}
+	if got := atomic.LoadInt32(&attempts); got != transientGatewayMaxAttempts {
+		t.Errorf("attempts = %d, want %d", got, transientGatewayMaxAttempts)
 	}
 }
