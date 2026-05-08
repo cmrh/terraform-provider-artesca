@@ -297,6 +297,101 @@ func TestGetBucketVersioningSuspended(t *testing.T) {
 	}
 }
 
+func TestPutBucketPolicy(t *testing.T) {
+	var requestBody string
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("method = %s, want PUT", r.Method)
+		}
+		if r.URL.Path != "/my-bucket" {
+			t.Errorf("path = %q, want /my-bucket", r.URL.Path)
+		}
+		if r.URL.RawQuery != "policy=" {
+			t.Errorf("query = %q, want policy=", r.URL.RawQuery)
+		}
+		buf := make([]byte, 1024)
+		n, _ := r.Body.Read(buf)
+		requestBody = string(buf[:n])
+		w.WriteHeader(204)
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	policy := `{"Version":"2012-10-17"}`
+	if err := client.PutBucketPolicy(context.Background(), "AKID", "secret", "my-bucket", policy); err != nil {
+		t.Fatalf("PutBucketPolicy returned error: %v", err)
+	}
+	if requestBody != policy {
+		t.Errorf("body = %q, want %q", requestBody, policy)
+	}
+}
+
+func TestGetBucketPolicy(t *testing.T) {
+	policy := `{"Version":"2012-10-17","Statement":[]}`
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(policy))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	got, err := client.GetBucketPolicy(context.Background(), "AKID", "secret", "my-bucket")
+	if err != nil {
+		t.Fatalf("GetBucketPolicy returned error: %v", err)
+	}
+	if got != policy {
+		t.Errorf("policy = %q, want %q", got, policy)
+	}
+}
+
+func TestGetBucketPolicyNoSuchBucketPolicy(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(`<Error><Code>NoSuchBucketPolicy</Code><Message>The bucket policy does not exist</Message></Error>`))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	got, err := client.GetBucketPolicy(context.Background(), "AKID", "secret", "my-bucket")
+	if err != nil {
+		t.Fatalf("expected NoSuchBucketPolicy to be silenced, got error: %v", err)
+	}
+	if got != "" {
+		t.Errorf("policy = %q, want empty string for missing policy", got)
+	}
+}
+
+func TestDeleteBucketPolicy(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("method = %s, want DELETE", r.Method)
+		}
+		if r.URL.RawQuery != "policy=" {
+			t.Errorf("query = %q, want policy=", r.URL.RawQuery)
+		}
+		w.WriteHeader(204)
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	if err := client.DeleteBucketPolicy(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+		t.Fatalf("DeleteBucketPolicy returned error: %v", err)
+	}
+}
+
+func TestDeleteBucketPolicyAlreadyAbsent(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(`<Error><Code>NoSuchBucketPolicy</Code><Message>none</Message></Error>`))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	if err := client.DeleteBucketPolicy(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+		t.Fatalf("expected NoSuchBucketPolicy to be treated as success: %v", err)
+	}
+}
+
 func TestS3ClientTrailingSlash(t *testing.T) {
 	client := NewS3Client("https://s3.example.com/", "us-east-1", false)
 	if client.endpoint != "https://s3.example.com" {

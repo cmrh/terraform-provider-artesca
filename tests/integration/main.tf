@@ -177,6 +177,28 @@ output "dest_bucket_name" {
   value = artesca_bucket.dest.name
 }
 
+# --- Bucket Policy ---
+
+resource "artesca_bucket_policy" "source" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  bucket_name        = artesca_bucket.source.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowAccountRead"
+      Effect    = "Allow"
+      Principal = { AWS = artesca_account.test.arn }
+      Action    = ["s3:GetObject", "s3:ListBucket"]
+      Resource = [
+        "arn:aws:s3:::${artesca_bucket.source.name}",
+        "arn:aws:s3:::${artesca_bucket.source.name}/*",
+      ]
+    }]
+  })
+}
+
 # --- Endpoint ---
 
 resource "artesca_endpoint" "test" {

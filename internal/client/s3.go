@@ -196,6 +196,57 @@ func (c *S3Client) GetBucketLocation(ctx context.Context, accessKey, secretKey, 
 	return loc.Location, nil
 }
 
+// PutBucketPolicy attaches a JSON policy document to the bucket. ARTESCA
+// validates the policy server-side (Resource ARNs must match the bucket;
+// MalformedPolicy is returned otherwise) -- no client-side validation needed.
+func (c *S3Client) PutBucketPolicy(ctx context.Context, accessKey, secretKey, bucket, policy string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "policy", policy, accessKey, secretKey)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK && status != http.StatusNoContent {
+		return fmt.Errorf("put bucket policy failed (status %d)", status)
+	}
+	return nil
+}
+
+// GetBucketPolicy returns the policy document attached to the bucket. If the
+// bucket has no policy, it returns ("", nil) so callers can treat it as a
+// state-removed signal.
+func (c *S3Client) GetBucketPolicy(ctx context.Context, accessKey, secretKey, bucket string) (string, error) {
+	body, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "policy", "", accessKey, secretKey)
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchBucketPolicy") {
+			return "", nil
+		}
+		return "", err
+	}
+	if status == http.StatusNotFound {
+		return "", nil
+	}
+	if status != http.StatusOK {
+		return "", fmt.Errorf("get bucket policy failed (status %d)", status)
+	}
+	return string(body), nil
+}
+
+func (c *S3Client) DeleteBucketPolicy(ctx context.Context, accessKey, secretKey, bucket string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "policy", "", accessKey, secretKey)
+	if status == http.StatusNotFound {
+		return nil
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchBucketPolicy") {
+			return nil
+		}
+		return err
+	}
+	if status != http.StatusNoContent && status != http.StatusOK {
+		return fmt.Errorf("delete bucket policy failed (status %d)", status)
+	}
+	return nil
+}
+
 func (c *S3Client) DeleteBucket(ctx context.Context, accessKey, secretKey, bucket string) error {
 	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "", "", accessKey, secretKey)
 	if status == http.StatusNotFound {
