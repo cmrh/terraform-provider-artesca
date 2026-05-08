@@ -3,6 +3,7 @@ package location
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -20,9 +21,34 @@ import (
 )
 
 var (
-	_ resource.Resource                = &LocationResource{}
-	_ resource.ResourceWithImportState = &LocationResource{}
+	_ resource.Resource                   = &LocationResource{}
+	_ resource.ResourceWithImportState    = &LocationResource{}
+	_ resource.ResourceWithValidateConfig = &LocationResource{}
 )
+
+// requiredDetailsByType maps each known location_type to the details fields
+// the ARTESCA API requires. Sourced from the swagger location-*-v1 schemas.
+// Types not in this map (location-mem-v1, location-file-v1, location-b2-v1,
+// location-scality-hdclient-v1, and any future types) skip client-side
+// validation and rely on the API to reject incomplete config.
+var requiredDetailsByType = map[string][]string{
+	"location-aws-s3-v1":             {"access_key", "secret_key", "bucket_name"},
+	"location-gcp-v1":                {"access_key", "secret_key", "bucket_name"},
+	"location-aws-glacier-v1":        {"access_key", "secret_key", "bucket_name"},
+	"location-azure-v1":              {"endpoint", "bucket_name"},
+	"location-azure-archive-v1":      {"endpoint", "bucket_name"},
+	"location-wasabi-v1":             {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-do-spaces-v1":          {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-ring-s3-v1":    {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-artesca-s3-v1": {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-ceph-radosgw-s3-v1":    {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-sproxyd-v1":    {"bootstrap_list", "chord_cos", "proxy_path"},
+	"location-scality-hdclient-v2":   {"bootstrap_list"},
+	"location-nfs-mount-v1":          {"endpoint"},
+	"location-dmf-v1":                {"endpoint", "username", "password", "repo_id", "ns_id"},
+	"location-miria-v1":              {"endpoint", "username", "password", "repo_id"},
+	"location-scality-crr-v1":        {"endpoint", "access_key", "secret_key"},
+}
 
 type LocationResource struct {
 	client *client.ManagementClient
@@ -235,6 +261,95 @@ func (r *LocationResource) Configure(_ context.Context, req resource.ConfigureRe
 		return
 	}
 	r.client = providerData.Management
+}
+
+func (r *LocationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config LocationResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if config.LocationType.IsNull() || config.LocationType.IsUnknown() {
+		return
+	}
+	required, ok := requiredDetailsByType[config.LocationType.ValueString()]
+	if !ok {
+		return
+	}
+	if len(required) == 0 {
+		return
+	}
+	if config.Details == nil {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("details"),
+			"Missing details block",
+			fmt.Sprintf("location_type %q requires a details block with: %s.",
+				config.LocationType.ValueString(), strings.Join(required, ", ")),
+		)
+		return
+	}
+	for _, field := range required {
+		if isLocationDetailsFieldEmpty(config.Details, field) {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("details").AtName(field),
+				"Missing required field",
+				fmt.Sprintf("details.%s is required when location_type is %q.",
+					field, config.LocationType.ValueString()),
+			)
+		}
+	}
+}
+
+// isLocationDetailsFieldEmpty reports whether a required details field is
+// effectively unset. Unknown values (e.g. references to other resources) are
+// treated as set, since they will be resolved at apply time.
+func isLocationDetailsFieldEmpty(d *LocationDetailsModel, field string) bool {
+	if d == nil {
+		return true
+	}
+	emptyString := func(s types.String) bool {
+		if s.IsUnknown() {
+			return false
+		}
+		return s.IsNull() || s.ValueString() == ""
+	}
+	emptyInt := func(i types.Int64) bool {
+		if i.IsUnknown() {
+			return false
+		}
+		return i.IsNull()
+	}
+	emptyList := func(l types.List) bool {
+		if l.IsUnknown() {
+			return false
+		}
+		return l.IsNull() || len(l.Elements()) == 0
+	}
+	switch field {
+	case "access_key":
+		return emptyString(d.AccessKey)
+	case "secret_key":
+		return emptyString(d.SecretKey)
+	case "bucket_name":
+		return emptyString(d.BucketName)
+	case "endpoint":
+		return emptyString(d.Endpoint)
+	case "username":
+		return emptyString(d.Username)
+	case "password":
+		return emptyString(d.Password)
+	case "ns_id":
+		return emptyString(d.NsID)
+	case "proxy_path":
+		return emptyString(d.ProxyPath)
+	case "chord_cos":
+		return emptyInt(d.ChordCos)
+	case "repo_id":
+		return emptyList(d.RepoID)
+	case "bootstrap_list":
+		return emptyList(d.BootstrapList)
+	}
+	return false
 }
 
 func (r *LocationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

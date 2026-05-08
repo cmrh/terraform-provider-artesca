@@ -56,33 +56,58 @@ resource "artesca_location" "ring_s3" {
 
 ### Details Block
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `access_key` | String | No | Access key for the backend. Sensitive. |
-| `secret_key` | String | No | Secret key for the backend. Sensitive. |
-| `bucket_name` | String | No | Target bucket on the backend. |
-| `bucket_match` | Boolean | No | Whether to use bucket matching. |
-| `endpoint` | String | No | Custom endpoint URL (for S3-compatible backends). |
-| `region` | String | No | AWS region or equivalent. |
-| `server_side_encryption` | Boolean | No | Enable server-side encryption. |
-| `storage_class` | String | No | Storage class (e.g., `STANDARD`, `GLACIER`). |
-| `mpu_bucket_name` | String | No | Separate bucket for multipart uploads. |
-| `username` | String | No | Username (for Azure or other backends). |
-| `password` | String | No | Password. Sensitive. |
-| `tenant_name` | String | No | Azure tenant name. |
-| `subscription_id` | String | No | Azure subscription ID. |
-| `resource_group` | String | No | Azure resource group. |
-| `storage_account_name` | String | No | Azure storage account name. |
-| `storage_container_name` | String | No | Azure storage container name. |
-| `ns_id` | String | No | Namespace ID (Scality RING). |
-| `repo_id` | List(String) | No | Repository IDs (Scality RING). |
-| `proxy_path` | String | No | Proxy path (NFS/RING). |
-| `bootstrap_list` | List(String) | No | Bootstrap list (Scality RING sproxyd). |
-| `chord_cos` | Int | No | Chord COS (sproxyd). |
-| `coding_parts` | Int | No | Coding parts for erasure coding. |
-| `data_parts` | Int | No | Data parts for erasure coding. |
-| `gcp_endpoint` | String | No | GCP endpoint URL. |
-| `bucket_prefix` | String | No | Bucket prefix. |
+Whether a `details.*` field is required depends on `location_type` -- see [Required fields by location type](#required-fields-by-location-type) below. The fields themselves:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `access_key` | String | Access key for the backend. Sensitive. |
+| `secret_key` | String | Secret key for the backend. Sensitive. |
+| `bucket_name` | String | Target bucket on the backend. |
+| `bucket_match` | Boolean | Whether to use bucket matching. |
+| `endpoint` | String | Custom endpoint URL (for S3-compatible backends). |
+| `region` | String | AWS region or equivalent. |
+| `server_side_encryption` | Boolean | Enable server-side encryption. |
+| `storage_class` | String | Storage class (e.g., `STANDARD`, `GLACIER`). |
+| `mpu_bucket_name` | String | Separate bucket for multipart uploads. |
+| `username` | String | Username (for Azure or other backends). |
+| `password` | String | Password. Sensitive. |
+| `tenant_name` | String | Azure tenant name. |
+| `subscription_id` | String | Azure subscription ID. |
+| `resource_group` | String | Azure resource group. |
+| `storage_account_name` | String | Azure storage account name. |
+| `storage_container_name` | String | Azure storage container name. |
+| `ns_id` | String | Namespace ID (Scality RING). |
+| `repo_id` | List(String) | Repository IDs (Scality RING). |
+| `proxy_path` | String | Proxy path (NFS/RING). |
+| `bootstrap_list` | List(String) | Bootstrap list (Scality RING sproxyd). |
+| `chord_cos` | Int | Chord COS (sproxyd). |
+| `coding_parts` | Int | Coding parts for erasure coding. |
+| `data_parts` | Int | Data parts for erasure coding. |
+| `gcp_endpoint` | String | GCP endpoint URL. |
+| `bucket_prefix` | String | Bucket prefix. |
+
+### Required fields by location type
+
+The provider validates these requirements at `plan` time. Types not listed below (e.g. `location-mem-v1`, `location-file-v1`) impose no required `details` fields.
+
+| `location_type` | Required `details.*` fields |
+|---|---|
+| `location-aws-s3-v1` | `access_key`, `secret_key`, `bucket_name` |
+| `location-gcp-v1` | `access_key`, `secret_key`, `bucket_name` |
+| `location-aws-glacier-v1` | `access_key`, `secret_key`, `bucket_name` |
+| `location-azure-v1` | `endpoint`, `bucket_name` |
+| `location-azure-archive-v1` | `endpoint`, `bucket_name` |
+| `location-wasabi-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-do-spaces-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-scality-ring-s3-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-scality-artesca-s3-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-ceph-radosgw-s3-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-scality-sproxyd-v1` | `bootstrap_list`, `chord_cos`, `proxy_path` |
+| `location-scality-hdclient-v2` | `bootstrap_list` |
+| `location-nfs-mount-v1` | `endpoint` |
+| `location-dmf-v1` | `endpoint`, `username`, `password`, `repo_id`, `ns_id` |
+| `location-miria-v1` | `endpoint`, `username`, `password`, `repo_id` |
+| `location-scality-crr-v1` | `endpoint`, `access_key`, `secret_key` |
 
 ## Attributes Exported
 

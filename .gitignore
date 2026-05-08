@@ -48,3 +48,6 @@ coverage.txt
 
 # CodeQL
 .codeql/
+
+# Claude Code
+CLAUDE.md
