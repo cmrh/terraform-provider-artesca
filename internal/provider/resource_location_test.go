@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -72,6 +73,65 @@ func TestAccLocation_importState(t *testing.T) {
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
 				ImportStateVerifyIgnore:              []string{"details.secret_key", "details.access_key", "details.bucket_match", "details.bucket_name", "details.endpoint", "details.region"},
+			},
+		},
+	})
+}
+
+func TestAccLocation_validateConfigSproxydMissingFields(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_location" "test" {
+  name          = "tf-acc-loc-sproxyd"
+  location_type = "location-scality-sproxyd-v1"
+
+  details {
+    bootstrap_list = ["10.0.0.1:8181"]
+  }
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)details\.chord_cos is required.*location-scality-sproxyd-v1`),
+			},
+		},
+	})
+}
+
+func TestAccLocation_validateConfigAwsS3MissingDetails(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_location" "test" {
+  name          = "tf-acc-loc-aws"
+  location_type = "location-aws-s3-v1"
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)Missing details block.*location-aws-s3-v1`),
+			},
+		},
+	})
+}
+
+func TestAccLocation_validateConfigUnknownTypeSkipsValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_location" "test" {
+  name          = "tf-acc-loc-mem"
+  location_type = "location-mem-v1"
+}
+`,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
