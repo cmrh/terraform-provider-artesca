@@ -12,8 +12,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	accountds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/account"
+	locationds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/location"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
+	bucketpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_policy"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/endpoint"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/location"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/replication"
@@ -247,6 +250,7 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 	return []func() resource.Resource{
 		account.NewAccountResource,
 		bucket.NewBucketResource,
+		bucketpolicy.NewBucketPolicyResource,
 		endpoint.NewEndpointResource,
 		location.NewLocationResource,
 		replication.NewReplicationResource,
@@ -260,7 +264,10 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 }
 
 func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		accountds.NewAccountDataSource,
+		locationds.NewLocationDataSource,
+	}
 }
 
 func envOrValue(val types.String, envVar string) string {

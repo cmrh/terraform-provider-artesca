@@ -16,7 +16,7 @@ import (
 
 const (
 	managementAPIPath     = "/api/v1"
-	managementHTTPTimeout = 60 * time.Second
+	managementHTTPTimeout = 180 * time.Second
 	contentTypeJSON       = "application/json"
 	maxResponseBytes      = 1 << 20 // 1 MB
 )
