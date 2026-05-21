@@ -283,7 +283,7 @@ func (c *S3Client) PutBucketTagging(ctx context.Context, accessKey, secretKey, b
 		XMLNS: "http://s3.amazonaws.com/doc/2006-03-01/",
 	}
 	for _, t := range tags {
-		req.TagSet.Tags = append(req.TagSet.Tags, taggingRequestTag{Key: t.Key, Value: t.Value})
+		req.TagSet.Tags = append(req.TagSet.Tags, taggingRequestTag(t))
 	}
 	body, err := xml.Marshal(req)
 	if err != nil {
@@ -322,7 +322,7 @@ func (c *S3Client) GetBucketTagging(ctx context.Context, accessKey, secretKey, b
 	}
 	tags := make([]BucketTag, 0, len(resp.TagSet.Tags))
 	for _, t := range resp.TagSet.Tags {
-		tags = append(tags, BucketTag{Key: t.Key, Value: t.Value})
+		tags = append(tags, BucketTag(t))
 	}
 	return tags, nil
 }
