@@ -247,6 +247,103 @@ func (c *S3Client) DeleteBucketPolicy(ctx context.Context, accessKey, secretKey,
 	return nil
 }
 
+// BucketTag is a single key/value pair in a bucket tag set.
+type BucketTag struct {
+	Key   string
+	Value string
+}
+
+type taggingRequest struct {
+	XMLName xml.Name             `xml:"Tagging"`
+	XMLNS   string               `xml:"xmlns,attr"`
+	TagSet  taggingRequestTagSet `xml:"TagSet"`
+}
+
+type taggingRequestTagSet struct {
+	Tags []taggingRequestTag `xml:"Tag"`
+}
+
+type taggingRequestTag struct {
+	Key   string `xml:"Key"`
+	Value string `xml:"Value"`
+}
+
+type taggingResponse struct {
+	XMLName xml.Name              `xml:"Tagging"`
+	TagSet  taggingResponseTagSet `xml:"TagSet"`
+}
+
+type taggingResponseTagSet struct {
+	Tags []taggingRequestTag `xml:"Tag"`
+}
+
+// PutBucketTagging replaces the bucket's tag set with the given tags.
+func (c *S3Client) PutBucketTagging(ctx context.Context, accessKey, secretKey, bucket string, tags []BucketTag) error {
+	req := taggingRequest{
+		XMLNS: "http://s3.amazonaws.com/doc/2006-03-01/",
+	}
+	for _, t := range tags {
+		req.TagSet.Tags = append(req.TagSet.Tags, taggingRequestTag(t))
+	}
+	body, err := xml.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshaling tagging body: %w", err)
+	}
+	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "tagging", string(body), accessKey, secretKey)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK && status != http.StatusNoContent {
+		return fmt.Errorf("put bucket tagging failed (status %d)", status)
+	}
+	return nil
+}
+
+// GetBucketTagging returns the bucket's tag set. If the bucket has no tags,
+// returns (nil, nil) so callers can treat absence as a state-removed signal.
+func (c *S3Client) GetBucketTagging(ctx context.Context, accessKey, secretKey, bucket string) ([]BucketTag, error) {
+	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "tagging", "", accessKey, secretKey)
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchTagSet") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if status == http.StatusNotFound {
+		return nil, nil
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("get bucket tagging failed (status %d)", status)
+	}
+
+	var resp taggingResponse
+	if err := xml.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("parsing tagging response: %w", err)
+	}
+	tags := make([]BucketTag, 0, len(resp.TagSet.Tags))
+	for _, t := range resp.TagSet.Tags {
+		tags = append(tags, BucketTag(t))
+	}
+	return tags, nil
+}
+
+func (c *S3Client) DeleteBucketTagging(ctx context.Context, accessKey, secretKey, bucket string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "tagging", "", accessKey, secretKey)
+	if status == http.StatusNotFound {
+		return nil
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchTagSet") {
+			return nil
+		}
+		return err
+	}
+	if status != http.StatusNoContent && status != http.StatusOK {
+		return fmt.Errorf("delete bucket tagging failed (status %d)", status)
+	}
+	return nil
+}
+
 func (c *S3Client) DeleteBucket(ctx context.Context, accessKey, secretKey, bucket string) error {
 	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "", "", accessKey, secretKey)
 	if status == http.StatusNotFound {
