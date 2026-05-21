@@ -19,11 +19,19 @@ import (
 	bucketpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_policy"
 	buckettagging "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_tagging"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/endpoint"
+	"github.com/scality/terraform-provider-scality-artesca/internal/resources/group"
+	groupmembership "github.com/scality/terraform-provider-scality-artesca/internal/resources/group_membership"
+	grouppolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/group_policy"
+	grouppolicyattachment "github.com/scality/terraform-provider-scality-artesca/internal/resources/group_policy_attachment"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/location"
+	"github.com/scality/terraform-provider-scality-artesca/internal/resources/policy"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/replication"
+	"github.com/scality/terraform-provider-scality-artesca/internal/resources/role"
+	rolepolicyattachment "github.com/scality/terraform-provider-scality-artesca/internal/resources/role_policy_attachment"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/user"
 	useraccesskey "github.com/scality/terraform-provider-scality-artesca/internal/resources/user_access_key"
 	userpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/user_policy"
+	userpolicyattachment "github.com/scality/terraform-provider-scality-artesca/internal/resources/user_policy_attachment"
 	workflowexpiration "github.com/scality/terraform-provider-scality-artesca/internal/resources/workflow_expiration"
 	workflowreplication "github.com/scality/terraform-provider-scality-artesca/internal/resources/workflow_replication"
 	workflowtransition "github.com/scality/terraform-provider-scality-artesca/internal/resources/workflow_transition"
@@ -254,11 +262,19 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 		bucketpolicy.NewBucketPolicyResource,
 		buckettagging.NewBucketTaggingResource,
 		endpoint.NewEndpointResource,
+		group.NewGroupResource,
+		groupmembership.NewGroupMembershipResource,
+		grouppolicy.NewGroupPolicyResource,
+		grouppolicyattachment.NewGroupPolicyAttachmentResource,
 		location.NewLocationResource,
+		policy.NewPolicyResource,
 		replication.NewReplicationResource,
+		role.NewRoleResource,
+		rolepolicyattachment.NewRolePolicyAttachmentResource,
 		user.NewUserResource,
 		useraccesskey.NewUserAccessKeyResource,
 		userpolicy.NewUserPolicyResource,
+		userpolicyattachment.NewUserPolicyAttachmentResource,
 		workflowexpiration.NewWorkflowExpirationResource,
 		workflowreplication.NewWorkflowReplicationResource,
 		workflowtransition.NewWorkflowTransitionResource,
