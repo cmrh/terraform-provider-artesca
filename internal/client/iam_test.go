@@ -674,3 +674,661 @@ func TestSigV4AuthorizationHeaderPresent(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
+
+func TestCreateGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if got := r.Form.Get("Action"); got != "CreateGroup" {
+			t.Errorf("Action = %q, want CreateGroup", got)
+		}
+		if got := r.Form.Get("GroupName"); got != "devs" {
+			t.Errorf("GroupName = %q, want devs", got)
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<CreateGroupResponse><CreateGroupResult><Group><GroupName>devs</GroupName><GroupId>GID1</GroupId><Arn>arn:aws:iam::123:group/devs</Arn><Path>/</Path></Group></CreateGroupResult></CreateGroupResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	g, err := client.CreateGroup(context.Background(), "ak", "sk", "devs")
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if g.GroupName != "devs" || g.GroupId != "GID1" || g.Arn != "arn:aws:iam::123:group/devs" {
+		t.Errorf("unexpected group: %+v", g)
+	}
+}
+
+func TestGetGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<GetGroupResponse><GetGroupResult><Group><GroupName>devs</GroupName><GroupId>GID1</GroupId><Arn>arn:aws:iam::123:group/devs</Arn><Path>/</Path></Group><Users><member><UserName>alice</UserName></member></Users></GetGroupResult></GetGroupResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	g, err := client.GetGroup(context.Background(), "ak", "sk", "devs")
+	if err != nil {
+		t.Fatalf("GetGroup: %v", err)
+	}
+	if g == nil || g.GroupName != "devs" {
+		t.Errorf("unexpected group: %+v", g)
+	}
+}
+
+func TestGetGroupNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "group not found")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	g, err := client.GetGroup(context.Background(), "ak", "sk", "devs")
+	if err != nil {
+		t.Fatalf("expected nil error on NoSuchEntity, got: %v", err)
+	}
+	if g != nil {
+		t.Errorf("expected nil group, got: %+v", g)
+	}
+}
+
+func TestDeleteGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DeleteGroup" {
+			t.Errorf("Action = %q, want DeleteGroup", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeleteGroup(context.Background(), "ak", "sk", "devs"); err != nil {
+		t.Fatalf("DeleteGroup: %v", err)
+	}
+}
+
+func TestDeleteGroupNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "gone")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeleteGroup(context.Background(), "ak", "sk", "devs"); err != nil {
+		t.Fatalf("expected nil error on NoSuchEntity, got: %v", err)
+	}
+}
+
+func TestAddUserToGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if got := r.Form.Get("Action"); got != "AddUserToGroup" {
+			t.Errorf("Action = %q, want AddUserToGroup", got)
+		}
+		if r.Form.Get("GroupName") != "devs" || r.Form.Get("UserName") != "alice" {
+			t.Errorf("unexpected form values: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.AddUserToGroup(context.Background(), "ak", "sk", "devs", "alice"); err != nil {
+		t.Fatalf("AddUserToGroup: %v", err)
+	}
+}
+
+func TestRemoveUserFromGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "RemoveUserFromGroup" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.RemoveUserFromGroup(context.Background(), "ak", "sk", "devs", "alice"); err != nil {
+		t.Fatalf("RemoveUserFromGroup: %v", err)
+	}
+}
+
+func TestRemoveUserFromGroupNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "gone")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.RemoveUserFromGroup(context.Background(), "ak", "sk", "devs", "alice"); err != nil {
+		t.Fatalf("expected nil error on NoSuchEntity, got: %v", err)
+	}
+}
+
+func TestListGroupsForUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<ListGroupsForUserResponse><ListGroupsForUserResult><Groups><member><GroupName>devs</GroupName></member><member><GroupName>admins</GroupName></member></Groups></ListGroupsForUserResult></ListGroupsForUserResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	groups, err := client.ListGroupsForUser(context.Background(), "ak", "sk", "alice")
+	if err != nil {
+		t.Fatalf("ListGroupsForUser: %v", err)
+	}
+	if len(groups) != 2 || groups[0] != "devs" || groups[1] != "admins" {
+		t.Errorf("unexpected groups: %v", groups)
+	}
+}
+
+func TestListGroupsForUserNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "no user")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	groups, err := client.ListGroupsForUser(context.Background(), "ak", "sk", "alice")
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if groups != nil {
+		t.Errorf("expected nil groups, got: %v", groups)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Group inline policies
+// ---------------------------------------------------------------------------
+
+func TestPutGroupPolicy(t *testing.T) {
+	doc := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:*","Resource":"*"}]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if r.Form.Get("Action") != "PutGroupPolicy" || r.Form.Get("GroupName") != "devs" ||
+			r.Form.Get("PolicyName") != "pol" || r.Form.Get("PolicyDocument") != doc {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.PutGroupPolicy(context.Background(), "ak", "sk", "devs", "pol", doc); err != nil {
+		t.Fatalf("PutGroupPolicy: %v", err)
+	}
+}
+
+func TestGetGroupPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<GetGroupPolicyResponse><GetGroupPolicyResult><GroupName>devs</GroupName><PolicyName>pol</PolicyName><PolicyDocument>%7B%22Version%22%3A%222012-10-17%22%7D</PolicyDocument></GetGroupPolicyResult></GetGroupPolicyResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	doc, err := client.GetGroupPolicy(context.Background(), "ak", "sk", "devs", "pol")
+	if err != nil {
+		t.Fatalf("GetGroupPolicy: %v", err)
+	}
+	if doc != `{"Version":"2012-10-17"}` {
+		t.Errorf("got %q", doc)
+	}
+}
+
+func TestGetGroupPolicyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "no pol")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	doc, err := client.GetGroupPolicy(context.Background(), "ak", "sk", "devs", "pol")
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if doc != "" {
+		t.Errorf("expected empty doc, got %q", doc)
+	}
+}
+
+func TestDeleteGroupPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DeleteGroupPolicy" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeleteGroupPolicy(context.Background(), "ak", "sk", "devs", "pol"); err != nil {
+		t.Fatalf("DeleteGroupPolicy: %v", err)
+	}
+}
+
+func TestDeleteGroupPolicyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "gone")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeleteGroupPolicy(context.Background(), "ak", "sk", "devs", "pol"); err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------------
+
+func TestCreateRole(t *testing.T) {
+	trust := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if r.Form.Get("Action") != "CreateRole" || r.Form.Get("RoleName") != "myrole" ||
+			r.Form.Get("AssumeRolePolicyDocument") != trust || r.Form.Get("Description") != "test role" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<CreateRoleResponse><CreateRoleResult><Role><RoleName>myrole</RoleName><RoleId>RID1</RoleId><Arn>arn:aws:iam::123:role/myrole</Arn><Path>/</Path><AssumeRolePolicyDocument>%7B%22Version%22%3A%222012-10-17%22%7D</AssumeRolePolicyDocument><Description>test role</Description></Role></CreateRoleResult></CreateRoleResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	role, err := client.CreateRole(context.Background(), "ak", "sk", "myrole", trust, "test role")
+	if err != nil {
+		t.Fatalf("CreateRole: %v", err)
+	}
+	if role.RoleName != "myrole" || role.RoleId != "RID1" {
+		t.Errorf("unexpected role: %+v", role)
+	}
+	if role.AssumeRolePolicyDocument != `{"Version":"2012-10-17"}` {
+		t.Errorf("trust not decoded: %q", role.AssumeRolePolicyDocument)
+	}
+}
+
+func TestCreateRoleNoDescription(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if _, set := r.Form["Description"]; set {
+			t.Errorf("Description should not be set when empty")
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<CreateRoleResponse><CreateRoleResult><Role><RoleName>r</RoleName></Role></CreateRoleResult></CreateRoleResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if _, err := client.CreateRole(context.Background(), "ak", "sk", "r", "{}", ""); err != nil {
+		t.Fatalf("CreateRole: %v", err)
+	}
+}
+
+func TestGetRole(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<GetRoleResponse><GetRoleResult><Role><RoleName>myrole</RoleName><RoleId>RID1</RoleId><Arn>arn:aws:iam::123:role/myrole</Arn><Path>/</Path><AssumeRolePolicyDocument>%7B%22V%22%3A1%7D</AssumeRolePolicyDocument></Role></GetRoleResult></GetRoleResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	role, err := client.GetRole(context.Background(), "ak", "sk", "myrole")
+	if err != nil {
+		t.Fatalf("GetRole: %v", err)
+	}
+	if role == nil || role.RoleName != "myrole" {
+		t.Errorf("unexpected role: %+v", role)
+	}
+	if role.AssumeRolePolicyDocument != `{"V":1}` {
+		t.Errorf("trust not decoded: %q", role.AssumeRolePolicyDocument)
+	}
+}
+
+func TestGetRoleNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "no role")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	role, err := client.GetRole(context.Background(), "ak", "sk", "myrole")
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got: %+v", role)
+	}
+}
+
+func TestDeleteRole(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DeleteRole" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeleteRole(context.Background(), "ak", "sk", "myrole"); err != nil {
+		t.Fatalf("DeleteRole: %v", err)
+	}
+}
+
+func TestDeleteRoleNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "gone")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeleteRole(context.Background(), "ak", "sk", "myrole"); err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Managed policies
+// ---------------------------------------------------------------------------
+
+func TestCreatePolicy(t *testing.T) {
+	doc := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:GetObject","Resource":"*"}]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if r.Form.Get("Action") != "CreatePolicy" || r.Form.Get("PolicyName") != "mp" ||
+			r.Form.Get("PolicyDocument") != doc || r.Form.Get("Description") != "d" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<CreatePolicyResponse><CreatePolicyResult><Policy><PolicyName>mp</PolicyName><PolicyId>PID1</PolicyId><Arn>arn:aws:iam::123:policy/mp</Arn><Path>/</Path><DefaultVersionId>v1</DefaultVersionId><Description>d</Description></Policy></CreatePolicyResult></CreatePolicyResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	pol, err := client.CreatePolicy(context.Background(), "ak", "sk", "mp", doc, "d")
+	if err != nil {
+		t.Fatalf("CreatePolicy: %v", err)
+	}
+	if pol.PolicyName != "mp" || pol.Arn != "arn:aws:iam::123:policy/mp" || pol.DefaultVersionId != "v1" {
+		t.Errorf("unexpected policy: %+v", pol)
+	}
+}
+
+func TestGetPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("PolicyArn"); got != "arn:aws:iam::123:policy/mp" {
+			t.Errorf("PolicyArn = %q", got)
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<GetPolicyResponse><GetPolicyResult><Policy><PolicyName>mp</PolicyName><PolicyId>PID1</PolicyId><Arn>arn:aws:iam::123:policy/mp</Arn><DefaultVersionId>v1</DefaultVersionId></Policy></GetPolicyResult></GetPolicyResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	pol, err := client.GetPolicy(context.Background(), "ak", "sk", "arn:aws:iam::123:policy/mp")
+	if err != nil {
+		t.Fatalf("GetPolicy: %v", err)
+	}
+	if pol == nil || pol.PolicyName != "mp" {
+		t.Errorf("unexpected policy: %+v", pol)
+	}
+}
+
+func TestGetPolicyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "no pol")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	pol, err := client.GetPolicy(context.Background(), "ak", "sk", "arn:...")
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if pol != nil {
+		t.Errorf("expected nil policy, got: %+v", pol)
+	}
+}
+
+func TestGetPolicyDocument(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("VersionId"); got != "v1" {
+			t.Errorf("VersionId = %q", got)
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<GetPolicyVersionResponse><GetPolicyVersionResult><PolicyVersion><Document>%7B%22Version%22%3A%222012-10-17%22%7D</Document><VersionId>v1</VersionId><IsDefaultVersion>true</IsDefaultVersion></PolicyVersion></GetPolicyVersionResult></GetPolicyVersionResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	doc, err := client.GetPolicyDocument(context.Background(), "ak", "sk", "arn", "v1")
+	if err != nil {
+		t.Fatalf("GetPolicyDocument: %v", err)
+	}
+	if doc != `{"Version":"2012-10-17"}` {
+		t.Errorf("got %q", doc)
+	}
+}
+
+func TestDeletePolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DeletePolicy" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeletePolicy(context.Background(), "ak", "sk", "arn"); err != nil {
+		t.Fatalf("DeletePolicy: %v", err)
+	}
+}
+
+func TestDeletePolicyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "gone")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeletePolicy(context.Background(), "ak", "sk", "arn"); err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Managed-policy attachments (user/group/role)
+// ---------------------------------------------------------------------------
+
+func TestAttachUserPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if r.Form.Get("Action") != "AttachUserPolicy" || r.Form.Get("UserName") != "alice" || r.Form.Get("PolicyArn") != "arn" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.AttachUserPolicy(context.Background(), "ak", "sk", "alice", "arn"); err != nil {
+		t.Fatalf("AttachUserPolicy: %v", err)
+	}
+}
+
+func TestDetachUserPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DetachUserPolicy" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DetachUserPolicy(context.Background(), "ak", "sk", "alice", "arn"); err != nil {
+		t.Fatalf("DetachUserPolicy: %v", err)
+	}
+}
+
+func TestDetachUserPolicyNoSuchEntity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(xmlErrorResponse("NoSuchEntity", "gone")))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DetachUserPolicy(context.Background(), "ak", "sk", "alice", "arn"); err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+}
+
+func TestListAttachedUserPolicies(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<ListAttachedUserPoliciesResponse><ListAttachedUserPoliciesResult><AttachedPolicies><member><PolicyName>p1</PolicyName><PolicyArn>arn:1</PolicyArn></member><member><PolicyName>p2</PolicyName><PolicyArn>arn:2</PolicyArn></member></AttachedPolicies></ListAttachedUserPoliciesResult></ListAttachedUserPoliciesResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	arns, err := client.ListAttachedUserPolicies(context.Background(), "ak", "sk", "alice")
+	if err != nil {
+		t.Fatalf("ListAttachedUserPolicies: %v", err)
+	}
+	if len(arns) != 2 || arns[0] != "arn:1" || arns[1] != "arn:2" {
+		t.Errorf("unexpected arns: %v", arns)
+	}
+}
+
+func TestAttachGroupPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if r.Form.Get("Action") != "AttachGroupPolicy" || r.Form.Get("GroupName") != "devs" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.AttachGroupPolicy(context.Background(), "ak", "sk", "devs", "arn"); err != nil {
+		t.Fatalf("AttachGroupPolicy: %v", err)
+	}
+}
+
+func TestDetachGroupPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DetachGroupPolicy" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DetachGroupPolicy(context.Background(), "ak", "sk", "devs", "arn"); err != nil {
+		t.Fatalf("DetachGroupPolicy: %v", err)
+	}
+}
+
+func TestListAttachedGroupPolicies(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<ListAttachedGroupPoliciesResponse><ListAttachedGroupPoliciesResult><AttachedPolicies><member><PolicyName>p</PolicyName><PolicyArn>arn:g</PolicyArn></member></AttachedPolicies></ListAttachedGroupPoliciesResult></ListAttachedGroupPoliciesResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	arns, err := client.ListAttachedGroupPolicies(context.Background(), "ak", "sk", "devs")
+	if err != nil {
+		t.Fatalf("ListAttachedGroupPolicies: %v", err)
+	}
+	if len(arns) != 1 || arns[0] != "arn:g" {
+		t.Errorf("unexpected arns: %v", arns)
+	}
+}
+
+func TestAttachRolePolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if r.Form.Get("Action") != "AttachRolePolicy" || r.Form.Get("RoleName") != "myrole" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.AttachRolePolicy(context.Background(), "ak", "sk", "myrole", "arn"); err != nil {
+		t.Fatalf("AttachRolePolicy: %v", err)
+	}
+}
+
+func TestDetachRolePolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.FormValue("Action"); got != "DetachRolePolicy" {
+			t.Errorf("Action = %q", got)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DetachRolePolicy(context.Background(), "ak", "sk", "myrole", "arn"); err != nil {
+		t.Fatalf("DetachRolePolicy: %v", err)
+	}
+}
+
+func TestListAttachedRolePolicies(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<ListAttachedRolePoliciesResponse><ListAttachedRolePoliciesResult><AttachedPolicies><member><PolicyName>p</PolicyName><PolicyArn>arn:r</PolicyArn></member></AttachedPolicies></ListAttachedRolePoliciesResult></ListAttachedRolePoliciesResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	arns, err := client.ListAttachedRolePolicies(context.Background(), "ak", "sk", "myrole")
+	if err != nil {
+		t.Fatalf("ListAttachedRolePolicies: %v", err)
+	}
+	if len(arns) != 1 || arns[0] != "arn:r" {
+		t.Errorf("unexpected arns: %v", arns)
+	}
+}

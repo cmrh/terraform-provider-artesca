@@ -71,6 +71,100 @@ output "user_policy_name" {
   value = artesca_user_policy.test.policy_name
 }
 
+# --- IAM Group + Inline Policy + Membership ---
+
+resource "artesca_group" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  name               = "inttest-group"
+}
+
+resource "artesca_group_policy" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  group_name         = artesca_group.test.name
+  policy_name        = "inttest-group-policy"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::*"
+      }
+    ]
+  })
+}
+
+resource "artesca_group_membership" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  group_name         = artesca_group.test.name
+  username           = artesca_user.test.username
+}
+
+# --- IAM Managed Policy + Attachments (user/group/role) ---
+
+resource "artesca_policy" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  name               = "inttest-managed-policy"
+  description        = "Integration test managed policy"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "arn:aws:s3:::*"
+      }
+    ]
+  })
+}
+
+resource "artesca_user_policy_attachment" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  username           = artesca_user.test.username
+  policy_arn         = artesca_policy.test.arn
+}
+
+resource "artesca_group_policy_attachment" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  group_name         = artesca_group.test.name
+  policy_arn         = artesca_policy.test.arn
+}
+
+# --- IAM Role + Attachment ---
+
+resource "artesca_role" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  name               = "inttest-role"
+  description        = "Integration test role"
+
+  assume_role_policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { AWS = "*" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "artesca_role_policy_attachment" "test" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  role_name          = artesca_role.test.name
+  policy_arn         = artesca_policy.test.arn
+}
+
 # --- Location (source) ---
 
 variable "ring_s3_endpoint" {
@@ -187,9 +281,13 @@ resource "artesca_bucket_policy" "source" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid       = "AllowAccountRead"
-      Effect    = "Allow"
-      Principal = { AWS = artesca_account.test.arn }
+      Sid    = "AllowAccountRead"
+      Effect = "Allow"
+      # Workaround: artesca_account.test.arn returns a malformed IAM ARN
+      # (arn:aws:iam::<id>:/<name>/) that the S3 policy validator rejects.
+      # Use the canonical account-root principal until the server returns the
+      # correct ARN format.
+      Principal = { AWS = "arn:aws:iam::${artesca_account.test.id}:root" }
       Action    = ["s3:GetObject", "s3:ListBucket"]
       Resource = [
         "arn:aws:s3:::${artesca_bucket.source.name}",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -364,6 +365,205 @@ func testAccCheckUserPolicyDestroy(s *terraform.State) error {
 		}
 		if doc != "" {
 			return fmt.Errorf("user policy %s still exists for user %s", rs.Primary.Attributes["policy_name"], rs.Primary.Attributes["username"])
+		}
+	}
+	return nil
+}
+
+func testAccIAMClientFromEnv() (*client.IAMClient, error) {
+	endpoint := os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT")
+	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+	iamEndpoint, err := client.DeriveIAMEndpoint(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	return client.NewIAMClient(iamEndpoint, "us-east-1", insecure), nil
+}
+
+func testAccCheckGroupDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_group" {
+			continue
+		}
+		g, err := iamClient.GetGroup(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["name"])
+		if err != nil {
+			continue
+		}
+		if g != nil {
+			return fmt.Errorf("group %s still exists", rs.Primary.Attributes["name"])
+		}
+	}
+	return nil
+}
+
+func testAccCheckGroupMembershipDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_group_membership" {
+			continue
+		}
+		groups, err := iamClient.ListGroupsForUser(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["username"])
+		if err != nil {
+			continue
+		}
+		want := rs.Primary.Attributes["group_name"]
+		if slices.Contains(groups, want) {
+			return fmt.Errorf("user %s still in group %s", rs.Primary.Attributes["username"], want)
+		}
+	}
+	return nil
+}
+
+func testAccCheckGroupPolicyDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_group_policy" {
+			continue
+		}
+		doc, err := iamClient.GetGroupPolicy(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["group_name"],
+			rs.Primary.Attributes["policy_name"])
+		if err != nil {
+			continue
+		}
+		if doc != "" {
+			return fmt.Errorf("group policy %s still exists on %s", rs.Primary.Attributes["policy_name"], rs.Primary.Attributes["group_name"])
+		}
+	}
+	return nil
+}
+
+func testAccCheckRoleDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_role" {
+			continue
+		}
+		role, err := iamClient.GetRole(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["name"])
+		if err != nil {
+			continue
+		}
+		if role != nil {
+			return fmt.Errorf("role %s still exists", rs.Primary.Attributes["name"])
+		}
+	}
+	return nil
+}
+
+func testAccCheckPolicyDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_policy" {
+			continue
+		}
+		pol, err := iamClient.GetPolicy(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["arn"])
+		if err != nil {
+			continue
+		}
+		if pol != nil {
+			return fmt.Errorf("managed policy %s still exists", rs.Primary.Attributes["arn"])
+		}
+	}
+	return nil
+}
+
+func testAccCheckUserPolicyAttachmentDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_user_policy_attachment" {
+			continue
+		}
+		arns, err := iamClient.ListAttachedUserPolicies(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["username"])
+		if err != nil {
+			continue
+		}
+		want := rs.Primary.Attributes["policy_arn"]
+		if slices.Contains(arns, want) {
+			return fmt.Errorf("user %s still has policy %s attached", rs.Primary.Attributes["username"], want)
+		}
+	}
+	return nil
+}
+
+func testAccCheckGroupPolicyAttachmentDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_group_policy_attachment" {
+			continue
+		}
+		arns, err := iamClient.ListAttachedGroupPolicies(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["group_name"])
+		if err != nil {
+			continue
+		}
+		want := rs.Primary.Attributes["policy_arn"]
+		if slices.Contains(arns, want) {
+			return fmt.Errorf("group %s still has policy %s attached", rs.Primary.Attributes["group_name"], want)
+		}
+	}
+	return nil
+}
+
+func testAccCheckRolePolicyAttachmentDestroy(s *terraform.State) error {
+	iamClient, err := testAccIAMClientFromEnv()
+	if err != nil {
+		return err
+	}
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_role_policy_attachment" {
+			continue
+		}
+		arns, err := iamClient.ListAttachedRolePolicies(context.Background(),
+			rs.Primary.Attributes["account_access_key"],
+			rs.Primary.Attributes["account_secret_key"],
+			rs.Primary.Attributes["role_name"])
+		if err != nil {
+			continue
+		}
+		want := rs.Primary.Attributes["policy_arn"]
+		if slices.Contains(arns, want) {
+			return fmt.Errorf("role %s still has policy %s attached", rs.Primary.Attributes["role_name"], want)
 		}
 	}
 	return nil

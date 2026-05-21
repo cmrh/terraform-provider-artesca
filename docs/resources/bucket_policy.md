@@ -21,9 +21,12 @@ resource "artesca_bucket_policy" "example" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowAccountRead"
-        Effect    = "Allow"
-        Principal = { AWS = artesca_account.example.arn }
+        Sid    = "AllowAccountRead"
+        Effect = "Allow"
+        # Use the account-root principal form, not `artesca_account.example.arn`.
+        # The management API currently returns a malformed ARN (path-style suffix)
+        # that the S3 policy validator rejects as MalformedPolicy.
+        Principal = { AWS = "arn:aws:iam::${artesca_account.example.id}:root" }
         Action    = ["s3:GetObject", "s3:ListBucket"]
         Resource = [
           "arn:aws:s3:::${artesca_bucket.example.name}",
@@ -56,3 +59,4 @@ resource "artesca_bucket_policy" "example" {
 - ARTESCA validates the policy on `PUT`. Common rejection: `MalformedPolicy: Policy has invalid resource` when a Resource ARN names a different bucket.
 - Anonymous principals (`Principal: "*"`) are accepted.
 - The policy field uses semantic JSON comparison for drift detection, so reformatting the policy with `jsonencode` or alternate whitespace will not produce a planned change.
+- **Account principals:** Do not use `artesca_account.<x>.arn` for `Principal.AWS`. The management API currently returns a non-standard ARN (`arn:aws:iam::<id>:/<name>/`) that the policy validator rejects with a misleading `MalformedPolicy: This policy contains invalid Json` error. Construct the root form yourself: `"arn:aws:iam::${artesca_account.<x>.id}:root"`.
