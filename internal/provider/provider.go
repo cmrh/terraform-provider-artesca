@@ -17,6 +17,7 @@ import (
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
 	bucketpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_policy"
+	buckettagging "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_tagging"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/endpoint"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/location"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/replication"
@@ -251,6 +252,7 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 		account.NewAccountResource,
 		bucket.NewBucketResource,
 		bucketpolicy.NewBucketPolicyResource,
+		buckettagging.NewBucketTaggingResource,
 		endpoint.NewEndpointResource,
 		location.NewLocationResource,
 		replication.NewReplicationResource,

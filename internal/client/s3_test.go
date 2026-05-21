@@ -392,6 +392,94 @@ func TestDeleteBucketPolicyAlreadyAbsent(t *testing.T) {
 	}
 }
 
+func TestPutBucketTagging(t *testing.T) {
+	var requestBody string
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery != "tagging=" {
+			t.Errorf("query = %q, want tagging=", r.URL.RawQuery)
+		}
+		buf := make([]byte, 4096)
+		n, _ := r.Body.Read(buf)
+		requestBody = string(buf[:n])
+		w.WriteHeader(204)
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	tags := []BucketTag{{Key: "env", Value: "prod"}, {Key: "team", Value: "data"}}
+	if err := client.PutBucketTagging(context.Background(), "AKID", "secret", "my-bucket", tags); err != nil {
+		t.Fatalf("PutBucketTagging returned error: %v", err)
+	}
+	if !strings.Contains(requestBody, "<Key>env</Key>") || !strings.Contains(requestBody, "<Value>prod</Value>") {
+		t.Errorf("body missing env=prod tag: %s", requestBody)
+	}
+	if !strings.Contains(requestBody, "<Key>team</Key>") {
+		t.Errorf("body missing team tag: %s", requestBody)
+	}
+}
+
+func TestGetBucketTagging(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <TagSet>
+    <Tag><Key>env</Key><Value>prod</Value></Tag>
+    <Tag><Key>owner</Key><Value>alice</Value></Tag>
+  </TagSet>
+</Tagging>`))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	tags, err := client.GetBucketTagging(context.Background(), "AKID", "secret", "my-bucket")
+	if err != nil {
+		t.Fatalf("GetBucketTagging returned error: %v", err)
+	}
+	if len(tags) != 2 {
+		t.Fatalf("got %d tags, want 2", len(tags))
+	}
+	if tags[0].Key != "env" || tags[0].Value != "prod" {
+		t.Errorf("tag[0] = %+v, want env=prod", tags[0])
+	}
+	if tags[1].Key != "owner" || tags[1].Value != "alice" {
+		t.Errorf("tag[1] = %+v, want owner=alice", tags[1])
+	}
+}
+
+func TestGetBucketTaggingNoSuchTagSet(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = w.Write([]byte(`<Error><Code>NoSuchTagSet</Code><Message>The TagSet does not exist</Message></Error>`))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	tags, err := client.GetBucketTagging(context.Background(), "AKID", "secret", "my-bucket")
+	if err != nil {
+		t.Fatalf("expected NoSuchTagSet to be silenced, got error: %v", err)
+	}
+	if tags != nil {
+		t.Errorf("expected nil tags, got %v", tags)
+	}
+}
+
+func TestDeleteBucketTagging(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("method = %s, want DELETE", r.Method)
+		}
+		w.WriteHeader(204)
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	if err := client.DeleteBucketTagging(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+		t.Fatalf("DeleteBucketTagging returned error: %v", err)
+	}
+}
+
 func TestS3ClientTrailingSlash(t *testing.T) {
 	client := NewS3Client("https://s3.example.com/", "us-east-1", false)
 	if client.endpoint != "https://s3.example.com" {

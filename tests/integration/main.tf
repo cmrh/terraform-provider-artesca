@@ -199,6 +199,19 @@ resource "artesca_bucket_policy" "source" {
   })
 }
 
+# --- Bucket Tagging ---
+
+resource "artesca_bucket_tagging" "source" {
+  account_access_key = artesca_account.test.access_key
+  account_secret_key = artesca_account.test.secret_key
+  bucket_name        = artesca_bucket.source.name
+
+  tags = {
+    environment = "integration"
+    managed_by  = "terraform"
+  }
+}
+
 # --- Endpoint ---
 
 resource "artesca_endpoint" "test" {
