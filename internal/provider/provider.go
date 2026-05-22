@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -17,6 +18,7 @@ import (
 	endpointsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/endpoints"
 	locationds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/location"
 	locationsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/locations"
+	assumedrolecredentials "github.com/scality/terraform-provider-scality-artesca/internal/ephemeral/assumed_role_credentials"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
 	bucketpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_policy"
@@ -243,19 +245,31 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 	iamClient := client.NewIAMClient(iamEndpoint, iamRegion, insecureSkipVerify)
 
 	var s3Client *client.S3Client
+	var stsClient *client.STSClient
 	if s3Endpoint != "" {
 		s3Client = client.NewS3Client(s3Endpoint, iamRegion, insecureSkipVerify)
 		tflog.Info(ctx, "Configured S3 client", map[string]any{"s3_endpoint": s3Endpoint})
+
+		// STS endpoint is derived from the S3 endpoint (s3.<cluster> -> sts.<cluster>).
+		stsEndpoint, err := client.DeriveSTSEndpoint(s3Endpoint)
+		if err != nil {
+			tflog.Warn(ctx, "STS endpoint derivation failed; STS-backed ephemeral resources will be unavailable", map[string]any{"error": err.Error()})
+		} else {
+			stsClient = client.NewSTSClient(stsEndpoint, iamRegion, insecureSkipVerify)
+			tflog.Info(ctx, "Configured STS client", map[string]any{"sts_endpoint": stsEndpoint})
+		}
 	}
 
 	clients := &client.ProviderClients{
 		Management: mgmtClient,
 		IAM:        iamClient,
 		S3:         s3Client,
+		STS:        stsClient,
 	}
 
 	resp.ResourceData = clients
 	resp.DataSourceData = clients
+	resp.EphemeralResourceData = clients
 }
 
 func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -291,6 +305,12 @@ func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.Dat
 		endpointsds.NewEndpointsDataSource,
 		locationds.NewLocationDataSource,
 		locationsds.NewLocationsDataSource,
+	}
+}
+
+func (p *ArtescaProvider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
+	return []func() ephemeral.EphemeralResource{
+		assumedrolecredentials.NewAssumedRoleCredentialsEphemeralResource,
 	}
 }
 
