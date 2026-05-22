@@ -13,7 +13,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
 	accountds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/account"
+	accountsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/accounts"
+	endpointsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/endpoints"
 	locationds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/location"
+	locationsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/locations"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
 	bucketpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_policy"
@@ -284,7 +287,10 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		accountds.NewAccountDataSource,
+		accountsds.NewAccountsDataSource,
+		endpointsds.NewEndpointsDataSource,
 		locationds.NewLocationDataSource,
+		locationsds.NewLocationsDataSource,
 	}
 }
 
