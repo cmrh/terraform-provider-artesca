@@ -165,6 +165,32 @@ resource "artesca_role_policy_attachment" "test" {
   policy_arn         = artesca_policy.test.arn
 }
 
+# --- STS AssumeRole (ephemeral) ---
+
+ephemeral "artesca_assumed_role_credentials" "test" {
+  access_key        = artesca_user_access_key.test.access_key_id
+  secret_key        = artesca_user_access_key.test.secret_access_key
+  role_arn          = artesca_role.test.arn
+  role_session_name = "inttest-session"
+  duration_seconds  = 3600
+
+  # Ensure the attachment exists before we try to assume the role — otherwise
+  # the session would succeed but have no permissions, which is fine for this
+  # smoke test but ordering is cleaner this way.
+  depends_on = [artesca_role_policy_attachment.test]
+}
+
+check "assume_role_returned_credentials" {
+  assert {
+    condition     = ephemeral.artesca_assumed_role_credentials.test.assumed_role_arn != ""
+    error_message = "ephemeral assumed_role_arn was empty"
+  }
+  assert {
+    condition     = ephemeral.artesca_assumed_role_credentials.test.expiration != ""
+    error_message = "ephemeral expiration was empty"
+  }
+}
+
 # --- Location (source) ---
 
 variable "ring_s3_endpoint" {
