@@ -26,6 +26,7 @@ import (
 	assumedrolecredentials "github.com/scality/terraform-provider-scality-artesca/internal/ephemeral/assumed_role_credentials"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
+	bucketencryption "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_encryption"
 	bucketpolicy "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_policy"
 	buckettagging "github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket_tagging"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/endpoint"
@@ -281,6 +282,7 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 	return []func() resource.Resource{
 		account.NewAccountResource,
 		bucket.NewBucketResource,
+		bucketencryption.NewBucketEncryptionResource,
 		bucketpolicy.NewBucketPolicyResource,
 		buckettagging.NewBucketTaggingResource,
 		endpoint.NewEndpointResource,
