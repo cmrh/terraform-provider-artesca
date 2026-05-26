@@ -207,3 +207,25 @@ func (v JSONDocument) ValidateString(_ context.Context, req validator.StringRequ
 			"Must be a valid JSON document.")
 	}
 }
+
+// SSEAlgorithm validates that the value is one of the SSE algorithms ARTESCA accepts.
+type SSEAlgorithm struct{}
+
+func (v SSEAlgorithm) Description(_ context.Context) string {
+	return `must be "AES256"`
+}
+
+func (v SSEAlgorithm) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v SSEAlgorithm) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	val := req.ConfigValue.ValueString()
+	if val != "AES256" {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid SSE algorithm",
+			fmt.Sprintf("Must be \"AES256\", got %q.", val))
+	}
+}
