@@ -221,7 +221,38 @@ func (r *WorkflowReplicationResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	// Workflow reads are not available via a direct endpoint — preserve state as-is.
+	instanceID := r.resolveInstanceID(&state)
+	accountID := state.AccountID.ValueString()
+	bucketName := state.BucketName.ValueString()
+	workflowID := state.WorkflowID.ValueString()
+
+	results, err := r.client.SearchWorkflows(ctx, instanceID, accountID, []string{bucketName})
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading bucket workflow replication", err.Error())
+		return
+	}
+
+	var found *client.ReplicationStream
+	for _, item := range results {
+		if item.Replication != nil && item.Replication.StreamID == workflowID {
+			found = item.Replication
+			break
+		}
+	}
+	if found == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	// Workflow search returns name and version as null even when they were set
+	// at create time, so preserve those from existing state.
+	preservedName := state.Name
+	preservedVersion := state.Version
+
+	state.InstanceID = types.StringValue(instanceID)
+	apiReplicationToModel(found, &state)
+	state.Name = preservedName
+	state.Version = preservedVersion
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

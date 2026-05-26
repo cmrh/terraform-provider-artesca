@@ -15,6 +15,7 @@ import (
 	"github.com/scality/terraform-provider-scality-artesca/internal/client"
 	accountds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/account"
 	accountsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/accounts"
+	bucketworkflowsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/bucket_workflows"
 	calleridentityds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/caller_identity"
 	endpointsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/endpoints"
 	groupds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/group"
@@ -309,6 +310,7 @@ func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		accountds.NewAccountDataSource,
 		accountsds.NewAccountsDataSource,
+		bucketworkflowsds.NewBucketWorkflowsDataSource,
 		calleridentityds.NewCallerIdentityDataSource,
 		endpointsds.NewEndpointsDataSource,
 		groupds.NewGroupDataSource,
