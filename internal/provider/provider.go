@@ -16,8 +16,12 @@ import (
 	accountds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/account"
 	accountsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/accounts"
 	endpointsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/endpoints"
+	groupds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/group"
 	locationds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/location"
 	locationsds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/locations"
+	policyds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/policy"
+	roleds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/role"
+	userds "github.com/scality/terraform-provider-scality-artesca/internal/datasources/user"
 	assumedrolecredentials "github.com/scality/terraform-provider-scality-artesca/internal/ephemeral/assumed_role_credentials"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/account"
 	"github.com/scality/terraform-provider-scality-artesca/internal/resources/bucket"
@@ -303,8 +307,12 @@ func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.Dat
 		accountds.NewAccountDataSource,
 		accountsds.NewAccountsDataSource,
 		endpointsds.NewEndpointsDataSource,
+		groupds.NewGroupDataSource,
 		locationds.NewLocationDataSource,
 		locationsds.NewLocationsDataSource,
+		policyds.NewPolicyDataSource,
+		roleds.NewRoleDataSource,
+		userds.NewUserDataSource,
 	}
 }
 
