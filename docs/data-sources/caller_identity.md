@@ -11,16 +11,13 @@ Calls STS `GetCallerIdentity` to resolve the identity associated with a given ac
 
 The STS endpoint is derived from the configured S3 endpoint (`s3.` → `sts.`) — no additional provider configuration is needed.
 
-> **Note:** session credentials (those produced by `ephemeral.artesca_assumed_role_credentials`, which carry a `session_token`) are not supported here yet. Pass static account or IAM user credentials only.
+Supports both **static credentials** (an account's or IAM user's access key + secret key) and **temporary credentials** (those minted by `sts:AssumeRole`), which require an additional `session_token`.
 
-## Example
+## Examples
+
+Static credentials:
 
 ```hcl
-resource "artesca_account" "ops" {
-  name  = "ops"
-  email = "ops@example.com"
-}
-
 data "artesca_caller_identity" "ops" {
   access_key = artesca_account.ops.access_key
   secret_key = artesca_account.ops.secret_key
@@ -35,12 +32,25 @@ output "ops_arn" {
 }
 ```
 
+Temporary credentials (e.g. round-tripping a freshly assumed role to confirm the identity it resolves to):
+
+```hcl
+data "artesca_caller_identity" "as_writer" {
+  access_key    = local.session_access_key
+  secret_key    = local.session_secret_key
+  session_token = local.session_token
+}
+```
+
+> **Note:** Terraform data sources cannot reference attributes of `ephemeral.*` resources directly. To use `data.artesca_caller_identity` with credentials freshly minted by `ephemeral.artesca_assumed_role_credentials`, you must materialize the credentials through an intermediate path (e.g. a `terraform_data` resource with `write-only` attributes, or supply the credentials via input variables).
+
 ## Argument Reference
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `access_key` | String | Yes | The access key whose identity should be looked up. Sensitive. |
 | `secret_key` | String | Yes | The secret key paired with `access_key`. Sensitive. |
+| `session_token` | String | Optional | STS session token. Set this when introspecting temporary credentials (those minted by `sts:AssumeRole`); omit for static account / IAM user credentials. Sensitive. |
 
 ## Attributes Exported
 

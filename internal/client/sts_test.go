@@ -206,7 +206,7 @@ func TestGetCallerIdentity(t *testing.T) {
 	defer server.Close()
 
 	client := NewSTSClient(server.URL, "us-east-1", false)
-	id, err := client.GetCallerIdentity(context.Background(), "ak", "sk")
+	id, err := client.GetCallerIdentity(context.Background(), "ak", "sk", "")
 	if err != nil {
 		t.Fatalf("GetCallerIdentity: %v", err)
 	}
@@ -223,11 +223,38 @@ func TestGetCallerIdentityServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewSTSClient(server.URL, "us-east-1", false)
-	_, err := client.GetCallerIdentity(context.Background(), "ak", "sk")
+	_, err := client.GetCallerIdentity(context.Background(), "ak", "sk", "")
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "status 500") {
 		t.Errorf("error = %q, want status 500 mention", err.Error())
+	}
+}
+
+func TestGetCallerIdentityWithSessionToken(t *testing.T) {
+	var gotSecurityToken string
+	var gotAuthHeader string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotSecurityToken = r.Header.Get("X-Amz-Security-Token")
+		gotAuthHeader = r.Header.Get("Authorization")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`<GetCallerIdentityResponse><GetCallerIdentityResult><UserId>SESSION:alice</UserId><Account>123</Account><Arn>arn:aws:sts::123:assumed-role/writer/alice</Arn></GetCallerIdentityResult></GetCallerIdentityResponse>`))
+	}))
+	defer server.Close()
+
+	client := NewSTSClient(server.URL, "us-east-1", false)
+	id, err := client.GetCallerIdentity(context.Background(), "AKID", "secret", "TOKEN-abc")
+	if err != nil {
+		t.Fatalf("GetCallerIdentity: %v", err)
+	}
+	if id.Arn != "arn:aws:sts::123:assumed-role/writer/alice" {
+		t.Errorf("Arn = %q", id.Arn)
+	}
+	if gotSecurityToken != "TOKEN-abc" {
+		t.Errorf("X-Amz-Security-Token header = %q, want TOKEN-abc", gotSecurityToken)
+	}
+	if !strings.Contains(gotAuthHeader, "SignedHeaders=host;x-amz-date;x-amz-security-token") {
+		t.Errorf("Authorization header missing x-amz-security-token in SignedHeaders: %q", gotAuthHeader)
 	}
 }
