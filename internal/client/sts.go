@@ -147,7 +147,7 @@ func (c *STSClient) AssumeRole(ctx context.Context, accessKey, secretKey, roleAr
 		params.Set("Policy", opts.Policy)
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, accessKey, secretKey, "", params)
 	if err != nil {
 		return nil, fmt.Errorf("assume role: %w", err)
 	}
@@ -172,13 +172,16 @@ func (c *STSClient) AssumeRole(ctx context.Context, accessKey, secretKey, roleAr
 	}, nil
 }
 
-// GetCallerIdentity returns the identity associated with the request credentials.
-func (c *STSClient) GetCallerIdentity(ctx context.Context, accessKey, secretKey string) (*CallerIdentity, error) {
+// GetCallerIdentity returns the identity associated with the request
+// credentials. Pass a non-empty sessionToken to introspect temporary
+// credentials (e.g. those minted by AssumeRole); pass "" for static IAM-user
+// or account credentials.
+func (c *STSClient) GetCallerIdentity(ctx context.Context, accessKey, secretKey, sessionToken string) (*CallerIdentity, error) {
 	params := url.Values{
 		"Action": {"GetCallerIdentity"},
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, accessKey, secretKey, sessionToken, params)
 	if err != nil {
 		return nil, fmt.Errorf("get caller identity: %w", err)
 	}
@@ -197,7 +200,10 @@ func (c *STSClient) GetCallerIdentity(ctx context.Context, accessKey, secretKey 
 
 // --- SigV4 Signing (mirrors IAMClient.doSignedRequest) ---
 
-func (c *STSClient) doSignedRequest(ctx context.Context, accessKey, secretKey string, params url.Values) ([]byte, error) {
+// doSignedRequest signs and sends a POST request to the STS endpoint. When
+// sessionToken is non-empty (temporary credentials from sts:AssumeRole or
+// similar), it is included in the signed X-Amz-Security-Token header.
+func (c *STSClient) doSignedRequest(ctx context.Context, accessKey, secretKey, sessionToken string, params url.Values) ([]byte, error) {
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("parsing endpoint: %w", err)
@@ -212,8 +218,13 @@ func (c *STSClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 
 	body := params.Encode()
 
+	// SigV4 canonical headers must be alphabetically sorted by header name.
 	canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-date:%s\n", host, amzdate)
 	signedHeaders := "host;x-amz-date"
+	if sessionToken != "" {
+		canonicalHeaders = fmt.Sprintf("host:%s\nx-amz-date:%s\nx-amz-security-token:%s\n", host, amzdate, sessionToken)
+		signedHeaders = "host;x-amz-date;x-amz-security-token"
+	}
 	payloadHash := sha256Hex([]byte(body))
 
 	canonicalRequest := strings.Join([]string{
@@ -249,6 +260,9 @@ func (c *STSClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 	req.Header.Set("Content-Type", contentTypeForm)
 	req.Header.Set("Host", host)
 	req.Header.Set("X-Amz-Date", amzdate)
+	if sessionToken != "" {
+		req.Header.Set("X-Amz-Security-Token", sessionToken)
+	}
 	req.Header.Set("Authorization", authHeader)
 
 	resp, err := c.httpClient.Do(req)

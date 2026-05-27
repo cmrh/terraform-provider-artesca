@@ -52,3 +52,24 @@ data "artesca_caller_identity" "bad" {
 		},
 	})
 }
+
+func TestAccDataSourceCallerIdentity_invalidSessionToken(t *testing.T) {
+	rAcct := randomName("tf-acc-ci")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAccountConfig(rAcct) + `
+data "artesca_caller_identity" "bad_session" {
+  access_key    = artesca_account.test.access_key
+  secret_key    = artesca_account.test.secret_key
+  session_token = "this-is-not-a-real-session-token"
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)(STS GetCallerIdentity|InvalidClientTokenId|SignatureDoesNotMatch|get caller identity)`),
+			},
+		},
+	})
+}

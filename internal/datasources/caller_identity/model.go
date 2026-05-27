@@ -5,9 +5,10 @@ import (
 )
 
 type CallerIdentityDataSourceModel struct {
-	AccessKey types.String `tfsdk:"access_key"`
-	SecretKey types.String `tfsdk:"secret_key"`
-	UserID    types.String `tfsdk:"user_id"`
-	Account   types.String `tfsdk:"account"`
-	ARN       types.String `tfsdk:"arn"`
+	AccessKey    types.String `tfsdk:"access_key"`
+	SecretKey    types.String `tfsdk:"secret_key"`
+	SessionToken types.String `tfsdk:"session_token"`
+	UserID       types.String `tfsdk:"user_id"`
+	Account      types.String `tfsdk:"account"`
+	ARN          types.String `tfsdk:"arn"`
 }

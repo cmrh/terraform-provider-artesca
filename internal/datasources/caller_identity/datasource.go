@@ -38,6 +38,11 @@ func (d *CallerIdentityDataSource) Schema(_ context.Context, _ datasource.Schema
 				Required:    true,
 				Sensitive:   true,
 			},
+			"session_token": schema.StringAttribute{
+				Description: "Optional session token. Set this when introspecting temporary credentials minted by sts:AssumeRole (e.g. those returned by ephemeral.artesca_assumed_role_credentials).",
+				Optional:    true,
+				Sensitive:   true,
+			},
 			"user_id": schema.StringAttribute{
 				Description: "The unique identifier of the calling principal.",
 				Computed:    true,
@@ -76,7 +81,7 @@ func (d *CallerIdentityDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	identity, err := d.client.GetCallerIdentity(ctx, data.AccessKey.ValueString(), data.SecretKey.ValueString())
+	identity, err := d.client.GetCallerIdentity(ctx, data.AccessKey.ValueString(), data.SecretKey.ValueString(), data.SessionToken.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error calling STS GetCallerIdentity", err.Error())
 		return
