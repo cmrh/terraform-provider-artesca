@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose a new resource, data source, or capability for the ARTESCA Terraform provider.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. The more concrete you can be about the use case and the underlying API, the easier it is for us to evaluate and scope.
+
+  - type: input
+    id: surface
+    attributes:
+      label: Affected resource / data source
+      description: Existing `artesca_*` name, or `(new)` if proposing a new one.
+      placeholder: "artesca_instance (new data source)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What problem does this solve? Who is the user, and what are they trying to accomplish?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed configuration
+      description: Sketch the HCL surface you'd expect to write. Doesn't need to be final — just enough to convey intent.
+      render: hcl
+    validations:
+      required: false
+
+  - type: textarea
+    id: api_reference
+    attributes:
+      label: Underlying API
+      description: |
+        Which ARTESCA / S3 / IAM / STS API does this map to? Link to swagger / docs if you have it. If you don't know yet, that's fine.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing resources or workflows users use today instead, and why they're insufficient.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Related issues, deployment-config caveats, prior art in other providers, etc.
+    validations:
+      required: false

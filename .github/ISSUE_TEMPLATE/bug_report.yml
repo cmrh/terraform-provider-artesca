@@ -1,0 +1,93 @@
+name: Bug report
+description: Report a bug in the ARTESCA Terraform provider.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in as much of the form as possible — the more context you give, the faster we can reproduce and fix.
+
+        For server-side issues (e.g. an ARTESCA management API returning unexpected data), this provider repo is fine for tracking the provider's behavior, but the underlying fix may need to be filed with the ARTESCA team. Please mention if you've already done that.
+
+  - type: input
+    id: provider_version
+    attributes:
+      label: Provider version
+      description: From your `terraform.lock.hcl`, or `terraform providers` output.
+      placeholder: "v0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: tf_version
+    attributes:
+      label: Terraform / OpenTofu version
+      description: Output of `terraform version` or `tofu version`.
+      placeholder: "OpenTofu v1.11.6"
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected resource(s) or data source(s)
+      description: List the `artesca_*` resources or `data.artesca_*` data sources involved.
+      placeholder: |
+        - artesca_bucket_encryption
+        - data.artesca_bucket_workflows
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Terraform configuration
+      description: Minimal HCL that reproduces the issue. Redact any credentials.
+      render: hcl
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error messages verbatim if any.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. `terraform init`
+        2. `terraform apply`
+        3. Observe error in the …
+    validations:
+      required: true
+
+  - type: textarea
+    id: debug_log
+    attributes:
+      label: Debug log
+      description: |
+        Optional. Set `TF_LOG=DEBUG` and paste relevant excerpts (or attach as a file). **Strip any access keys / secret keys / OIDC tokens** before posting.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Workarounds you've tried, related issues, environment specifics (network restrictions, transit-only cluster, etc.).
+    validations:
+      required: false
