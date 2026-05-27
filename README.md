@@ -64,6 +64,9 @@ All attributes can also be set via environment variables:
 |---|---|
 | `artesca_account` | Manage ARTESCA accounts (S3 users) |
 | `artesca_bucket` | Manage S3 buckets on the ARTESCA S3 endpoint |
+| `artesca_bucket_encryption` | Server-side encryption configuration (SSE-S3 / `AES256`) |
+| `artesca_bucket_policy` | Bucket policy via S3 `PutBucketPolicy` |
+| `artesca_bucket_tagging` | Bucket tag set management |
 | `artesca_location` | Manage storage locations (AWS S3, Azure, GCP, Scality RING, etc.) |
 | `artesca_endpoint` | Manage data service endpoints |
 | `artesca_replication` | Manage cross-region replication streams |
@@ -75,6 +78,14 @@ All attributes can also be set via environment variables:
 | `artesca_user` | Manage IAM users within accounts |
 | `artesca_user_access_key` | Create access keys for IAM users |
 | `artesca_user_policy` | Attach inline policies to IAM users |
+| `artesca_user_policy_attachment` | Attach a managed policy to a user |
+| `artesca_group` | Manage IAM groups within an account |
+| `artesca_group_membership` | Attach a user to one or more groups |
+| `artesca_group_policy` | Inline IAM policy attached to a group |
+| `artesca_group_policy_attachment` | Attach a managed policy to a group |
+| `artesca_role` | Manage IAM roles with a trust policy |
+| `artesca_role_policy_attachment` | Attach a managed policy to a role |
+| `artesca_policy` | Manage account-scoped IAM managed policies |
 
 ### Lifecycle Workflows
 
@@ -83,6 +94,23 @@ All attributes can also be set via environment variables:
 | `artesca_bucket_workflow_expiration` | Manage object expiration lifecycle rules |
 | `artesca_bucket_workflow_transition` | Manage object transition lifecycle rules |
 | `artesca_bucket_workflow_replication` | Manage bucket-scoped replication workflows |
+
+## Data Sources
+
+| Data source | Description |
+|---|---|
+| `data.artesca_account` / `data.artesca_accounts` | Look up an account by name, or list all accounts |
+| `data.artesca_location` / `data.artesca_locations` | Look up a location by name, or list all locations |
+| `data.artesca_endpoints` | List all data-service endpoints |
+| `data.artesca_user` / `data.artesca_group` / `data.artesca_role` / `data.artesca_policy` | Look up existing IAM objects without managing them |
+| `data.artesca_caller_identity` | Resolve `account` / `user_id` / `arn` for an access key via STS `GetCallerIdentity` |
+| `data.artesca_bucket_workflows` | List the workflows (replication / expiration / transition) configured on a bucket |
+
+## Ephemeral Resources
+
+| Ephemeral resource | Description |
+|---|---|
+| `ephemeral.artesca_assumed_role_credentials` | Mint short-lived role credentials via STS `AssumeRole` (session tokens never persisted to state) |
 
 ## Usage Examples
 
