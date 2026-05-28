@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/client"
 )
 
 var _ datasource.DataSource = &CallerIdentityDataSource{}

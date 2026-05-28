@@ -1,6 +1,5 @@
 # Provider binaries
 terraform-provider-artesca
-terraform-provider-scality-artesca
 
 # OpenTofu / Terraform
 .terraform/
