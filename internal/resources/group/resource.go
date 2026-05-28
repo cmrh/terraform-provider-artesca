@@ -11,8 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/scality/terraform-provider-scality-artesca/internal/client"
-	"github.com/scality/terraform-provider-scality-artesca/internal/validators"
+	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
 var _ resource.Resource = &GroupResource{}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/scality/terraform-provider-scality-artesca/internal/validators"
+	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
 func TestSchema_Validators(t *testing.T) {

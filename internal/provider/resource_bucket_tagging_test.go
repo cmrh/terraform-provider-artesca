@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
-	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/client"
 )
 
 func TestAccBucketTagging_basic(t *testing.T) {

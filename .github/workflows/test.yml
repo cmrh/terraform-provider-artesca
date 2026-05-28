@@ -65,4 +65,4 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -o terraform-provider-scality-artesca
+          go build -o terraform-provider-artesca

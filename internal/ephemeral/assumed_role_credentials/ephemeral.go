@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/scality/terraform-provider-scality-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/client"
 )
 
 var _ ephemeral.EphemeralResource = &AssumedRoleCredentialsEphemeralResource{}
