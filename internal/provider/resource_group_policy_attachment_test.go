@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccGroupPolicyAttachment_basic(t *testing.T) {
@@ -26,6 +27,39 @@ func TestAccGroupPolicyAttachment_basic(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestAccGroupPolicyAttachment_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rGroup := randomName("tf-acc-grp")
+	rPolicy := randomName("tf-acc-mp")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckGroupPolicyAttachmentDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccGroupPolicyAttachmentConfig(rAcct, rGroup, rPolicy)},
+			{
+				ResourceName:                         "artesca_group_policy_attachment.test",
+				ImportState:                          true,
+				ImportStateIdFunc:                    testAccImportStateGroupPolicyArn("artesca_group_policy_attachment.test"),
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "policy_arn",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
+func testAccImportStateGroupPolicyArn(resourceName string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return "", fmt.Errorf("resource %s not found", resourceName)
+		}
+		return rs.Primary.Attributes["group_name"] + "/" + rs.Primary.Attributes["policy_arn"], nil
+	}
 }
 
 func testAccGroupPolicyAttachmentConfig(accountName, groupName, policyName string) string {

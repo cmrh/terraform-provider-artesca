@@ -3,18 +3,25 @@ package userpolicy
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &UserPolicyResource{}
+var (
+	_ resource.Resource                = &UserPolicyResource{}
+	_ resource.ResourceWithImportState = &UserPolicyResource{}
+)
 
 type UserPolicyResource struct {
 	iamClient *client.IAMClient
@@ -130,8 +137,8 @@ func (r *UserPolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	policyDoc, err := r.iamClient.GetUserPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Username.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -144,7 +151,12 @@ func (r *UserPolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// Keep the state as-is — policy_document from state is canonical.
+	// On import, state.PolicyDocument is empty — populate from the API so
+	// the resource isn't half-constructed. Otherwise keep state as canonical
+	// to avoid JSON-formatting drift.
+	if state.PolicyDocument.IsNull() || state.PolicyDocument.ValueString() == "" {
+		state.PolicyDocument = types.StringValue(policyDoc)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -189,8 +201,8 @@ func (r *UserPolicyResource) Delete(ctx context.Context, req resource.DeleteRequ
 	})
 
 	err := r.iamClient.DeleteUserPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Username.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -198,4 +210,15 @@ func (r *UserPolicyResource) Delete(ctx context.Context, req resource.DeleteRequ
 		resp.Diagnostics.AddError("Error deleting user policy", err.Error())
 		return
 	}
+}
+
+func (r *UserPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format username/policy_name, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_name"), parts[1])...)
+	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

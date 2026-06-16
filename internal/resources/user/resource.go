@@ -12,10 +12,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &UserResource{}
+var (
+	_ resource.Resource                = &UserResource{}
+	_ resource.ResourceWithImportState = &UserResource{}
+)
 
 type UserResource struct {
 	iamClient *client.IAMClient
@@ -133,8 +137,8 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	accessKey := state.AccountAccessKey.ValueString()
-	secretKey := state.AccountSecretKey.ValueString()
+	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
 	username := state.Username.ValueString()
 
 	user, err := r.iamClient.GetUser(ctx, accessKey, secretKey, username)
@@ -166,8 +170,8 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	accessKey := state.AccountAccessKey.ValueString()
-	secretKey := state.AccountSecretKey.ValueString()
+	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
 	username := state.Username.ValueString()
 
 	tflog.Debug(ctx, "Deleting IAM user", map[string]any{"username": username})
@@ -177,4 +181,8 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		resp.Diagnostics.AddError("Error deleting IAM user", err.Error())
 		return
 	}
+}
+
+func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "username", req, resp)
 }

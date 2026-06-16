@@ -3,18 +3,25 @@ package grouppolicy
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &GroupPolicyResource{}
+var (
+	_ resource.Resource                = &GroupPolicyResource{}
+	_ resource.ResourceWithImportState = &GroupPolicyResource{}
+)
 
 type GroupPolicyResource struct {
 	iamClient *client.IAMClient
@@ -129,8 +136,8 @@ func (r *GroupPolicyResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	doc, err := r.iamClient.GetGroupPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.GroupName.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -143,6 +150,9 @@ func (r *GroupPolicyResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	if state.PolicyDocument.IsNull() || state.PolicyDocument.ValueString() == "" {
+		state.PolicyDocument = types.StringValue(doc)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -176,8 +186,8 @@ func (r *GroupPolicyResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	err := r.iamClient.DeleteGroupPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.GroupName.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -185,4 +195,15 @@ func (r *GroupPolicyResource) Delete(ctx context.Context, req resource.DeleteReq
 		resp.Diagnostics.AddError("Error deleting group policy", err.Error())
 		return
 	}
+}
+
+func (r *GroupPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format group_name/policy_name, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_name"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_name"), parts[1])...)
+	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

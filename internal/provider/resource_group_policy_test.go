@@ -28,6 +28,29 @@ func TestAccGroupPolicy_basic(t *testing.T) {
 	})
 }
 
+func TestAccGroupPolicy_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rGroup := randomName("tf-acc-grp")
+	rPolicy := randomName("tf-acc-pol")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckGroupPolicyDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccGroupPolicyConfig(rAcct, rGroup, rPolicy)},
+			{
+				ResourceName:                         "artesca_group_policy.test",
+				ImportState:                          true,
+				ImportStateId:                        rGroup + "/" + rPolicy,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "policy_name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy_document"},
+			},
+		},
+	})
+}
+
 func testAccGroupPolicyConfig(accountName, groupName, policyName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_group" "test" {

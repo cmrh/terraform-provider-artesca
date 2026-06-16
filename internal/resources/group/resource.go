@@ -12,10 +12,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &GroupResource{}
+var (
+	_ resource.Resource                = &GroupResource{}
+	_ resource.ResourceWithImportState = &GroupResource{}
+)
 
 type GroupResource struct {
 	iamClient *client.IAMClient
@@ -133,8 +137,8 @@ func (r *GroupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	g, err := r.iamClient.GetGroup(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Name.ValueString(),
 	)
 	if err != nil {
@@ -167,12 +171,16 @@ func (r *GroupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	tflog.Debug(ctx, "Deleting IAM group", map[string]any{"name": state.Name.ValueString()})
 
 	err := r.iamClient.DeleteGroup(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Name.ValueString(),
 	)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting IAM group", err.Error())
 		return
 	}
+}
+
+func (r *GroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "name", req, resp)
 }

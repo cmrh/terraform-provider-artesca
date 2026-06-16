@@ -28,6 +28,28 @@ func TestAccRole_basic(t *testing.T) {
 	})
 }
 
+func TestAccRole_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rRole := randomName("tf-acc-role")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckRoleDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccRoleConfig(rAcct, rRole)},
+			{
+				ResourceName:                         "artesca_role.test",
+				ImportState:                          true,
+				ImportStateId:                        rRole,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "assume_role_policy_document"},
+			},
+		},
+	})
+}
+
 func testAccRoleConfig(accountName, roleName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_role" "test" {

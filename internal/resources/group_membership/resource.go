@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -12,10 +14,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &GroupMembershipResource{}
+var (
+	_ resource.Resource                = &GroupMembershipResource{}
+	_ resource.ResourceWithImportState = &GroupMembershipResource{}
+)
 
 type GroupMembershipResource struct {
 	iamClient *client.IAMClient
@@ -122,8 +128,8 @@ func (r *GroupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 	}
 
 	groups, err := r.iamClient.ListGroupsForUser(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Username.ValueString(),
 	)
 	if err != nil {
@@ -150,8 +156,8 @@ func (r *GroupMembershipResource) Delete(ctx context.Context, req resource.Delet
 	}
 
 	err := r.iamClient.RemoveUserFromGroup(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.GroupName.ValueString(),
 		state.Username.ValueString(),
 	)
@@ -159,4 +165,15 @@ func (r *GroupMembershipResource) Delete(ctx context.Context, req resource.Delet
 		resp.Diagnostics.AddError("Error removing user from group", err.Error())
 		return
 	}
+}
+
+func (r *GroupMembershipResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format group_name/username, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_name"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), parts[1])...)
+	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

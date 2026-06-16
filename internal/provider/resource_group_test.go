@@ -28,6 +28,28 @@ func TestAccGroup_basic(t *testing.T) {
 	})
 }
 
+func TestAccGroup_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rGroup := randomName("tf-acc-grp")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckGroupDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccGroupConfig(rAcct, rGroup)},
+			{
+				ResourceName:                         "artesca_group.test",
+				ImportState:                          true,
+				ImportStateId:                        rGroup,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
 func testAccGroupConfig(accountName, groupName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_group" "test" {

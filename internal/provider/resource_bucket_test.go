@@ -30,6 +30,33 @@ func TestAccBucket_basic(t *testing.T) {
 	})
 }
 
+func TestAccBucket_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rLoc := randomName("tf-acc-loc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAccountConfig(rAcct) +
+					testAccLocationSourceConfig(rLoc) +
+					testAccBucketConfig("test", rBucket, "artesca_location.source.name", false),
+			},
+			{
+				ResourceName:                         "artesca_bucket.test",
+				ImportState:                          true,
+				ImportStateId:                        rBucket,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
 func TestAccBucket_versioning(t *testing.T) {
 	rAcct := randomName("tf-acc")
 	rLoc := randomName("tf-acc-loc")

@@ -12,10 +12,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &RoleResource{}
+var (
+	_ resource.Resource                = &RoleResource{}
+	_ resource.ResourceWithImportState = &RoleResource{}
+)
 
 type RoleResource struct {
 	iamClient *client.IAMClient
@@ -154,8 +158,8 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 
 	role, err := r.iamClient.GetRole(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Name.ValueString(),
 	)
 	if err != nil {
@@ -170,8 +174,14 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.RoleID = types.StringValue(role.RoleId)
 	state.ARN = types.StringValue(role.Arn)
 	state.Path = types.StringValue(role.Path)
-	// assume_role_policy_document and description are preserved from state — the
-	// API response may re-format JSON whitespace and we don't want spurious drift.
+	// On import, the trust policy and description are empty — populate from
+	// the API. Otherwise preserve state to avoid spurious JSON-whitespace drift.
+	if state.AssumeRolePolicyDocument.IsNull() || state.AssumeRolePolicyDocument.ValueString() == "" {
+		state.AssumeRolePolicyDocument = types.StringValue(role.AssumeRolePolicyDocument)
+	}
+	if state.Description.IsNull() && role.Description != "" {
+		state.Description = types.StringValue(role.Description)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -190,12 +200,16 @@ func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	tflog.Debug(ctx, "Deleting IAM role", map[string]any{"name": state.Name.ValueString()})
 
 	err := r.iamClient.DeleteRole(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Name.ValueString(),
 	)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting IAM role", err.Error())
 		return
 	}
+}
+
+func (r *RoleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "name", req, resp)
 }

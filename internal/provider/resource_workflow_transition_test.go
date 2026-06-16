@@ -60,6 +60,29 @@ func TestAccWorkflowTransition_update(t *testing.T) {
 	})
 }
 
+func TestAccWorkflowTransition_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rSrcLoc := randomName("tf-acc-sloc")
+	rDstLoc := randomName("tf-acc-dloc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{Config: testAccWorkflowTransitionConfig(rAcct, rSrcLoc, rDstLoc, rBucket, 60, true)},
+			{
+				ResourceName:                         "artesca_bucket_workflow_transition.test",
+				ImportState:                          true,
+				ImportStateIdFunc:                    testAccImportStateBucketAndAttr("artesca_bucket_workflow_transition.test", "rule_id"),
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "rule_id",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
 func testAccWorkflowTransitionConfig(acctName, srcLocName, dstLocName, bucketName string, days int, enabled bool) string {
 	return testAccAccountConfig(acctName) +
 		testAccLocationSourceConfig(srcLocName) +

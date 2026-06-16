@@ -36,6 +36,34 @@ func TestAccBucketEncryption_basic(t *testing.T) {
 	})
 }
 
+func TestAccBucketEncryption_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rLoc := randomName("tf-acc-loc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketEncryptionDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAccountConfig(rAcct) +
+					testAccLocationSourceConfig(rLoc) +
+					testAccBucketConfig("test", rBucket, "artesca_location.source.name", false) +
+					testAccBucketEncryptionConfig("AES256", false),
+			},
+			{
+				ResourceName:                         "artesca_bucket_encryption.test",
+				ImportState:                          true,
+				ImportStateId:                        rBucket,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "bucket_name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
 func testAccBucketEncryptionConfig(sseAlgorithm string, bucketKeyEnabled bool) string {
 	return fmt.Sprintf(`
 resource "artesca_bucket_encryption" "test" {

@@ -14,10 +14,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &BucketPolicyResource{}
+var (
+	_ resource.Resource                = &BucketPolicyResource{}
+	_ resource.ResourceWithImportState = &BucketPolicyResource{}
+)
 
 type BucketPolicyResource struct {
 	s3Client *client.S3Client
@@ -120,8 +124,8 @@ func (r *BucketPolicyResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	remote, err := r.s3Client.GetBucketPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.BucketName.ValueString(),
 	)
 	if err != nil {
@@ -171,12 +175,16 @@ func (r *BucketPolicyResource) Delete(ctx context.Context, req resource.DeleteRe
 	tflog.Debug(ctx, "Deleting bucket policy", map[string]any{"bucket": state.BucketName.ValueString()})
 
 	if err := r.s3Client.DeleteBucketPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.BucketName.ValueString(),
 	); err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket policy", err.Error())
 	}
+}
+
+func (r *BucketPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "bucket_name", req, resp)
 }
 
 // jsonEquivalent reports whether two JSON documents represent the same value,

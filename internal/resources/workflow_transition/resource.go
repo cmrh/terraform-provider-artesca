@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -13,10 +15,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &WorkflowTransitionResource{}
+var (
+	_ resource.Resource                = &WorkflowTransitionResource{}
+	_ resource.ResourceWithImportState = &WorkflowTransitionResource{}
+)
 
 type WorkflowTransitionResource struct {
 	s3 *client.S3Client
@@ -161,8 +167,8 @@ func (r *WorkflowTransitionResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	ak := state.AccountAccessKey.ValueString()
-	sk := state.AccountSecretKey.ValueString()
+	ak := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	sk := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
@@ -237,8 +243,8 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	ak := state.AccountAccessKey.ValueString()
-	sk := state.AccountSecretKey.ValueString()
+	ak := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	sk := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
@@ -271,6 +277,17 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 			return
 		}
 	}
+}
+
+func (r *WorkflowTransitionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format bucket_name/rule_id, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("bucket_name"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("rule_id"), parts[1])...)
+	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }
 
 func modelToLifecycleRule(model *WorkflowTransitionResourceModel, ruleID string) client.LifecycleRule {

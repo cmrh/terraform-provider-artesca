@@ -50,6 +50,28 @@ func TestAccUserPolicy_update(t *testing.T) {
 	})
 }
 
+func TestAccUserPolicy_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rUser := randomName("tf-acc-user")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserPolicyDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccUserPolicyConfig(rAcct, rUser, "s3:GetObject")},
+			{
+				ResourceName:                         "artesca_user_policy.test",
+				ImportState:                          true,
+				ImportStateId:                        rUser + "/tf-acc-policy",
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "policy_name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy_document"},
+			},
+		},
+	})
+}
+
 func testAccUserPolicyConfig(accountName, username, action string) string {
 	return testAccUserConfig(accountName, username) + fmt.Sprintf(`
 resource "artesca_user_policy" "test" {

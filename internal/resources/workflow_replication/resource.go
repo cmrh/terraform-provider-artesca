@@ -3,7 +3,9 @@ package workflowreplication
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -15,7 +17,10 @@ import (
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &WorkflowReplicationResource{}
+var (
+	_ resource.Resource                = &WorkflowReplicationResource{}
+	_ resource.ResourceWithImportState = &WorkflowReplicationResource{}
+)
 
 type WorkflowReplicationResource struct {
 	client *client.ManagementClient
@@ -309,6 +314,17 @@ func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.D
 		resp.Diagnostics.AddError("Error deleting bucket workflow replication", err.Error())
 		return
 	}
+}
+
+func (r *WorkflowReplicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 3)
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format account_id/bucket_name/workflow_id, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("account_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("bucket_name"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("workflow_id"), parts[2])...)
 }
 
 func (r *WorkflowReplicationResource) resolveInstanceID(model *WorkflowReplicationResourceModel) string {
