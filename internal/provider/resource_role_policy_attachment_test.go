@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccRolePolicyAttachment_basic(t *testing.T) {
@@ -26,6 +27,39 @@ func TestAccRolePolicyAttachment_basic(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestAccRolePolicyAttachment_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rRole := randomName("tf-acc-role")
+	rPolicy := randomName("tf-acc-mp")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckRolePolicyAttachmentDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccRolePolicyAttachmentConfig(rAcct, rRole, rPolicy)},
+			{
+				ResourceName:                         "artesca_role_policy_attachment.test",
+				ImportState:                          true,
+				ImportStateIdFunc:                    testAccImportStateRolePolicyArn("artesca_role_policy_attachment.test"),
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "policy_arn",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
+func testAccImportStateRolePolicyArn(resourceName string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return "", fmt.Errorf("resource %s not found", resourceName)
+		}
+		return rs.Primary.Attributes["role_name"] + "/" + rs.Primary.Attributes["policy_arn"], nil
+	}
 }
 
 func testAccRolePolicyAttachmentConfig(accountName, roleName, policyName string) string {

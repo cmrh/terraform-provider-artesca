@@ -14,10 +14,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &BucketTaggingResource{}
+var (
+	_ resource.Resource                = &BucketTaggingResource{}
+	_ resource.ResourceWithImportState = &BucketTaggingResource{}
+)
 
 type BucketTaggingResource struct {
 	s3Client *client.S3Client
@@ -121,8 +125,8 @@ func (r *BucketTaggingResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	tags, err := r.s3Client.GetBucketTagging(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.BucketName.ValueString(),
 	)
 	if err != nil {
@@ -181,12 +185,16 @@ func (r *BucketTaggingResource) Delete(ctx context.Context, req resource.DeleteR
 	tflog.Debug(ctx, "Deleting bucket tags", map[string]any{"bucket": state.BucketName.ValueString()})
 
 	if err := r.s3Client.DeleteBucketTagging(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.BucketName.ValueString(),
 	); err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket tags", err.Error())
 	}
+}
+
+func (r *BucketTaggingResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "bucket_name", req, resp)
 }
 
 // tagsFromMap converts the Terraform map into a stable, key-sorted slice of

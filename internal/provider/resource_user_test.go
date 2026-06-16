@@ -28,6 +28,28 @@ func TestAccUser_basic(t *testing.T) {
 	})
 }
 
+func TestAccUser_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rUser := randomName("tf-acc-user")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccUserConfig(rAcct, rUser)},
+			{
+				ResourceName:                         "artesca_user.test",
+				ImportState:                          true,
+				ImportStateId:                        rUser,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "username",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
 func testAccUserConfig(accountName, username string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_user" "test" {

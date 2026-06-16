@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -12,10 +14,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &UserPolicyAttachmentResource{}
+var (
+	_ resource.Resource                = &UserPolicyAttachmentResource{}
+	_ resource.ResourceWithImportState = &UserPolicyAttachmentResource{}
+)
 
 type UserPolicyAttachmentResource struct {
 	iamClient *client.IAMClient
@@ -119,8 +125,8 @@ func (r *UserPolicyAttachmentResource) Read(ctx context.Context, req resource.Re
 	}
 
 	arns, err := r.iamClient.ListAttachedUserPolicies(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Username.ValueString(),
 	)
 	if err != nil {
@@ -147,8 +153,8 @@ func (r *UserPolicyAttachmentResource) Delete(ctx context.Context, req resource.
 	}
 
 	err := r.iamClient.DetachUserPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.Username.ValueString(),
 		state.PolicyArn.ValueString(),
 	)
@@ -156,4 +162,17 @@ func (r *UserPolicyAttachmentResource) Delete(ctx context.Context, req resource.
 		resp.Diagnostics.AddError("Error detaching policy from user", err.Error())
 		return
 	}
+}
+
+func (r *UserPolicyAttachmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Format: username/policy_arn. ARN contains slashes but starts with "arn:",
+	// so SplitN with n=2 gives username and the full ARN.
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || !strings.HasPrefix(parts[1], "arn:") {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format username/policy_arn, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_arn"), parts[1])...)
+	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

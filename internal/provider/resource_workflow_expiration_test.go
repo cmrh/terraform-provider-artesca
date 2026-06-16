@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccWorkflowExpiration_basic(t *testing.T) {
@@ -55,6 +56,40 @@ func TestAccWorkflowExpiration_update(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestAccWorkflowExpiration_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rLoc := randomName("tf-acc-loc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{Config: testAccWorkflowExpirationConfig(rAcct, rLoc, rBucket, 30, true)},
+			{
+				ResourceName:                         "artesca_bucket_workflow_expiration.test",
+				ImportState:                          true,
+				ImportStateIdFunc:                    testAccImportStateBucketAndAttr("artesca_bucket_workflow_expiration.test", "rule_id"),
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "rule_id",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
+// testAccImportStateBucketAndAttr builds an import ID of "bucket_name/<attr>".
+// Used by workflow_expiration and workflow_transition.
+func testAccImportStateBucketAndAttr(resourceName, attr string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return "", fmt.Errorf("resource %s not found", resourceName)
+		}
+		return rs.Primary.Attributes["bucket_name"] + "/" + rs.Primary.Attributes[attr], nil
+	}
 }
 
 func testAccWorkflowExpirationConfig(acctName, locName, bucketName string, days int, enabled bool) string {

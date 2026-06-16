@@ -14,10 +14,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &BucketResource{}
+var (
+	_ resource.Resource                = &BucketResource{}
+	_ resource.ResourceWithImportState = &BucketResource{}
+)
 
 type BucketResource struct {
 	s3Client *client.S3Client
@@ -139,8 +143,8 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	bucketName := state.Name.ValueString()
-	accessKey := state.AccountAccessKey.ValueString()
-	secretKey := state.AccountSecretKey.ValueString()
+	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
 
 	exists, err := r.s3Client.HeadBucket(ctx, accessKey, secretKey, bucketName)
 	if err != nil {
@@ -207,8 +211,8 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	bucketName := state.Name.ValueString()
-	accessKey := state.AccountAccessKey.ValueString()
-	secretKey := state.AccountSecretKey.ValueString()
+	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
 
 	tflog.Debug(ctx, "Deleting bucket", map[string]any{"bucket": bucketName})
 
@@ -217,4 +221,8 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		resp.Diagnostics.AddError("Error deleting bucket", err.Error())
 		return
 	}
+}
+
+func (r *BucketResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "name", req, resp)
 }

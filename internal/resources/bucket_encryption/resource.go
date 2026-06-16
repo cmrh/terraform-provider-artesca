@@ -13,10 +13,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	validators "github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &BucketEncryptionResource{}
+var (
+	_ resource.Resource                = &BucketEncryptionResource{}
+	_ resource.ResourceWithImportState = &BucketEncryptionResource{}
+)
 
 type BucketEncryptionResource struct {
 	s3Client *client.S3Client
@@ -129,8 +133,8 @@ func (r *BucketEncryptionResource) Read(ctx context.Context, req resource.ReadRe
 	}
 
 	cfg, err := r.s3Client.GetBucketEncryption(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.BucketName.ValueString(),
 	)
 	if err != nil {
@@ -184,10 +188,14 @@ func (r *BucketEncryptionResource) Delete(ctx context.Context, req resource.Dele
 	tflog.Debug(ctx, "Deleting bucket encryption", map[string]any{"bucket": state.BucketName.ValueString()})
 
 	if err := r.s3Client.DeleteBucketEncryption(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.BucketName.ValueString(),
 	); err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket encryption", err.Error())
 	}
+}
+
+func (r *BucketEncryptionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "bucket_name", req, resp)
 }

@@ -12,10 +12,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scality/terraform-provider-artesca/internal/client"
+	"github.com/scality/terraform-provider-artesca/internal/creds"
 	"github.com/scality/terraform-provider-artesca/internal/validators"
 )
 
-var _ resource.Resource = &PolicyResource{}
+var (
+	_ resource.Resource                = &PolicyResource{}
+	_ resource.ResourceWithImportState = &PolicyResource{}
+)
 
 type PolicyResource struct {
 	iamClient *client.IAMClient
@@ -161,11 +165,9 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	pol, err := r.iamClient.GetPolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
-		state.ARN.ValueString(),
-	)
+	ak := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
+	sk := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	pol, err := r.iamClient.GetPolicy(ctx, ak, sk, state.ARN.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading managed policy", err.Error())
 		return
@@ -178,8 +180,23 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.PolicyID = types.StringValue(pol.PolicyId)
 	state.Path = types.StringValue(pol.Path)
 	state.DefaultVersionID = types.StringValue(pol.DefaultVersionId)
-	// policy_document is preserved from state — round-tripping through the API
-	// can re-format JSON whitespace and we don't want spurious drift.
+	// On import, name/description/policy_document are empty — populate them
+	// from the API. Otherwise preserve state to avoid spurious JSON-whitespace
+	// drift on policy_document.
+	if state.Name.IsNull() || state.Name.ValueString() == "" {
+		state.Name = types.StringValue(pol.PolicyName)
+	}
+	if state.Description.IsNull() && pol.Description != "" {
+		state.Description = types.StringValue(pol.Description)
+	}
+	if state.PolicyDocument.IsNull() || state.PolicyDocument.ValueString() == "" {
+		doc, err := r.iamClient.GetPolicyDocument(ctx, ak, sk, state.ARN.ValueString(), pol.DefaultVersionId)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading managed policy document", err.Error())
+			return
+		}
+		state.PolicyDocument = types.StringValue(doc)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -198,12 +215,16 @@ func (r *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	tflog.Debug(ctx, "Deleting managed policy", map[string]any{"arn": state.ARN.ValueString()})
 
 	err := r.iamClient.DeletePolicy(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
+		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
 		state.ARN.ValueString(),
 	)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting managed policy", err.Error())
 		return
 	}
+}
+
+func (r *PolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	creds.ImportByID(ctx, "arn", req, resp)
 }

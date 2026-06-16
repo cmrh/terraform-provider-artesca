@@ -67,6 +67,34 @@ func TestAccBucketTagging_update(t *testing.T) {
 	})
 }
 
+func TestAccBucketTagging_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rLoc := randomName("tf-acc-loc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketTaggingDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAccountConfig(rAcct) +
+					testAccLocationSourceConfig(rLoc) +
+					testAccBucketConfig("test", rBucket, "artesca_location.source.name", false) +
+					testAccBucketTaggingConfig(map[string]string{"environment": "prod"}),
+			},
+			{
+				ResourceName:                         "artesca_bucket_tagging.test",
+				ImportState:                          true,
+				ImportStateId:                        rBucket,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "bucket_name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
+			},
+		},
+	})
+}
+
 func testAccBucketTaggingConfig(tags map[string]string) string {
 	body := "{\n"
 	for k, v := range tags {

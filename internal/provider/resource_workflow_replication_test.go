@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccWorkflowReplication_basic(t *testing.T) {
@@ -124,6 +125,47 @@ resource "artesca_bucket_workflow_replication" "test" {
 			},
 		},
 	})
+}
+
+func TestAccWorkflowReplication_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rSrcLoc := randomName("tf-acc-sloc")
+	rDstLoc := randomName("tf-acc-dloc")
+	rSrcBkt := randomName("tf-acc-sbkt")
+	rDstBkt := randomName("tf-acc-dbkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, 1, true)},
+			{
+				ResourceName:      "artesca_bucket_workflow_replication.test",
+				ImportState:       true,
+				ImportStateIdFunc: testAccImportStateWorkflowReplication("artesca_bucket_workflow_replication.test"),
+				ImportStateVerify: true,
+				// workflow_search returns null name/version for replication workflows
+				// (issue #37), and the data we round-trip preserves null. ignore those
+				// two until the upstream fix lands.
+				ImportStateVerifyIdentifierAttribute: "workflow_id",
+				ImportStateVerifyIgnore:              []string{"name", "version"},
+			},
+		},
+	})
+}
+
+func testAccImportStateWorkflowReplication(resourceName string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return "", fmt.Errorf("resource %s not found", resourceName)
+		}
+		return fmt.Sprintf("%s/%s/%s",
+			rs.Primary.Attributes["account_id"],
+			rs.Primary.Attributes["bucket_name"],
+			rs.Primary.Attributes["workflow_id"],
+		), nil
+	}
 }
 
 func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktName, dstBktName string, version int, enabled bool) string {

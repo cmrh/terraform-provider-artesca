@@ -106,6 +106,34 @@ func TestAccBucketPolicy_jsonEquivalence(t *testing.T) {
 	})
 }
 
+func TestAccBucketPolicy_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rLoc := randomName("tf-acc-loc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketPolicyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAccountConfig(rAcct) +
+					testAccLocationSourceConfig(rLoc) +
+					testAccBucketConfig("test", rBucket, "artesca_location.source.name", false) +
+					testAccBucketPolicyConfig(rBucket, "s3:GetObject"),
+			},
+			{
+				ResourceName:                         "artesca_bucket_policy.test",
+				ImportState:                          true,
+				ImportStateId:                        rBucket,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "bucket_name",
+				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy"},
+			},
+		},
+	})
+}
+
 func testAccBucketPolicyConfig(bucketName, action string) string {
 	return fmt.Sprintf(`
 resource "artesca_bucket_policy" "test" {
