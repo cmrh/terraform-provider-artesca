@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     artesca = {
-      source = "registry.opentofu.org/cmrh/artesca"
+      source = "cmrh/artesca"
     }
   }
 }
