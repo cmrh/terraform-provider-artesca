@@ -1,3 +1,9 @@
+> **This repository has been archived and is no longer maintained.**
+> Development has moved to **[github.com/cmrh/terraform-provider-artesca](https://github.com/cmrh/terraform-provider-artesca)**.
+> Issues and pull requests here are closed — please open them at the new repository.
+
+---
+
 # Terraform Provider for ARTESCA
 
 A Terraform/OpenTofu provider for managing ARTESCA infrastructure, including accounts, storage locations, endpoints, replication, IAM users, and lifecycle workflows.
