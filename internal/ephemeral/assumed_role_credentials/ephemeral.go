@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/scality/terraform-provider-artesca/internal/client"
 )
 
 var _ ephemeral.EphemeralResource = &AssumedRoleCredentialsEphemeralResource{}

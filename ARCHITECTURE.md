@@ -100,7 +100,7 @@ The IAM and S3 clients share SigV4 signing primitives extracted into `sigv4.go`.
 ```
 terraform-provider-artesca/
 ├── main.go                              # Provider server entry point
-├── go.mod                               # Module: github.com/scality/terraform-provider-artesca
+├── go.mod                               # Module: github.com/cmrh/terraform-provider-artesca
 ├── Makefile                             # build, install, test, testacc, lint, fmt
 ├── .github/workflows/
 │   ├── test.yml                         # Unit tests + build matrix (self-hosted)
@@ -693,7 +693,7 @@ Follow the standard resource pattern (see [Resource Pattern](#resource-pattern))
 **Step 3: Register in `provider.go`**
 
 ```go
-import widget "github.com/scality/terraform-provider-artesca/internal/resources/widget"
+import widget "github.com/cmrh/terraform-provider-artesca/internal/resources/widget"
 
 func (p *ArtescaProvider) Resources(...) []func() resource.Resource {
     return []func() resource.Resource{

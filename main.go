@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/cmrh/terraform-provider-artesca/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/scality/terraform-provider-artesca/internal/provider"
 )
 
 var version = "dev"
@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.opentofu.org/scality/artesca",
+		Address: "registry.opentofu.org/cmrh/artesca",
 		Debug:   debug,
 	}
 

@@ -2,12 +2,12 @@
 page_title: "ARTESCA Provider"
 subcategory: ""
 description: |-
-  Terraform/OpenTofu provider for managing Scality ARTESCA storage infrastructure.
+  Terraform/OpenTofu provider for managing ARTESCA storage infrastructure.
 ---
 
 # ARTESCA Provider
 
-Terraform/OpenTofu provider for managing Scality ARTESCA storage infrastructure. Supports account management, storage locations, endpoints, IAM (users, groups, roles, policies, access keys), STS, S3 buckets and bucket sub-resources (policy, tagging, encryption), and bucket lifecycle workflows.
+Terraform/OpenTofu provider for managing ARTESCA storage infrastructure. Supports account management, storage locations, endpoints, IAM (users, groups, roles, policies, access keys), STS, S3 buckets and bucket sub-resources (policy, tagging, encryption), and bucket lifecycle workflows.
 
 The provider authenticates via three API surfaces:
 - **Management API** -- OIDC bearer token for infrastructure operations (accounts, locations, endpoints, replication, workflows).

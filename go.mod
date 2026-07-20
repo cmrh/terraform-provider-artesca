@@ -1,4 +1,4 @@
-module github.com/scality/terraform-provider-artesca
+module github.com/cmrh/terraform-provider-artesca
 
 go 1.26.1
 
