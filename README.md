@@ -1,6 +1,6 @@
-# Terraform Provider for Scality ARTESCA
+# Terraform Provider for ARTESCA
 
-A Terraform/OpenTofu provider for managing [Scality ARTESCA](https://www.scality.com/artesca/) infrastructure, including accounts, storage locations, endpoints, replication, IAM users, and lifecycle workflows.
+A Terraform/OpenTofu provider for managing ARTESCA infrastructure, including accounts, storage locations, endpoints, replication, IAM users, and lifecycle workflows.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ A Terraform/OpenTofu provider for managing [Scality ARTESCA](https://www.scality
 terraform {
   required_providers {
     artesca = {
-      source = "registry.opentofu.org/scality/artesca"
+      source = "registry.opentofu.org/cmrh/artesca"
     }
   }
 }
@@ -216,7 +216,7 @@ After `make install`, configure your Terraform/OpenTofu to use the local build:
 terraform {
   required_providers {
     artesca = {
-      source  = "registry.opentofu.org/scality/artesca"
+      source  = "registry.opentofu.org/cmrh/artesca"
       version = "0.1.0"
     }
   }
@@ -228,7 +228,7 @@ Then create a [dev overrides](https://developer.hashicorp.com/terraform/cli/conf
 ```hcl
 provider_installation {
   dev_overrides {
-    "registry.opentofu.org/scality/artesca" = "/path/to/go/bin"
+    "registry.opentofu.org/cmrh/artesca" = "/path/to/go/bin"
   }
   direct {}
 }

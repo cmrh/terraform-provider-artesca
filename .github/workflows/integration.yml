@@ -12,7 +12,7 @@ jobs:
     runs-on: cm-tf-provider-artesca
     env:
       TF_ACC_TERRAFORM_PATH: /usr/bin/tofu
-      TF_ACC_PROVIDER_NAMESPACE: scality
+      TF_ACC_PROVIDER_NAMESPACE: cmrh
       ARTESCA_MANAGEMENT_ENDPOINT: ${{ secrets.ARTESCA_MANAGEMENT_ENDPOINT }}
       ARTESCA_INSECURE_SKIP_VERIFY: "true"
       ARTESCA_OIDC_URL: ${{ secrets.ARTESCA_OIDC_URL }}

@@ -7,11 +7,11 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/scality/terraform-provider-artesca/internal/client"
 )
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){

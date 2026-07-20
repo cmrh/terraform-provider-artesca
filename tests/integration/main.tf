@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     artesca = {
-      source = "scality/artesca"
+      source = "cmrh/artesca"
     }
   }
 }

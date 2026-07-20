@@ -86,9 +86,9 @@ Exit code 0 means every check passed. Any failure prints a `Failures:` summary a
 
 This step is only needed once per provider; subsequent versions get picked up automatically.
 
-1. Make sure your GPG public key is uploaded to the Scality publisher account on `registry.opentofu.org`.
+1. Make sure your GPG public key is uploaded to the `cmrh` publisher account on `registry.opentofu.org`.
 2. Open the [Provider Submission issue form](https://github.com/opentofu/registry/issues/new?assignees=&labels=provider%2Csubmission&projects=&template=provider.yml&title=Provider%3A+).
-3. Fill in the repository field: `scality/terraform-provider-artesca`.
+3. Fill in the repository field: `cmrh/terraform-provider-artesca`.
 4. Wait for the OpenTofu Registry team to review and approve.
 
 Subsequent tagged releases will be ingested without further action.
