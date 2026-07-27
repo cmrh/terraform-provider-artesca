@@ -21,7 +21,7 @@ jobs:
       ARTESCA_S3_ENDPOINT: ${{ secrets.ARTESCA_S3_ENDPOINT }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v5
