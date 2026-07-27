@@ -1,28 +1,36 @@
 name: Test
+
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test
-    runs-on: cm-tf-provider-artesca
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
+
       - name: Download dependencies
         run: go mod download
+
       - name: Run tests
-        run: go test ./... -v -coverprofile=coverage.txt -covermode=atomic
+        run: go test ./... -v -race -coverprofile=coverage.txt -covermode=atomic
+
       - name: Run go vet
         run: go vet ./...
+
       - name: Check formatting
         run: |
           if [ -n "$(gofmt -l .)" ]; then
@@ -30,10 +38,12 @@ jobs:
             gofmt -d .
             exit 1
           fi
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
           version: latest
+
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         if: success()
@@ -41,10 +51,11 @@ jobs:
           files: ./coverage.txt
           fail_ci_if_error: false
         continue-on-error: true
+
   build:
     name: Build Test
     if: github.event_name == 'push'
-    runs-on: cm-tf-provider-artesca
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -54,11 +65,13 @@ jobs:
             goarch: arm64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
+
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}

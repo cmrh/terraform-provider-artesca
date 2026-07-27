@@ -13,7 +13,7 @@ A Terraform/OpenTofu provider for managing ARTESCA infrastructure, including acc
 terraform {
   required_providers {
     artesca = {
-      source = "registry.opentofu.org/cmrh/artesca"
+      source = "cmrh/artesca"
     }
   }
 }
