@@ -31,7 +31,7 @@ type IAMClient struct {
 func NewIAMClient(endpoint, region string, insecureSkipVerify bool) *IAMClient {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify,
+			InsecureSkipVerify: insecureSkipVerify, // #nosec G402 -- gated on the user-set insecure_skip_verify provider attribute
 		},
 	}
 

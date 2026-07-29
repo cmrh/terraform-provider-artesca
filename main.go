@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.opentofu.org/cmrh/artesca",
+		Address: "registry.terraform.io/cmrh/artesca",
 		Debug:   debug,
 	}
 
