@@ -44,7 +44,7 @@ func NewOIDCTokenSource(oidcURL, realm, clientID, scope, username, password stri
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify,
+			InsecureSkipVerify: insecureSkipVerify, // #nosec G402 -- gated on the user-set insecure_skip_verify provider attribute
 		},
 	}
 

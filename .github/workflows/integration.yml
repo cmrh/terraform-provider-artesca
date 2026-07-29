@@ -13,6 +13,9 @@ jobs:
     env:
       TF_ACC_TERRAFORM_PATH: /usr/bin/tofu
       TF_ACC_PROVIDER_NAMESPACE: cmrh
+      # Use a workflow-local Terraform CLI config so the runner's user-level
+      # ~/.terraformrc (which may hold unrelated dev overrides) is ignored.
+      TF_CLI_CONFIG_FILE: ${{ github.workspace }}/.ci-terraformrc
       ARTESCA_MANAGEMENT_ENDPOINT: ${{ secrets.ARTESCA_MANAGEMENT_ENDPOINT }}
       ARTESCA_INSECURE_SKIP_VERIFY: "true"
       ARTESCA_OIDC_URL: ${{ secrets.ARTESCA_OIDC_URL }}
@@ -21,10 +24,10 @@ jobs:
       ARTESCA_S3_ENDPOINT: ${{ secrets.ARTESCA_S3_ENDPOINT }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
 
@@ -33,7 +36,7 @@ jobs:
 
       - name: Write dev override
         run: |
-          cat > "$HOME/.terraformrc" <<EOF
+          cat > "${TF_CLI_CONFIG_FILE}" <<EOF
           provider_installation {
             dev_overrides {
               "${TF_ACC_PROVIDER_NAMESPACE}/artesca" = "${{ github.workspace }}"
@@ -41,6 +44,14 @@ jobs:
             direct {}
           }
           EOF
+
+      # Remove any stale .terraform.lock.hcl / .terraform dir surviving from a
+      # prior run on this self-hosted runner. Dev overrides bypass the lock
+      # file, but tofu still validates any lock it finds — a mismatch aborts
+      # apply. Cleaning is safe because these are gitignored.
+      - name: Clean stale tofu artifacts
+        working-directory: tests/integration
+        run: rm -rf .terraform .terraform.lock.hcl
 
       - name: Write tfvars
         working-directory: tests/integration
