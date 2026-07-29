@@ -30,7 +30,7 @@ type STSClient struct {
 func NewSTSClient(endpoint, region string, insecureSkipVerify bool) *STSClient {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify,
+			InsecureSkipVerify: insecureSkipVerify, // #nosec G402 -- gated on the user-set insecure_skip_verify provider attribute
 		},
 	}
 
