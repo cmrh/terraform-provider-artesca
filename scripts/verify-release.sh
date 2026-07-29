@@ -13,7 +13,7 @@
 # Checks:
 #   1. Tag exists as a GitHub release with assets.
 #   2. All five platforms have a .zip and a .zip.sha256 asset.
-#   3. Filenames follow registry convention: no 'v' prefix on the version.
+#   3. Archive filenames use no 'v' prefix; binary inside each zip uses the 'v' prefix.
 #   4. SHA256SUMS file lists every zip and matches each zip's actual sha256.
 #   5. SHA256SUMS.sig verifies against the provided GPG public key (optional).
 #   6. manifest.json is valid JSON with the expected shape.
@@ -215,7 +215,10 @@ for plat in "${EXPECTED_PLATFORMS[@]}"; do
   fi
 
   inside=$(unzip -Z1 "$zip_name")
-  expected="${NAME}_${VERSION_NO_V}"
+  # Registry convention: the binary inside the zip carries the 'v' prefix
+  # that `terraform init` and `tofu init` look for; the archive filename
+  # itself uses the unprefixed version.
+  expected="${NAME}_${TAG}"
   if [[ "$plat" == windows_* ]]; then
     expected="${expected}.exe"
   fi

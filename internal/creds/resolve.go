@@ -16,7 +16,7 @@ import (
 
 const (
 	EnvAccessKey = "ARTESCA_ACCOUNT_ACCESS_KEY"
-	EnvSecretKey = "ARTESCA_ACCOUNT_SECRET_KEY"
+	EnvSecretKey = "ARTESCA_ACCOUNT_SECRET_KEY" // #nosec G101 -- env var name, not a credential
 
 	AttrAccessKey = "account_access_key"
 	AttrSecretKey = "account_secret_key"
