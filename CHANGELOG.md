@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Spurious drift and cascade replacement on refresh immediately after apply.** The management API's overlay view (`GET /config/overlay/view/{instanceId}`) is eventually consistent — a freshly-created account/location/endpoint/replication stream can be absent from the overlay for a second or two after the successful Create. Read was interpreting that absence as "resource deleted," removing the resource from state, and causing every downstream resource with a `RequiresReplace` reference (e.g. `account_access_key` sourced from `artesca_account.access_key`) to plan a full replacement. The management client now retries overlay lookups with a small exponential backoff before concluding "gone," which absorbs the consistency window without changing legitimate delete-detection.
+
 ### Added
 
 - **`internal/creds` package**: env-var fallback (`ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY`) for per-account credentials, used during `tofu import` when state attributes are empty.
