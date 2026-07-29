@@ -11,14 +11,21 @@ import (
 )
 
 func (c *ManagementClient) GetReplicationStream(ctx context.Context, streamID string) (*ReplicationStream, error) {
-	overlay, err := c.GetOverlay(ctx)
+	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+		for i := range o.ReplicationStreams {
+			if o.ReplicationStreams[i].StreamID == streamID {
+				return true
+			}
+		}
+		return false
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, rs := range overlay.ReplicationStreams {
-		if rs.StreamID == streamID {
-			return &rs, nil
+	for i := range overlay.ReplicationStreams {
+		if overlay.ReplicationStreams[i].StreamID == streamID {
+			return &overlay.ReplicationStreams[i], nil
 		}
 	}
 

@@ -9,14 +9,21 @@ import (
 )
 
 func (c *ManagementClient) GetEndpoint(ctx context.Context, hostname string) (*Endpoint, error) {
-	overlay, err := c.GetOverlay(ctx)
+	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+		for i := range o.Endpoints {
+			if o.Endpoints[i].Hostname == hostname {
+				return true
+			}
+		}
+		return false
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, ep := range overlay.Endpoints {
-		if ep.Hostname == hostname {
-			return &ep, nil
+	for i := range overlay.Endpoints {
+		if overlay.Endpoints[i].Hostname == hostname {
+			return &overlay.Endpoints[i], nil
 		}
 	}
 

@@ -9,7 +9,10 @@ import (
 )
 
 func (c *ManagementClient) GetLocation(ctx context.Context, name string) (*Location, error) {
-	overlay, err := c.GetOverlay(ctx)
+	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+		_, ok := o.Locations[name]
+		return ok
+	})
 	if err != nil {
 		return nil, err
 	}
