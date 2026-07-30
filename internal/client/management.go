@@ -106,14 +106,17 @@ func (c *ManagementClient) GetOverlay(ctx context.Context) (*ConfigOverlay, erro
 
 // overlayLookupDelays controls how the overlay is polled when the caller's
 // finder returns false. The management API's overlay view is eventually
-// consistent immediately after a Create/Update — a freshly-mutated entity
-// may take a second or two to appear. Total budget ~3.5s; on the final miss
-// the last overlay is returned so the caller can decide "genuinely gone."
+// consistent after a Create — a freshly-mutated entity can take up to ~15s
+// to appear. Total budget ~31s; on the final miss the last overlay is
+// returned so the caller can decide "genuinely gone."
 var overlayLookupDelays = []time.Duration{
 	0,
 	500 * time.Millisecond,
 	1 * time.Second,
 	2 * time.Second,
+	4 * time.Second,
+	8 * time.Second,
+	16 * time.Second,
 }
 
 // LookupInOverlay fetches the overlay and applies find(); if find returns
