@@ -138,7 +138,7 @@ func TestGetOverlay(t *testing.T) {
 	}
 
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/config/overlay/view/test-instance-id") {
+		if !strings.Contains(r.URL.Path, "/instance/test-instance-id/config/overlay") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		if r.Method != http.MethodGet {

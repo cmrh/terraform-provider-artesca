@@ -71,7 +71,7 @@ func TestCreateEndpoint(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// CreateEndpoint posts to /endpoint, then LookupInOverlay GETs the
 		// overlay to confirm the endpoint is visible. Route by method.
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay/view/") {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay") {
 			_ = json.NewEncoder(w).Encode(ConfigOverlay{
 				Endpoints: []Endpoint{{Hostname: "new.example.com"}},
 			})

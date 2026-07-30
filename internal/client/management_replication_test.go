@@ -71,7 +71,7 @@ func TestCreateReplicationStream(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// CreateReplicationStream posts to /replication, then LookupInOverlay
 		// GETs the overlay to confirm the stream is visible. Route by method.
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay/view/") {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay") {
 			_ = json.NewEncoder(w).Encode(ConfigOverlay{
 				ReplicationStreams: []ReplicationStream{{StreamID: "rs-new"}},
 			})

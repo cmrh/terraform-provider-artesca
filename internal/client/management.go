@@ -88,7 +88,11 @@ func (c *ManagementClient) doRequest(ctx context.Context, method, path string, b
 }
 
 func (c *ManagementClient) GetOverlay(ctx context.Context) (*ConfigOverlay, error) {
-	path := fmt.Sprintf("/config/overlay/view/%s", url.PathEscape(c.InstanceID))
+	// Two endpoints return the same config-overlay-v1 schema. The default
+	// `/config/overlay/view/{uuid}` was observed to return `users: []` even
+	// when accounts existed on the cluster; `/instance/{uuid}/config/overlay`
+	// is the alternate materialization and appears to include users.
+	path := fmt.Sprintf("/instance/%s/config/overlay", url.PathEscape(c.InstanceID))
 	body, status, err := c.doRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
