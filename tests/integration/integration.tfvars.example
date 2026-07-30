@@ -1,5 +1,9 @@
-# RING S3 variables for integration tests.
+# Integration test variables.
 # Copy to integration.tfvars and fill in real values.
+
+# Suffix appended to every resource name. Leave as "local" for solo dev runs;
+# CI sets this to the GitHub run ID so parallel or retried runs don't collide.
+test_suffix = "local"
 
 # Source RING S3 location
 ring_s3_endpoint    = "http://ring-connector:8080"

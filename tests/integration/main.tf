@@ -8,10 +8,18 @@ terraform {
 
 provider "artesca" {}
 
+# Suffix appended to every resource name so CI runs don't collide when a
+# previous run's destroy left leftovers on the cluster. In CI: set to
+# `${{ github.run_id }}` via integration.tfvars. Local dev keeps the default.
+variable "test_suffix" {
+  type    = string
+  default = "local"
+}
+
 # --- Account ---
 
 resource "artesca_account" "test" {
-  name  = "inttest-account"
+  name  = "inttest-account-${var.test_suffix}"
   email = "inttest@example.com"
 }
 
@@ -28,7 +36,7 @@ output "account_id" {
 resource "artesca_user" "test" {
   account_access_key = artesca_account.test.access_key
   account_secret_key = artesca_account.test.secret_key
-  username           = "inttest-user"
+  username           = "inttest-user-${var.test_suffix}"
 }
 
 output "user_username" {
@@ -53,7 +61,7 @@ resource "artesca_user_policy" "test" {
   account_access_key = artesca_account.test.access_key
   account_secret_key = artesca_account.test.secret_key
   username           = artesca_user.test.username
-  policy_name        = "inttest-policy"
+  policy_name        = "inttest-policy-${var.test_suffix}"
 
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -76,14 +84,14 @@ output "user_policy_name" {
 resource "artesca_group" "test" {
   account_access_key = artesca_account.test.access_key
   account_secret_key = artesca_account.test.secret_key
-  name               = "inttest-group"
+  name               = "inttest-group-${var.test_suffix}"
 }
 
 resource "artesca_group_policy" "test" {
   account_access_key = artesca_account.test.access_key
   account_secret_key = artesca_account.test.secret_key
   group_name         = artesca_group.test.name
-  policy_name        = "inttest-group-policy"
+  policy_name        = "inttest-group-policy-${var.test_suffix}"
 
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -109,7 +117,7 @@ resource "artesca_group_membership" "test" {
 resource "artesca_policy" "test" {
   account_access_key = artesca_account.test.access_key
   account_secret_key = artesca_account.test.secret_key
-  name               = "inttest-managed-policy"
+  name               = "inttest-managed-policy-${var.test_suffix}"
   description        = "Integration test managed policy"
 
   policy_document = jsonencode({
@@ -143,7 +151,7 @@ resource "artesca_group_policy_attachment" "test" {
 resource "artesca_role" "test" {
   account_access_key = artesca_account.test.access_key
   account_secret_key = artesca_account.test.secret_key
-  name               = "inttest-role"
+  name               = "inttest-role-${var.test_suffix}"
   description        = "Integration test role"
 
   assume_role_policy_document = jsonencode({
@@ -171,7 +179,7 @@ ephemeral "artesca_assumed_role_credentials" "test" {
   access_key        = artesca_user_access_key.test.access_key_id
   secret_key        = artesca_user_access_key.test.secret_access_key
   role_arn          = artesca_role.test.arn
-  role_session_name = "inttest-session"
+  role_session_name = "inttest-session-${var.test_suffix}"
   duration_seconds  = 3600
 
   # Ensure the attachment exists before we try to assume the role — otherwise
@@ -213,7 +221,7 @@ variable "ring_s3_bucket_name" {
 }
 
 resource "artesca_location" "source" {
-  name          = "inttest-ring-loc"
+  name          = "inttest-ring-loc-${var.test_suffix}"
   location_type = "location-scality-ring-s3-v1"
 
   details {
@@ -252,7 +260,7 @@ variable "dest_ring_s3_bucket_name" {
 }
 
 resource "artesca_location" "dest" {
-  name          = "inttest-ring-dest"
+  name          = "inttest-ring-dest-${var.test_suffix}"
   location_type = "location-scality-ring-s3-v1"
 
   details {
@@ -272,7 +280,7 @@ output "dest_location_name" {
 # --- Source Bucket ---
 
 resource "artesca_bucket" "source" {
-  name                = "inttest-bucket"
+  name                = "inttest-bucket-${var.test_suffix}"
   location_constraint = artesca_location.source.name
   versioning_enabled  = true
   account_access_key  = artesca_account.test.access_key
@@ -286,7 +294,7 @@ output "source_bucket_name" {
 # --- Destination Bucket ---
 
 resource "artesca_bucket" "dest" {
-  name                = "inttest-bucket-dest"
+  name                = "inttest-bucket-dest-${var.test_suffix}"
   location_constraint = artesca_location.dest.name
   versioning_enabled  = true
   account_access_key  = artesca_account.test.access_key
@@ -339,7 +347,7 @@ resource "artesca_bucket_tagging" "source" {
 # --- Endpoint ---
 
 resource "artesca_endpoint" "test" {
-  hostname      = "inttest-bucket.s3.my-company.com"
+  hostname      = "inttest-bucket-${var.test_suffix}.s3.my-company.com"
   location_name = artesca_location.source.name
 }
 
@@ -390,7 +398,7 @@ output "expiration_rule_id" {
 resource "artesca_bucket_workflow_replication" "test" {
   account_id  = artesca_account.test.id
   bucket_name = artesca_bucket.source.name
-  name        = "inttest-wf-replication"
+  name        = "inttest-wf-replication-${var.test_suffix}"
   version     = 1
   enabled     = true
 

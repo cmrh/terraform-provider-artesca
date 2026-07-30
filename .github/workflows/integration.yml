@@ -57,6 +57,7 @@ jobs:
         working-directory: tests/integration
         run: |
           cat > integration.tfvars <<EOF
+          test_suffix              = "${{ github.run_id }}"
           ring_s3_endpoint         = "${{ secrets.RING_S3_ENDPOINT }}"
           ring_s3_access_key       = "${{ secrets.RING_S3_ACCESS_KEY }}"
           ring_s3_secret_key       = "${{ secrets.RING_S3_SECRET_KEY }}"
