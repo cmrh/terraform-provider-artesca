@@ -57,6 +57,19 @@ func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email st
 		return nil, fmt.Errorf("parsing create account response: %w", err)
 	}
 
+	// Wait for the account to appear in the overlay so subsequent Reads
+	// (data source lookups, plan refreshes) don't race the consistency
+	// window. Uses the same retry budget as LookupInOverlay; on final miss
+	// the create still succeeds and the caller sees the create response.
+	_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+		for i := range o.Users {
+			if o.Users[i].AccountName == userName || o.Users[i].UserName == userName {
+				return true
+			}
+		}
+		return false
+	})
+
 	return &user, nil
 }
 

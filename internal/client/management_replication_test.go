@@ -68,6 +68,15 @@ func TestGetReplicationStreamNotFound(t *testing.T) {
 
 func TestCreateReplicationStream(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// CreateReplicationStream posts to /replication, then LookupInOverlay
+		// GETs the overlay to confirm the stream is visible. Route by method.
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay/view/") {
+			_ = json.NewEncoder(w).Encode(ConfigOverlay{
+				ReplicationStreams: []ReplicationStream{{StreamID: "rs-new"}},
+			})
+			return
+		}
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
@@ -78,7 +87,6 @@ func TestCreateReplicationStream(t *testing.T) {
 		}
 
 		stream.StreamID = "rs-new"
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(stream)
 	}))

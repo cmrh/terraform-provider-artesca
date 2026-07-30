@@ -43,6 +43,13 @@ func (c *ManagementClient) CreateLocation(ctx context.Context, loc *Location) (*
 		return nil, fmt.Errorf("parsing create location response: %w", err)
 	}
 
+	// Wait for the location to appear in the overlay so subsequent Reads
+	// don't race the consistency window.
+	_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+		_, ok := o.Locations[loc.Name]
+		return ok
+	})
+
 	return &created, nil
 }
 

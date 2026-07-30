@@ -48,6 +48,17 @@ func (c *ManagementClient) CreateEndpoint(ctx context.Context, ep *Endpoint) (*E
 		return nil, fmt.Errorf("parsing create endpoint response: %w", err)
 	}
 
+	// Wait for the endpoint to appear in the overlay so subsequent Reads
+	// don't race the consistency window.
+	_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+		for i := range o.Endpoints {
+			if o.Endpoints[i].Hostname == ep.Hostname {
+				return true
+			}
+		}
+		return false
+	})
+
 	return &created, nil
 }
 

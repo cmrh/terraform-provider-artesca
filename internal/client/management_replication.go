@@ -64,6 +64,16 @@ func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *
 			if err := json.Unmarshal(body, &created); err != nil {
 				return nil, fmt.Errorf("parsing create replication stream response: %w", err)
 			}
+			// Wait for the stream to appear in the overlay so subsequent
+			// Reads don't race the consistency window.
+			_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
+				for i := range o.ReplicationStreams {
+					if o.ReplicationStreams[i].StreamID == created.StreamID {
+						return true
+					}
+				}
+				return false
+			})
 			return &created, nil
 		}
 
