@@ -96,15 +96,6 @@ func TestGetAccountMatchesByUserName(t *testing.T) {
 
 func TestCreateAccount(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// CreateAccount posts to /user, then LookupInOverlay GETs the overlay
-		// to confirm the account is visible. Route by method.
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay") {
-			_ = json.NewEncoder(w).Encode(ConfigOverlay{
-				Users: []User{{AccountName: "new-account"}},
-			})
-			return
-		}
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
@@ -122,6 +113,7 @@ func TestCreateAccount(t *testing.T) {
 			t.Errorf("email = %q, want new@example.com", req.Email)
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(User{
 			AccountName: "new-account",

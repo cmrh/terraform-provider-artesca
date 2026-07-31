@@ -9,10 +9,7 @@ import (
 )
 
 func (c *ManagementClient) GetLocation(ctx context.Context, name string) (*Location, error) {
-	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		_, ok := o.Locations[name]
-		return ok
-	})
+	overlay, err := c.GetOverlay(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -42,13 +39,6 @@ func (c *ManagementClient) CreateLocation(ctx context.Context, loc *Location) (*
 	if err := json.Unmarshal(body, &created); err != nil {
 		return nil, fmt.Errorf("parsing create location response: %w", err)
 	}
-
-	// Wait for the location to appear in the overlay so subsequent Reads
-	// don't race the consistency window.
-	_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		_, ok := o.Locations[loc.Name]
-		return ok
-	})
 
 	return &created, nil
 }
