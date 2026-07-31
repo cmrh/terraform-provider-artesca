@@ -11,21 +11,14 @@ import (
 )
 
 func (c *ManagementClient) GetReplicationStream(ctx context.Context, streamID string) (*ReplicationStream, error) {
-	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		for i := range o.ReplicationStreams {
-			if o.ReplicationStreams[i].StreamID == streamID {
-				return true
-			}
-		}
-		return false
-	})
+	overlay, err := c.GetOverlay(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range overlay.ReplicationStreams {
-		if overlay.ReplicationStreams[i].StreamID == streamID {
-			return &overlay.ReplicationStreams[i], nil
+	for _, rs := range overlay.ReplicationStreams {
+		if rs.StreamID == streamID {
+			return &rs, nil
 		}
 	}
 
@@ -64,16 +57,6 @@ func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *
 			if err := json.Unmarshal(body, &created); err != nil {
 				return nil, fmt.Errorf("parsing create replication stream response: %w", err)
 			}
-			// Wait for the stream to appear in the overlay so subsequent
-			// Reads don't race the consistency window.
-			_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-				for i := range o.ReplicationStreams {
-					if o.ReplicationStreams[i].StreamID == created.StreamID {
-						return true
-					}
-				}
-				return false
-			})
 			return &created, nil
 		}
 

@@ -9,21 +9,14 @@ import (
 )
 
 func (c *ManagementClient) GetAccount(ctx context.Context, name string) (*User, error) {
-	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		for i := range o.Users {
-			if o.Users[i].AccountName == name || o.Users[i].UserName == name {
-				return true
-			}
-		}
-		return false
-	})
+	overlay, err := c.GetOverlay(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range overlay.Users {
-		if overlay.Users[i].AccountName == name || overlay.Users[i].UserName == name {
-			return &overlay.Users[i], nil
+	for _, user := range overlay.Users {
+		if user.AccountName == name || user.UserName == name {
+			return &user, nil
 		}
 	}
 
@@ -56,19 +49,6 @@ func (c *ManagementClient) CreateAccount(ctx context.Context, userName, email st
 	if err := json.Unmarshal(body, &user); err != nil {
 		return nil, fmt.Errorf("parsing create account response: %w", err)
 	}
-
-	// Wait for the account to appear in the overlay so subsequent Reads
-	// (data source lookups, plan refreshes) don't race the consistency
-	// window. Uses the same retry budget as LookupInOverlay; on final miss
-	// the create still succeeds and the caller sees the create response.
-	_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		for i := range o.Users {
-			if o.Users[i].AccountName == userName || o.Users[i].UserName == userName {
-				return true
-			}
-		}
-		return false
-	})
 
 	return &user, nil
 }

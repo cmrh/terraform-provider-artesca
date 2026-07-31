@@ -9,21 +9,14 @@ import (
 )
 
 func (c *ManagementClient) GetEndpoint(ctx context.Context, hostname string) (*Endpoint, error) {
-	overlay, err := c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		for i := range o.Endpoints {
-			if o.Endpoints[i].Hostname == hostname {
-				return true
-			}
-		}
-		return false
-	})
+	overlay, err := c.GetOverlay(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range overlay.Endpoints {
-		if overlay.Endpoints[i].Hostname == hostname {
-			return &overlay.Endpoints[i], nil
+	for _, ep := range overlay.Endpoints {
+		if ep.Hostname == hostname {
+			return &ep, nil
 		}
 	}
 
@@ -47,17 +40,6 @@ func (c *ManagementClient) CreateEndpoint(ctx context.Context, ep *Endpoint) (*E
 	if err := json.Unmarshal(body, &created); err != nil {
 		return nil, fmt.Errorf("parsing create endpoint response: %w", err)
 	}
-
-	// Wait for the endpoint to appear in the overlay so subsequent Reads
-	// don't race the consistency window.
-	_, _ = c.LookupInOverlay(ctx, func(o *ConfigOverlay) bool {
-		for i := range o.Endpoints {
-			if o.Endpoints[i].Hostname == ep.Hostname {
-				return true
-			}
-		}
-		return false
-	})
 
 	return &created, nil
 }

@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -138,7 +137,7 @@ func TestGetOverlay(t *testing.T) {
 	}
 
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/instance/test-instance-id/config/overlay") {
+		if !strings.Contains(r.URL.Path, "/config/overlay/view/test-instance-id") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		if r.Method != http.MethodGet {
@@ -196,54 +195,6 @@ func TestGetOverlayError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "500") {
 		t.Errorf("error = %q, want mention of 500", err.Error())
-	}
-}
-
-// The management API's overlay view is eventually consistent — a freshly
-// created entity may not appear on the first read after Create. LookupInOverlay
-// retries with a small budget so the caller doesn't spuriously conclude "gone."
-// This test asserts the retry actually kicks in: server returns an empty
-// overlay first, then the populated one on retry.
-func TestLookupInOverlayRetriesUntilFound(t *testing.T) {
-	populated := ConfigOverlay{
-		InstanceID: "test",
-		Users:      []User{{AccountName: "new-account"}},
-	}
-	var calls int
-	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		if calls == 1 {
-			_ = json.NewEncoder(w).Encode(ConfigOverlay{InstanceID: "test"})
-			return
-		}
-		_ = json.NewEncoder(w).Encode(populated)
-	}))
-	defer apiServer.Close()
-
-	client, cleanup := newTestManagementClient(t, apiServer)
-	defer cleanup()
-
-	// newTestManagementClient collapses delays to a single-attempt list; for
-	// this test we need at least two attempts, so restore a short two-step
-	// budget.
-	orig := overlayLookupDelays
-	overlayLookupDelays = []time.Duration{0, 0}
-	t.Cleanup(func() { overlayLookupDelays = orig })
-
-	user, err := client.GetAccount(context.Background(), "new-account")
-	if err != nil {
-		t.Fatalf("GetAccount returned error: %v", err)
-	}
-	if user == nil {
-		t.Fatal("GetAccount returned nil after retry")
-	}
-	if user.AccountName != "new-account" {
-		t.Errorf("AccountName = %q, want new-account", user.AccountName)
-	}
-	if calls < 2 {
-		t.Errorf("expected at least 2 overlay calls (retry), got %d", calls)
 	}
 }
 

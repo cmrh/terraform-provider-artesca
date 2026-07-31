@@ -68,15 +68,6 @@ func TestGetLocationNotFound(t *testing.T) {
 
 func TestCreateLocation(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// CreateLocation posts to /location, then LookupInOverlay GETs the
-		// overlay to confirm the location is visible. Route by method.
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay") {
-			_ = json.NewEncoder(w).Encode(ConfigOverlay{
-				Locations: map[string]Location{"new-loc": {Name: "new-loc"}},
-			})
-			return
-		}
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
@@ -92,6 +83,7 @@ func TestCreateLocation(t *testing.T) {
 		}
 
 		loc.ObjectID = "generated-id"
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(loc)
 	}))

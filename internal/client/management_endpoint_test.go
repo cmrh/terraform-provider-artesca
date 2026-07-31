@@ -68,15 +68,6 @@ func TestGetEndpointNotFound(t *testing.T) {
 
 func TestCreateEndpoint(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// CreateEndpoint posts to /endpoint, then LookupInOverlay GETs the
-		// overlay to confirm the endpoint is visible. Route by method.
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/config/overlay") {
-			_ = json.NewEncoder(w).Encode(ConfigOverlay{
-				Endpoints: []Endpoint{{Hostname: "new.example.com"}},
-			})
-			return
-		}
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
