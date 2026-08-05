@@ -2,12 +2,17 @@
 #
 # Probe the management-API overlay-view endpoint for the `users` regression.
 #
-# Given an ARTESCA cluster and an OIDC user, this script:
+# Given an ARTESCA cluster and an OIDC user, this script mirrors what the
+# artesca_account resource's Create does end-to-end so the probe exercises the
+# same server-side path v0.3.0 acceptance tests exercised:
 #   1. Obtains an OIDC token
 #   2. Reads the overlay before creating an account
-#   3. Creates a probe account
-#   4. Reads the overlay again after creation
-#   5. Deletes the probe account
+#   3. Creates a probe account (POST /config/{uuid}/user)
+#   4. Generates an access key for it (POST /config/{uuid}/user/{name}/key) —
+#      the account's Create resource falls through to this when the create
+#      response doesn't include keys
+#   5. Reads the overlay again (immediately, and after a short wait)
+#   6. Deletes the probe account
 #
 # It exits 0 (PASS) if the created account appears in `users` on the second
 # read, and 1 (FAIL) if `users` stays null / empty of that account.
@@ -98,10 +103,22 @@ if [ "$CREATE_STATUS" != "201" ] && [ "$CREATE_STATUS" != "200" ]; then
   exit 2
 fi
 
-# --- probe: check overlay immediately and after a short wait ---
 echo
-echo "==> Immediately after create"
-describe_users "immediate"
+echo "==> Overlay immediately after create (before key generation)"
+describe_users "post-create"
+
+# The account resource's Create also calls GenerateAccountKey when the create
+# response doesn't include keys, so we mirror that here.
+echo
+echo "==> Generate access key for $PROBE_NAME"
+KEY_STATUS=$($CURL -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
+  -o /tmp/probe-key.json -w '%{http_code}' \
+  "$API/config/$INSTANCE_ID/user/$PROBE_NAME/key")
+echo "  key status: $KEY_STATUS"
+
+echo
+echo "==> Overlay immediately after key generation"
+describe_users "post-key"
 
 echo
 echo "==> After 5s wait"
