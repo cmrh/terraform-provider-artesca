@@ -18,8 +18,7 @@ func TestAccDataSourceUser_basic(t *testing.T) {
 			{
 				Config: testAccUserConfig(rAcct, rUser) + `
 data "artesca_user" "lookup" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = artesca_user.test.username
 }
 `,
@@ -47,8 +46,7 @@ func TestAccDataSourceUser_notFound(t *testing.T) {
 			{
 				Config: testAccAccountConfig(rAcct) + `
 data "artesca_user" "missing" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = "tf-acc-no-such-user-12345"
 }
 `,

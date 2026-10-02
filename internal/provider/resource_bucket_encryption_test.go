@@ -55,10 +55,9 @@ func TestAccBucketEncryption_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket_encryption.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rBucket)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rBucket)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "bucket_name",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -67,8 +66,7 @@ func TestAccBucketEncryption_importState(t *testing.T) {
 func testAccBucketEncryptionConfig(sseAlgorithm string, bucketKeyEnabled bool) string {
 	return fmt.Sprintf(`
 resource "artesca_bucket_encryption" "test" {
-  account_access_key  = artesca_account.test.access_key
-  account_secret_key  = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   bucket_name         = artesca_bucket.test.name
   sse_algorithm       = %q
   bucket_key_enabled  = %t
@@ -88,9 +86,12 @@ func testAccCheckBucketEncryptionDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_bucket_encryption" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		cfg, err := s3Client.GetBucketEncryption(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["bucket_name"])
 		// If the bucket itself is gone, GET will fail — accept that as destroyed.
 		if err != nil {

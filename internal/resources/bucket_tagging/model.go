@@ -5,8 +5,7 @@ import (
 )
 
 type BucketTaggingResourceModel struct {
-	AccountAccessKey types.String `tfsdk:"account_access_key"`
-	AccountSecretKey types.String `tfsdk:"account_secret_key"`
-	BucketName       types.String `tfsdk:"bucket_name"`
-	Tags             types.Map    `tfsdk:"tags"`
+	AccountName types.String `tfsdk:"account_name"`
+	BucketName  types.String `tfsdk:"bucket_name"`
+	Tags        types.Map    `tfsdk:"tags"`
 }

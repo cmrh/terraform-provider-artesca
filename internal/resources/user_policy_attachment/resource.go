@@ -24,6 +24,7 @@ var (
 )
 
 type UserPolicyAttachmentResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -39,22 +40,7 @@ func (r *UserPolicyAttachmentResource) Schema(_ context.Context, _ resource.Sche
 	resp.Schema = schema.Schema{
 		Description: "Attaches a managed IAM policy to a user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"username": schema.StringAttribute{
 				Description: "The IAM user to attach the policy to.",
 				Required:    true,
@@ -89,6 +75,7 @@ func (r *UserPolicyAttachmentResource) Configure(_ context.Context, req resource
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *UserPolicyAttachmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -103,9 +90,14 @@ func (r *UserPolicyAttachmentResource) Create(ctx context.Context, req resource.
 		"policy_arn": plan.PolicyArn.ValueString(),
 	})
 
-	err := r.iamClient.AttachUserPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.AttachUserPolicy(ctx,
+		acctCreds,
 		plan.Username.ValueString(),
 		plan.PolicyArn.ValueString(),
 	)
@@ -124,9 +116,14 @@ func (r *UserPolicyAttachmentResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	arns, err := r.iamClient.ListAttachedUserPolicies(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.Username.ValueString(),
 	)
 	if err != nil {
@@ -152,9 +149,14 @@ func (r *UserPolicyAttachmentResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	err := r.iamClient.DetachUserPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DetachUserPolicy(ctx,
+		acctCreds,
 		state.Username.ValueString(),
 		state.PolicyArn.ValueString(),
 	)
@@ -165,14 +167,17 @@ func (r *UserPolicyAttachmentResource) Delete(ctx context.Context, req resource.
 }
 
 func (r *UserPolicyAttachmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Format: username/policy_arn. ARN contains slashes but starts with "arn:",
-	// so SplitN with n=2 gives username and the full ARN.
-	parts := strings.SplitN(req.ID, "/", 2)
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
+		return
+	}
+	// Format: <account_name>/username/policy_arn. ARN contains slashes but starts
+	// with "arn:", so SplitN with n=2 on the rest gives username and the full ARN.
+	parts := strings.SplitN(rest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || !strings.HasPrefix(parts[1], "arn:") {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format username/policy_arn, got %q", req.ID))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/username/policy_arn, got %q", req.ID))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_arn"), parts[1])...)
-	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

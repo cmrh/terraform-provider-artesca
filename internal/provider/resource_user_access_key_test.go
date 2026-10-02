@@ -31,8 +31,7 @@ func TestAccUserAccessKey_basic(t *testing.T) {
 func testAccUserAccessKeyConfig(accountName, username string) string {
 	return testAccUserConfig(accountName, username) + `
 resource "artesca_user_access_key" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = artesca_user.test.username
 }
 `

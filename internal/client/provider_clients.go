@@ -6,4 +6,6 @@ type ProviderClients struct {
 	IAM        *IAMClient
 	S3         *S3Client
 	STS        *STSClient
+	// Accounts issues per-account credentials for IAM and S3 calls.
+	Accounts *AccountCredentialSource
 }

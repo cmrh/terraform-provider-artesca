@@ -7,12 +7,12 @@ terraform {
 }
 
 provider "artesca" {
-  management_endpoint = "https://management.artesca.example.com"
-  oidc_url            = "https://ui.artesca.example.com"
-  oidc_realm          = "artesca"
-  client_id           = "zenko-ui"
-  username            = var.artesca_username
-  password            = var.artesca_password
+  management_endpoint  = "https://management.artesca.example.com"
+  oidc_url             = "https://ui.artesca.example.com"
+  oidc_realm           = "artesca"
+  client_id            = "zenko-ui"
+  username             = var.artesca_username
+  password             = var.artesca_password
   insecure_skip_verify = true
 
   # instance_id is auto-discovered if omitted

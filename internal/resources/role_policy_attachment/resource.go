@@ -24,6 +24,7 @@ var (
 )
 
 type RolePolicyAttachmentResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -41,22 +42,7 @@ func (r *RolePolicyAttachmentResource) Schema(_ context.Context, _ resource.Sche
 			"This is the only way to grant permissions to a role — ARTESCA does not implement " +
 			"inline role policies.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"role_name": schema.StringAttribute{
 				Description: "The IAM role to attach the policy to.",
 				Required:    true,
@@ -91,6 +77,7 @@ func (r *RolePolicyAttachmentResource) Configure(_ context.Context, req resource
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *RolePolicyAttachmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -105,9 +92,14 @@ func (r *RolePolicyAttachmentResource) Create(ctx context.Context, req resource.
 		"policy_arn": plan.PolicyArn.ValueString(),
 	})
 
-	err := r.iamClient.AttachRolePolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.AttachRolePolicy(ctx,
+		acctCreds,
 		plan.RoleName.ValueString(),
 		plan.PolicyArn.ValueString(),
 	)
@@ -126,9 +118,14 @@ func (r *RolePolicyAttachmentResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	arns, err := r.iamClient.ListAttachedRolePolicies(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.RoleName.ValueString(),
 	)
 	if err != nil {
@@ -154,9 +151,14 @@ func (r *RolePolicyAttachmentResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	err := r.iamClient.DetachRolePolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DetachRolePolicy(ctx,
+		acctCreds,
 		state.RoleName.ValueString(),
 		state.PolicyArn.ValueString(),
 	)
@@ -167,12 +169,15 @@ func (r *RolePolicyAttachmentResource) Delete(ctx context.Context, req resource.
 }
 
 func (r *RolePolicyAttachmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
+		return
+	}
+	parts := strings.SplitN(rest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || !strings.HasPrefix(parts[1], "arn:") {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format role_name/policy_arn, got %q", req.ID))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/role_name/policy_arn, got %q", req.ID))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("role_name"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_arn"), parts[1])...)
-	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

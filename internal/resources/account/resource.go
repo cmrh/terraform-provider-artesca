@@ -22,8 +22,9 @@ var (
 )
 
 type AccountResource struct {
-	client *client.ManagementClient
-	iam    *client.IAMClient
+	client   *client.ManagementClient
+	iam      *client.IAMClient
+	accounts *client.AccountCredentialSource
 }
 
 func NewAccountResource() resource.Resource {
@@ -121,6 +122,7 @@ func (r *AccountResource) Configure(_ context.Context, req resource.ConfigureReq
 	}
 	r.client = providerData.Management
 	r.iam = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -237,6 +239,10 @@ func (r *AccountResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting account", err.Error())
 		return
+	}
+	// A recreated account with the same name gets a new ID; drop cached credentials.
+	if r.accounts != nil {
+		r.accounts.Forget(state.Name.ValueString())
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -13,7 +14,8 @@ import (
 var _ datasource.DataSource = &PolicyDataSource{}
 
 type PolicyDataSource struct {
-	client *client.IAMClient
+	accounts *client.AccountCredentialSource
+	client   *client.IAMClient
 }
 
 func NewPolicyDataSource() datasource.DataSource {
@@ -28,16 +30,7 @@ func (d *PolicyDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 	resp.Schema = schema.Schema{
 		Description: "Looks up an existing IAM managed policy within an ARTESCA account by ARN.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account this policy belongs to.",
-				Required:    true,
-				Sensitive:   true,
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account this policy belongs to.",
-				Required:    true,
-				Sensitive:   true,
-			},
+			creds.AttrAccountName: creds.DataSourceAttribute(),
 			"arn": schema.StringAttribute{
 				Description: "The ARN of the IAM managed policy to look up.",
 				Required:    true,
@@ -83,6 +76,7 @@ func (d *PolicyDataSource) Configure(_ context.Context, req datasource.Configure
 		return
 	}
 	d.client = providerData.IAM
+	d.accounts = providerData.Accounts
 }
 
 func (d *PolicyDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -92,11 +86,18 @@ func (d *PolicyDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	accessKey := data.AccountAccessKey.ValueString()
-	secretKey := data.AccountSecretKey.ValueString()
+	acctCreds, err := d.accounts.For(ctx, data.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	arn := data.ARN.ValueString()
 
-	policy, err := d.client.GetPolicy(ctx, accessKey, secretKey, arn)
+	policy, err := d.client.GetPolicy(ctx, acctCreds, arn)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading IAM policy", err.Error())
 		return
@@ -109,7 +110,7 @@ func (d *PolicyDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	document, err := d.client.GetPolicyDocument(ctx, accessKey, secretKey, arn, policy.DefaultVersionId)
+	document, err := d.client.GetPolicyDocument(ctx, acctCreds, arn, policy.DefaultVersionId)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading IAM policy document", err.Error())
 		return

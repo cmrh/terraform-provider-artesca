@@ -5,8 +5,7 @@ import (
 )
 
 type WorkflowTransitionResourceModel struct {
-	AccountAccessKey types.String         `tfsdk:"account_access_key"`
-	AccountSecretKey types.String         `tfsdk:"account_secret_key"`
+	AccountName      types.String         `tfsdk:"account_name"`
 	BucketName       types.String         `tfsdk:"bucket_name"`
 	RuleID           types.String         `tfsdk:"rule_id"`
 	Enabled          types.Bool           `tfsdk:"enabled"`

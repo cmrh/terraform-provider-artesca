@@ -47,7 +47,7 @@ type bucketEncryptionResponseApply struct {
 
 // PutBucketEncryption sets the bucket's server-side encryption configuration.
 // Replaces any existing configuration.
-func (c *S3Client) PutBucketEncryption(ctx context.Context, accessKey, secretKey, bucket string, cfg BucketEncryptionConfig) error {
+func (c *S3Client) PutBucketEncryption(ctx context.Context, creds Credentials, bucket string, cfg BucketEncryptionConfig) error {
 	req := bucketEncryptionRequest{
 		XMLNS: "http://s3.amazonaws.com/doc/2006-03-01/",
 		Rules: []bucketEncryptionRequestRule{{
@@ -59,7 +59,7 @@ func (c *S3Client) PutBucketEncryption(ctx context.Context, accessKey, secretKey
 	if err != nil {
 		return fmt.Errorf("marshaling bucket encryption body: %w", err)
 	}
-	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "encryption", string(body), accessKey, secretKey)
+	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "encryption", string(body), creds)
 	if err != nil {
 		return err
 	}
@@ -72,8 +72,8 @@ func (c *S3Client) PutBucketEncryption(ctx context.Context, accessKey, secretKey
 // GetBucketEncryption returns the bucket's encryption configuration. If no
 // configuration is set, returns (nil, nil) so callers can treat absence as a
 // state-removed signal.
-func (c *S3Client) GetBucketEncryption(ctx context.Context, accessKey, secretKey, bucket string) (*BucketEncryptionConfig, error) {
-	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "encryption", "", accessKey, secretKey)
+func (c *S3Client) GetBucketEncryption(ctx context.Context, creds Credentials, bucket string) (*BucketEncryptionConfig, error) {
+	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "encryption", "", creds)
 	if err != nil {
 		if strings.Contains(err.Error(), "ServerSideEncryptionConfigurationNotFoundError") {
 			return nil, nil
@@ -103,8 +103,8 @@ func (c *S3Client) GetBucketEncryption(ctx context.Context, accessKey, secretKey
 
 // DeleteBucketEncryption removes any server-side encryption configuration from
 // the bucket. Treats "not found" as success.
-func (c *S3Client) DeleteBucketEncryption(ctx context.Context, accessKey, secretKey, bucket string) error {
-	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "encryption", "", accessKey, secretKey)
+func (c *S3Client) DeleteBucketEncryption(ctx context.Context, creds Credentials, bucket string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "encryption", "", creds)
 	if status == http.StatusNotFound {
 		return nil
 	}

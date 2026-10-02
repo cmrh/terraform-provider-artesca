@@ -31,7 +31,7 @@ func TestPutBucketEncryption(t *testing.T) {
 	defer apiServer.Close()
 
 	c := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := c.PutBucketEncryption(context.Background(), "AKID", "secret", "my-bucket", BucketEncryptionConfig{
+	err := c.PutBucketEncryption(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", BucketEncryptionConfig{
 		SSEAlgorithm:     "AES256",
 		BucketKeyEnabled: true,
 	})
@@ -67,7 +67,7 @@ func TestGetBucketEncryption(t *testing.T) {
 	defer apiServer.Close()
 
 	c := NewS3Client(apiServer.URL, "us-east-1", false)
-	cfg, err := c.GetBucketEncryption(context.Background(), "AKID", "secret", "my-bucket")
+	cfg, err := c.GetBucketEncryption(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketEncryption returned error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestGetBucketEncryptionNotConfigured(t *testing.T) {
 	defer apiServer.Close()
 
 	c := NewS3Client(apiServer.URL, "us-east-1", false)
-	cfg, err := c.GetBucketEncryption(context.Background(), "AKID", "secret", "my-bucket")
+	cfg, err := c.GetBucketEncryption(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketEncryption returned error: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestDeleteBucketEncryption(t *testing.T) {
 	defer apiServer.Close()
 
 	c := NewS3Client(apiServer.URL, "us-east-1", false)
-	if err := c.DeleteBucketEncryption(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+	if err := c.DeleteBucketEncryption(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket"); err != nil {
 		t.Fatalf("DeleteBucketEncryption returned error: %v", err)
 	}
 }
@@ -133,7 +133,7 @@ func TestDeleteBucketEncryptionAlreadyAbsent(t *testing.T) {
 	defer apiServer.Close()
 
 	c := NewS3Client(apiServer.URL, "us-east-1", false)
-	if err := c.DeleteBucketEncryption(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+	if err := c.DeleteBucketEncryption(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket"); err != nil {
 		t.Fatalf("DeleteBucketEncryption should treat 404 as success, got: %v", err)
 	}
 }

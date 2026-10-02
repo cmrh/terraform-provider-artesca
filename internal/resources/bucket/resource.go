@@ -24,6 +24,7 @@ var (
 )
 
 type BucketResource struct {
+	accounts *client.AccountCredentialSource
 	s3Client *client.S3Client
 }
 
@@ -62,16 +63,7 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account that owns this bucket.",
-				Required:    true,
-				Sensitive:   true,
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account that owns this bucket.",
-				Required:    true,
-				Sensitive:   true,
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 		},
 	}
 }
@@ -96,6 +88,7 @@ func (r *BucketResource) Configure(_ context.Context, req resource.ConfigureRequ
 		return
 	}
 	r.s3Client = providerData.S3
+	r.accounts = providerData.Accounts
 }
 
 func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -106,8 +99,12 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	bucketName := plan.Name.ValueString()
-	accessKey := plan.AccountAccessKey.ValueString()
-	secretKey := plan.AccountSecretKey.ValueString()
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	locationConstraint := plan.LocationConstraint.ValueString()
 
 	tflog.Debug(ctx, "Creating bucket", map[string]any{
@@ -115,7 +112,7 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 		"location": locationConstraint,
 	})
 
-	err := r.s3Client.CreateBucket(ctx, accessKey, secretKey, bucketName, locationConstraint)
+	err = r.s3Client.CreateBucket(ctx, acctCreds, bucketName, locationConstraint)
 	if err != nil {
 		if strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
 			tflog.Debug(ctx, "Bucket already exists and is owned by this account", map[string]any{"bucket": bucketName})
@@ -126,7 +123,7 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	if plan.VersioningEnabled.ValueBool() {
-		if err := r.s3Client.PutBucketVersioning(ctx, accessKey, secretKey, bucketName, true); err != nil {
+		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, true); err != nil {
 			resp.Diagnostics.AddError("Error enabling bucket versioning", err.Error())
 			return
 		}
@@ -143,10 +140,13 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	bucketName := state.Name.ValueString()
-	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
 
-	exists, err := r.s3Client.HeadBucket(ctx, accessKey, secretKey, bucketName)
+	exists, err := r.s3Client.HeadBucket(ctx, acctCreds, bucketName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading bucket", err.Error())
 		return
@@ -157,7 +157,7 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	if !state.LocationConstraint.IsNull() {
-		loc, err := r.s3Client.GetBucketLocation(ctx, accessKey, secretKey, bucketName)
+		loc, err := r.s3Client.GetBucketLocation(ctx, acctCreds, bucketName)
 		if err != nil {
 			resp.Diagnostics.AddError("Error reading bucket location", err.Error())
 			return
@@ -167,7 +167,7 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 
-	versioning, err := r.s3Client.GetBucketVersioning(ctx, accessKey, secretKey, bucketName)
+	versioning, err := r.s3Client.GetBucketVersioning(ctx, acctCreds, bucketName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading bucket versioning", err.Error())
 		return
@@ -192,9 +192,13 @@ func (r *BucketResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	if !plan.VersioningEnabled.Equal(state.VersioningEnabled) {
 		bucketName := plan.Name.ValueString()
-		accessKey := plan.AccountAccessKey.ValueString()
-		secretKey := plan.AccountSecretKey.ValueString()
-		if err := r.s3Client.PutBucketVersioning(ctx, accessKey, secretKey, bucketName, plan.VersioningEnabled.ValueBool()); err != nil {
+		acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+			return
+		}
+
+		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, plan.VersioningEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Error updating bucket versioning", err.Error())
 			return
 		}
@@ -211,12 +215,15 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	bucketName := state.Name.ValueString()
-	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
 
 	tflog.Debug(ctx, "Deleting bucket", map[string]any{"bucket": bucketName})
 
-	err := r.s3Client.DeleteBucket(ctx, accessKey, secretKey, bucketName)
+	err = r.s3Client.DeleteBucket(ctx, acctCreds, bucketName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket", err.Error())
 		return

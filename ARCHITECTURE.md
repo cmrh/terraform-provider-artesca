@@ -87,7 +87,7 @@ Each resource is a package with:
 | `ManagementClient` | OIDC bearer (`X-Authentication-Token` header) | JSON/REST | account create/delete/key generation, locations, endpoints, replication, workflow_replication |
 | `IAMClient` | SigV4 (service `iam`); unsigned with `WebIdentityToken` for account lookup | XML / form-encoded; JSON for `GetRolesForWebIdentity` | account read + account data sources, users, user_access_key, user_policy, user_policy_attachment, group, group_membership, group_policy, group_policy_attachment, policy, role, role_policy_attachment |
 | `S3Client` | SigV4 (service `s3`) | XML / REST | bucket, bucket_encryption, bucket_policy, bucket_tagging, workflow_expiration, workflow_transition |
-| `STSClient` | SigV4 (service `sts`) | XML | caller_identity data source, assumed_role_credentials ephemeral |
+| `STSClient` | SigV4 (service `sts`); unsigned with `WebIdentityToken` for `AssumeRoleWithWebIdentity` | XML | per-account credentials for every account-scoped resource (via `AccountCredentialSource`), caller_identity data source, assumed_role_credentials ephemeral |
 
 The provider bundles all four in `ProviderClients` (`provider_clients.go`). Each resource extracts the client it needs in its `Configure` method.
 
@@ -109,15 +109,21 @@ Each client is a few hundred lines, debuggable end-to-end with `TF_LOG=trace`, a
 The IAM and STS endpoints are **derived** from other configured endpoints:
 
 - **IAM**: `management.<host>` → `iam.<host>` (replaces the leading subdomain)
-- **STS**: `s3.<host>` → `sts.<host>`
+- **STS**: `s3.<host>` → `sts.<host>`, or `management.<host>` → `sts.<host>` when no S3 endpoint is configured
 
 Only the management endpoint and (optionally) the S3 endpoint are configured directly. This mirrors ARTESCA's DNS convention for its four public surfaces.
 
 ### Per-account credentials
 
-IAM- and S3-touching resources use per-account access keys passed as resource attributes (`account_access_key`, `account_secret_key`), not the provider-level admin OIDC token. This is because standard AWS IAM/S3 operations require the owning account's keys — the OIDC-authenticated management API creates and rotates these keys but doesn't sign S3 or IAM requests itself.
+IAM and S3 operations must be signed with credentials of the owning account. Account-scoped resources name that account with `account_name`; `client.AccountCredentialSource` turns it into temporary credentials:
 
-The `internal/creds` package resolves these attributes with an env-var fallback (`ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY`) so `tofu import` works — during import the framework state starts empty and the Read call would otherwise fail without credentials.
+1. Resolve the account ID with IAM `GetRolesForWebIdentity` (OIDC token, unsigned).
+2. Call STS `AssumeRoleWithWebIdentity` on `arn:aws:iam::<id>:role/scality-internal/storage-manager-role` with the OIDC token.
+3. Cache the resulting access key / secret key / session token per account until 5 minutes before expiry (1-hour credentials).
+
+IAM and S3 requests carry the session token as the signed `X-Amz-Security-Token` header. No account keys are stored in configuration or state. The `artesca_account` resource drops an account's cached credentials when it deletes the account.
+
+The `internal/creds` package holds the shared `account_name` attribute and the `<account_name>/<id>` import ID parsing.
 
 ## Overlay reads
 

@@ -41,10 +41,9 @@ func TestAccUser_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_user.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rUser)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rUser)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "username",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -53,8 +52,7 @@ func TestAccUser_importState(t *testing.T) {
 func testAccUserConfig(accountName, username string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_user" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = %q
 }
 `, username)

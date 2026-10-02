@@ -1,6 +1,5 @@
 resource "artesca_bucket_workflow_transition" "example" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
+  account_name       = artesca_account.example.name
   bucket_name        = artesca_bucket.example.name
   enabled            = true
   location_name      = artesca_location.archive.name

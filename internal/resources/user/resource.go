@@ -22,6 +22,7 @@ var (
 )
 
 type UserResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -37,22 +38,7 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	resp.Schema = schema.Schema{
 		Description: "Manages an IAM user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"username": schema.StringAttribute{
 				Description: "The name of the IAM user. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
@@ -102,6 +88,7 @@ func (r *UserResource) Configure(_ context.Context, req resource.ConfigureReques
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -111,13 +98,20 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	accessKey := plan.AccountAccessKey.ValueString()
-	secretKey := plan.AccountSecretKey.ValueString()
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	username := plan.Username.ValueString()
 
 	tflog.Debug(ctx, "Creating IAM user", map[string]any{"username": username})
 
-	user, err := r.iamClient.CreateUser(ctx, accessKey, secretKey, username)
+	user, err := r.iamClient.CreateUser(ctx, acctCreds, username)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating IAM user", err.Error())
 		return
@@ -137,11 +131,18 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	username := state.Username.ValueString()
 
-	user, err := r.iamClient.GetUser(ctx, accessKey, secretKey, username)
+	user, err := r.iamClient.GetUser(ctx, acctCreds, username)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading IAM user", err.Error())
 		return
@@ -170,13 +171,20 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	accessKey := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	secretKey := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	username := state.Username.ValueString()
 
 	tflog.Debug(ctx, "Deleting IAM user", map[string]any{"username": username})
 
-	err := r.iamClient.DeleteUser(ctx, accessKey, secretKey, username)
+	err = r.iamClient.DeleteUser(ctx, acctCreds, username)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting IAM user", err.Error())
 		return

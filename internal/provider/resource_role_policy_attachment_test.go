@@ -43,10 +43,9 @@ func TestAccRolePolicyAttachment_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_role_policy_attachment.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateRolePolicyArn("artesca_role_policy_attachment.test")),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateRolePolicyArn("artesca_role_policy_attachment.test")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "policy_arn",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -65,8 +64,7 @@ func testAccImportStateRolePolicyArn(resourceName string) resource.ImportStateId
 func testAccRolePolicyAttachmentConfig(accountName, roleName, policyName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_role" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 
   assume_role_policy_document = jsonencode({
@@ -76,8 +74,7 @@ resource "artesca_role" "test" {
 }
 
 resource "artesca_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 
   policy_document = jsonencode({
@@ -87,8 +84,7 @@ resource "artesca_policy" "test" {
 }
 
 resource "artesca_role_policy_attachment" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   role_name          = artesca_role.test.name
   policy_arn         = artesca_policy.test.arn
 }

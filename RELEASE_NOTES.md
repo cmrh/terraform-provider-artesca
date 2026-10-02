@@ -6,6 +6,13 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 
 22 resources, 12 data sources, and 1 ephemeral resource covering three ARTESCA API surfaces (Management, IAM, S3), plus STS for the ephemeral role-credential resource. See [README.md](README.md) for the full inventory.
 
+## Breaking changes since v0.3.0
+
+- **`account_name` replaces `account_access_key` / `account_secret_key`** on all account-scoped resources (buckets and sub-resources, IAM users/groups/roles/policies and attachments, user access keys, expiration/transition workflows) and on `data.artesca_group`, `data.artesca_policy`, `data.artesca_role`, `data.artesca_user`. The provider obtains temporary credentials for the account from its OIDC login; account keys are no longer configured or stored.
+- **Import IDs** for account-scoped resources start with the account name: `tofu import artesca_user.alice my-app/alice`.
+- **`data.artesca_account`** no longer exports `email` or `access_key`; **`data.artesca_accounts`** no longer exports `email`.
+- **`artesca_account.arn`** is the account root ARN (`arn:aws:iam::<id>:root`).
+
 ## Recent additions since v0.3.0
 
 ### IAM
@@ -29,8 +36,7 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 - **ephemeral.artesca_assumed_role_credentials** — mint short-lived role credentials via STS `AssumeRole`. Session tokens are never persisted to state.
 
 ### Brownfield import
-- Import support for 17 resources previously unimportable: buckets, bucket sub-resources, IAM users/groups/roles/policies and their attachments, and workflows.
-- New `internal/creds` helper with an env-var fallback (`ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY`) so `tofu import` works without ak/sk baked into state.
+- Import support for 17 resources previously unimportable: buckets, bucket sub-resources, IAM users/groups/roles/policies and their attachments, and workflows. No credentials are needed beyond the provider's own login.
 
 ## Fixed
 

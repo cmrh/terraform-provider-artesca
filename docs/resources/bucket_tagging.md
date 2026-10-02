@@ -13,9 +13,8 @@ Manages the tag set on an ARTESCA bucket. Each apply replaces the entire tag set
 
 ```hcl
 resource "artesca_bucket_tagging" "example" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
-  bucket_name        = artesca_bucket.example.name
+  account_name = artesca_account.example.name
+  bucket_name  = artesca_bucket.example.name
 
   tags = {
     environment = "prod"
@@ -29,20 +28,17 @@ resource "artesca_bucket_tagging" "example" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | The access key of the account that owns the bucket. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | The secret key of the account that owns the bucket. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `bucket_name` | String | Yes | The name of the bucket to tag. Forces replacement. |
 | `tags` | Map(String) | Yes | Map of tag key/value pairs. Replacing this map replaces the bucket's entire tag set. |
 
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_bucket_tagging.example <bucket_name>
+tofu import artesca_bucket_tagging.example <account_name>/<bucket_name>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

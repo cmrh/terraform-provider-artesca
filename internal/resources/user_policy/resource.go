@@ -24,6 +24,7 @@ var (
 )
 
 type UserPolicyResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -39,22 +40,7 @@ func (r *UserPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest,
 	resp.Schema = schema.Schema{
 		Description: "Attaches an inline IAM policy to a user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"username": schema.StringAttribute{
 				Description: "The IAM user to attach the policy to. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
@@ -100,6 +86,7 @@ func (r *UserPolicyResource) Configure(_ context.Context, req resource.Configure
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *UserPolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -114,9 +101,14 @@ func (r *UserPolicyResource) Create(ctx context.Context, req resource.CreateRequ
 		"policy_name": plan.PolicyName.ValueString(),
 	})
 
-	err := r.iamClient.PutUserPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.PutUserPolicy(ctx,
+		acctCreds,
 		plan.Username.ValueString(),
 		plan.PolicyName.ValueString(),
 		plan.PolicyDocument.ValueString(),
@@ -136,9 +128,14 @@ func (r *UserPolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	policyDoc, err := r.iamClient.GetUserPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.Username.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -173,9 +170,14 @@ func (r *UserPolicyResource) Update(ctx context.Context, req resource.UpdateRequ
 		"policy_name": plan.PolicyName.ValueString(),
 	})
 
-	err := r.iamClient.PutUserPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.PutUserPolicy(ctx,
+		acctCreds,
 		plan.Username.ValueString(),
 		plan.PolicyName.ValueString(),
 		plan.PolicyDocument.ValueString(),
@@ -200,9 +202,14 @@ func (r *UserPolicyResource) Delete(ctx context.Context, req resource.DeleteRequ
 		"policy_name": state.PolicyName.ValueString(),
 	})
 
-	err := r.iamClient.DeleteUserPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DeleteUserPolicy(ctx,
+		acctCreds,
 		state.Username.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -213,12 +220,15 @@ func (r *UserPolicyResource) Delete(ctx context.Context, req resource.DeleteRequ
 }
 
 func (r *UserPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
+		return
+	}
+	parts := strings.SplitN(rest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format username/policy_name, got %q", req.ID))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/username/policy_name, got %q", req.ID))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_name"), parts[1])...)
-	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

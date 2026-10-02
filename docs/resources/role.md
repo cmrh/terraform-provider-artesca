@@ -15,10 +15,9 @@ Manages an IAM role within an ARTESCA account. Roles are used with STS (AssumeRo
 
 ```hcl
 resource "artesca_role" "deployer" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  name               = "deployer"
-  description        = "Used by CI pipelines for deploy operations"
+  account_name = artesca_account.app.name
+  name         = "deployer"
+  description  = "Used by CI pipelines for deploy operations"
 
   assume_role_policy_document = jsonencode({
     Version = "2012-10-17"
@@ -37,8 +36,7 @@ resource "artesca_role" "deployer" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | Access key of the owning account. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `name` | String | Yes | The role name (1–64 chars; alphanumeric and `+=,.@-`). Forces replacement. |
 | `assume_role_policy_document` | String | Yes | Trust-policy JSON. Forces replacement on change. |
 | `description` | String | No  | Free-text description. Forces replacement on change. |
@@ -54,9 +52,7 @@ resource "artesca_role" "deployer" {
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_role.deployer <name>
+tofu import artesca_role.deployer <account_name>/<name>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.

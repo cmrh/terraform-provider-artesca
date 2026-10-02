@@ -63,10 +63,10 @@ func TestAccUserPolicy_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_user_policy.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rUser+"/tf-acc-policy")),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rUser + "/tf-acc-policy")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "policy_name",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy_document"},
+				ImportStateVerifyIgnore:              []string{"policy_document"},
 			},
 		},
 	})
@@ -75,8 +75,7 @@ func TestAccUserPolicy_importState(t *testing.T) {
 func testAccUserPolicyConfig(accountName, username, action string) string {
 	return testAccUserConfig(accountName, username) + fmt.Sprintf(`
 resource "artesca_user_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = artesca_user.test.username
   policy_name        = "tf-acc-policy"
 

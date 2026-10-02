@@ -13,9 +13,8 @@ Creates an IAM access key pair for a user within an ARTESCA account. The secret 
 
 ```hcl
 resource "artesca_user_access_key" "operator_key" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  username           = artesca_user.operator.username
+  account_name = artesca_account.app.name
+  username     = artesca_user.operator.username
 }
 
 output "operator_credentials" {
@@ -31,8 +30,7 @@ output "operator_credentials" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | Access key of the owning account. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `username` | String | Yes | IAM username to create the key for. Forces replacement. |
 
 ## Attributes Exported

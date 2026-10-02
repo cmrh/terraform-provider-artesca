@@ -23,6 +23,7 @@ var (
 )
 
 type BucketEncryptionResource struct {
+	accounts *client.AccountCredentialSource
 	s3Client *client.S3Client
 }
 
@@ -38,22 +39,7 @@ func (r *BucketEncryptionResource) Schema(_ context.Context, _ resource.SchemaRe
 	resp.Schema = schema.Schema{
 		Description: "Manages the server-side encryption configuration of an ARTESCA bucket.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"bucket_name": schema.StringAttribute{
 				Description: "The name of the bucket to configure encryption on.",
 				Required:    true,
@@ -96,6 +82,7 @@ func (r *BucketEncryptionResource) Configure(_ context.Context, req resource.Con
 		return
 	}
 	r.s3Client = providerData.S3
+	r.accounts = providerData.Accounts
 }
 
 func (r *BucketEncryptionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -111,9 +98,14 @@ func (r *BucketEncryptionResource) Create(ctx context.Context, req resource.Crea
 	}
 	tflog.Debug(ctx, "Putting bucket encryption", map[string]any{"bucket": plan.BucketName.ValueString(), "sse": cfg.SSEAlgorithm})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.PutBucketEncryption(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.BucketName.ValueString(),
 		cfg,
 	); err != nil {
@@ -132,9 +124,14 @@ func (r *BucketEncryptionResource) Read(ctx context.Context, req resource.ReadRe
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	cfg, err := r.s3Client.GetBucketEncryption(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.BucketName.ValueString(),
 	)
 	if err != nil {
@@ -164,9 +161,14 @@ func (r *BucketEncryptionResource) Update(ctx context.Context, req resource.Upda
 	}
 	tflog.Debug(ctx, "Updating bucket encryption", map[string]any{"bucket": plan.BucketName.ValueString(), "sse": cfg.SSEAlgorithm})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.PutBucketEncryption(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.BucketName.ValueString(),
 		cfg,
 	); err != nil {
@@ -187,9 +189,14 @@ func (r *BucketEncryptionResource) Delete(ctx context.Context, req resource.Dele
 
 	tflog.Debug(ctx, "Deleting bucket encryption", map[string]any{"bucket": state.BucketName.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.DeleteBucketEncryption(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.BucketName.ValueString(),
 	); err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket encryption", err.Error())

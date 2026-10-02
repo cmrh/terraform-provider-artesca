@@ -112,13 +112,13 @@ type getUserPolicyResponse struct {
 
 // --- IAM Operations ---
 
-func (c *IAMClient) CreateUser(ctx context.Context, accessKey, secretKey, userName string) (*iamUser, error) {
+func (c *IAMClient) CreateUser(ctx context.Context, creds Credentials, userName string) (*iamUser, error) {
 	params := url.Values{
 		"Action":   {"CreateUser"},
 		"UserName": {userName},
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
@@ -131,13 +131,13 @@ func (c *IAMClient) CreateUser(ctx context.Context, accessKey, secretKey, userNa
 	return &resp.Result.User, nil
 }
 
-func (c *IAMClient) GetUser(ctx context.Context, accessKey, secretKey, userName string) (*iamUser, error) {
+func (c *IAMClient) GetUser(ctx context.Context, creds Credentials, userName string) (*iamUser, error) {
 	params := url.Values{
 		"Action":   {"GetUser"},
 		"UserName": {userName},
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -153,13 +153,13 @@ func (c *IAMClient) GetUser(ctx context.Context, accessKey, secretKey, userName 
 	return &resp.Result.User, nil
 }
 
-func (c *IAMClient) DeleteUser(ctx context.Context, accessKey, secretKey, userName string) error {
+func (c *IAMClient) DeleteUser(ctx context.Context, creds Credentials, userName string) error {
 	params := url.Values{
 		"Action":   {"DeleteUser"},
 		"UserName": {userName},
 	}
 
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -170,7 +170,7 @@ func (c *IAMClient) DeleteUser(ctx context.Context, accessKey, secretKey, userNa
 	return nil
 }
 
-func (c *IAMClient) PutUserPolicy(ctx context.Context, accessKey, secretKey, userName, policyName, policyDocument string) error {
+func (c *IAMClient) PutUserPolicy(ctx context.Context, creds Credentials, userName, policyName, policyDocument string) error {
 	params := url.Values{
 		"Action":         {"PutUserPolicy"},
 		"UserName":       {userName},
@@ -179,7 +179,7 @@ func (c *IAMClient) PutUserPolicy(ctx context.Context, accessKey, secretKey, use
 		"Version":        {"2010-05-08"},
 	}
 
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return fmt.Errorf("put user policy: %w", err)
 	}
@@ -187,7 +187,7 @@ func (c *IAMClient) PutUserPolicy(ctx context.Context, accessKey, secretKey, use
 	return nil
 }
 
-func (c *IAMClient) GetUserPolicy(ctx context.Context, accessKey, secretKey, userName, policyName string) (string, error) {
+func (c *IAMClient) GetUserPolicy(ctx context.Context, creds Credentials, userName, policyName string) (string, error) {
 	params := url.Values{
 		"Action":     {"GetUserPolicy"},
 		"UserName":   {userName},
@@ -195,7 +195,7 @@ func (c *IAMClient) GetUserPolicy(ctx context.Context, accessKey, secretKey, use
 		"Version":    {"2010-05-08"},
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return "", nil
@@ -217,7 +217,7 @@ func (c *IAMClient) GetUserPolicy(ctx context.Context, accessKey, secretKey, use
 	return decoded, nil
 }
 
-func (c *IAMClient) DeleteUserPolicy(ctx context.Context, accessKey, secretKey, userName, policyName string) error {
+func (c *IAMClient) DeleteUserPolicy(ctx context.Context, creds Credentials, userName, policyName string) error {
 	params := url.Values{
 		"Action":     {"DeleteUserPolicy"},
 		"UserName":   {userName},
@@ -225,7 +225,7 @@ func (c *IAMClient) DeleteUserPolicy(ctx context.Context, accessKey, secretKey, 
 		"Version":    {"2010-05-08"},
 	}
 
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -265,13 +265,13 @@ type iamAccessKeyMetadata struct {
 	Status      string `xml:"Status"`
 }
 
-func (c *IAMClient) CreateAccessKey(ctx context.Context, accessKey, secretKey, userName string) (*iamAccessKey, error) {
+func (c *IAMClient) CreateAccessKey(ctx context.Context, creds Credentials, userName string) (*iamAccessKey, error) {
 	params := url.Values{
 		"Action":   {"CreateAccessKey"},
 		"UserName": {userName},
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return nil, fmt.Errorf("create access key: %w", err)
 	}
@@ -284,13 +284,13 @@ func (c *IAMClient) CreateAccessKey(ctx context.Context, accessKey, secretKey, u
 	return &resp.Result.AccessKey, nil
 }
 
-func (c *IAMClient) ListAccessKeys(ctx context.Context, accessKey, secretKey, userName string) ([]iamAccessKeyMetadata, error) {
+func (c *IAMClient) ListAccessKeys(ctx context.Context, creds Credentials, userName string) ([]iamAccessKeyMetadata, error) {
 	params := url.Values{
 		"Action":   {"ListAccessKeys"},
 		"UserName": {userName},
 	}
 
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return nil, fmt.Errorf("list access keys: %w", err)
 	}
@@ -303,7 +303,7 @@ func (c *IAMClient) ListAccessKeys(ctx context.Context, accessKey, secretKey, us
 	return resp.Result.AccessKeyMetadata, nil
 }
 
-func (c *IAMClient) DeleteAccessKey(ctx context.Context, accountAccessKey, accountSecretKey, userName, accessKeyId string) error {
+func (c *IAMClient) DeleteAccessKey(ctx context.Context, creds Credentials, userName, accessKeyId string) error {
 	params := url.Values{
 		"Action":      {"DeleteAccessKey"},
 		"UserName":    {userName},
@@ -311,7 +311,7 @@ func (c *IAMClient) DeleteAccessKey(ctx context.Context, accountAccessKey, accou
 		"Version":     {"2010-05-08"},
 	}
 
-	_, err := c.doSignedRequest(ctx, accountAccessKey, accountSecretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -353,12 +353,12 @@ type listGroupsForUserResponse struct {
 	} `xml:"ListGroupsForUserResult"`
 }
 
-func (c *IAMClient) CreateGroup(ctx context.Context, accessKey, secretKey, groupName string) (*iamGroup, error) {
+func (c *IAMClient) CreateGroup(ctx context.Context, creds Credentials, groupName string) (*iamGroup, error) {
 	params := url.Values{
 		"Action":    {"CreateGroup"},
 		"GroupName": {groupName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return nil, fmt.Errorf("create group: %w", err)
 	}
@@ -369,12 +369,12 @@ func (c *IAMClient) CreateGroup(ctx context.Context, accessKey, secretKey, group
 	return &resp.Result.Group, nil
 }
 
-func (c *IAMClient) GetGroup(ctx context.Context, accessKey, secretKey, groupName string) (*iamGroup, error) {
+func (c *IAMClient) GetGroup(ctx context.Context, creds Credentials, groupName string) (*iamGroup, error) {
 	params := url.Values{
 		"Action":    {"GetGroup"},
 		"GroupName": {groupName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -388,12 +388,12 @@ func (c *IAMClient) GetGroup(ctx context.Context, accessKey, secretKey, groupNam
 	return &resp.Result.Group, nil
 }
 
-func (c *IAMClient) DeleteGroup(ctx context.Context, accessKey, secretKey, groupName string) error {
+func (c *IAMClient) DeleteGroup(ctx context.Context, creds Credentials, groupName string) error {
 	params := url.Values{
 		"Action":    {"DeleteGroup"},
 		"GroupName": {groupName},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -403,26 +403,26 @@ func (c *IAMClient) DeleteGroup(ctx context.Context, accessKey, secretKey, group
 	return nil
 }
 
-func (c *IAMClient) AddUserToGroup(ctx context.Context, accessKey, secretKey, groupName, userName string) error {
+func (c *IAMClient) AddUserToGroup(ctx context.Context, creds Credentials, groupName, userName string) error {
 	params := url.Values{
 		"Action":    {"AddUserToGroup"},
 		"GroupName": {groupName},
 		"UserName":  {userName},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return fmt.Errorf("add user to group: %w", err)
 	}
 	return nil
 }
 
-func (c *IAMClient) RemoveUserFromGroup(ctx context.Context, accessKey, secretKey, groupName, userName string) error {
+func (c *IAMClient) RemoveUserFromGroup(ctx context.Context, creds Credentials, groupName, userName string) error {
 	params := url.Values{
 		"Action":    {"RemoveUserFromGroup"},
 		"GroupName": {groupName},
 		"UserName":  {userName},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -434,12 +434,12 @@ func (c *IAMClient) RemoveUserFromGroup(ctx context.Context, accessKey, secretKe
 
 // ListGroupsForUser returns the names of groups the user belongs to. Returns an
 // empty slice if the user has no groups or does not exist.
-func (c *IAMClient) ListGroupsForUser(ctx context.Context, accessKey, secretKey, userName string) ([]string, error) {
+func (c *IAMClient) ListGroupsForUser(ctx context.Context, creds Credentials, userName string) ([]string, error) {
 	params := url.Values{
 		"Action":   {"ListGroupsForUser"},
 		"UserName": {userName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -468,27 +468,27 @@ type getGroupPolicyResponse struct {
 	} `xml:"GetGroupPolicyResult"`
 }
 
-func (c *IAMClient) PutGroupPolicy(ctx context.Context, accessKey, secretKey, groupName, policyName, policyDocument string) error {
+func (c *IAMClient) PutGroupPolicy(ctx context.Context, creds Credentials, groupName, policyName, policyDocument string) error {
 	params := url.Values{
 		"Action":         {"PutGroupPolicy"},
 		"GroupName":      {groupName},
 		"PolicyName":     {policyName},
 		"PolicyDocument": {policyDocument},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return fmt.Errorf("put group policy: %w", err)
 	}
 	return nil
 }
 
-func (c *IAMClient) GetGroupPolicy(ctx context.Context, accessKey, secretKey, groupName, policyName string) (string, error) {
+func (c *IAMClient) GetGroupPolicy(ctx context.Context, creds Credentials, groupName, policyName string) (string, error) {
 	params := url.Values{
 		"Action":     {"GetGroupPolicy"},
 		"GroupName":  {groupName},
 		"PolicyName": {policyName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return "", nil
@@ -506,13 +506,13 @@ func (c *IAMClient) GetGroupPolicy(ctx context.Context, accessKey, secretKey, gr
 	return decoded, nil
 }
 
-func (c *IAMClient) DeleteGroupPolicy(ctx context.Context, accessKey, secretKey, groupName, policyName string) error {
+func (c *IAMClient) DeleteGroupPolicy(ctx context.Context, creds Credentials, groupName, policyName string) error {
 	params := url.Values{
 		"Action":     {"DeleteGroupPolicy"},
 		"GroupName":  {groupName},
 		"PolicyName": {policyName},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -550,7 +550,7 @@ type getRoleResponse struct {
 // CreateRole creates an IAM role. trustPolicy is the assume-role policy document
 // (JSON). description may be empty. Note: ARTESCA does NOT implement
 // UpdateAssumeRolePolicy, so callers must treat the trust policy as immutable.
-func (c *IAMClient) CreateRole(ctx context.Context, accessKey, secretKey, roleName, trustPolicy, description string) (*iamRole, error) {
+func (c *IAMClient) CreateRole(ctx context.Context, creds Credentials, roleName, trustPolicy, description string) (*iamRole, error) {
 	params := url.Values{
 		"Action":                   {"CreateRole"},
 		"RoleName":                 {roleName},
@@ -559,7 +559,7 @@ func (c *IAMClient) CreateRole(ctx context.Context, accessKey, secretKey, roleNa
 	if description != "" {
 		params.Set("Description", description)
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return nil, fmt.Errorf("create role: %w", err)
 	}
@@ -574,12 +574,12 @@ func (c *IAMClient) CreateRole(ctx context.Context, accessKey, secretKey, roleNa
 	return &resp.Result.Role, nil
 }
 
-func (c *IAMClient) GetRole(ctx context.Context, accessKey, secretKey, roleName string) (*iamRole, error) {
+func (c *IAMClient) GetRole(ctx context.Context, creds Credentials, roleName string) (*iamRole, error) {
 	params := url.Values{
 		"Action":   {"GetRole"},
 		"RoleName": {roleName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -596,12 +596,12 @@ func (c *IAMClient) GetRole(ctx context.Context, accessKey, secretKey, roleName 
 	return &resp.Result.Role, nil
 }
 
-func (c *IAMClient) DeleteRole(ctx context.Context, accessKey, secretKey, roleName string) error {
+func (c *IAMClient) DeleteRole(ctx context.Context, creds Credentials, roleName string) error {
 	params := url.Values{
 		"Action":   {"DeleteRole"},
 		"RoleName": {roleName},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -647,7 +647,7 @@ type getPolicyVersionResponse struct {
 	} `xml:"GetPolicyVersionResult"`
 }
 
-func (c *IAMClient) CreatePolicy(ctx context.Context, accessKey, secretKey, policyName, policyDocument, description string) (*iamManagedPolicy, error) {
+func (c *IAMClient) CreatePolicy(ctx context.Context, creds Credentials, policyName, policyDocument, description string) (*iamManagedPolicy, error) {
 	params := url.Values{
 		"Action":         {"CreatePolicy"},
 		"PolicyName":     {policyName},
@@ -656,7 +656,7 @@ func (c *IAMClient) CreatePolicy(ctx context.Context, accessKey, secretKey, poli
 	if description != "" {
 		params.Set("Description", description)
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return nil, fmt.Errorf("create policy: %w", err)
 	}
@@ -667,12 +667,12 @@ func (c *IAMClient) CreatePolicy(ctx context.Context, accessKey, secretKey, poli
 	return &resp.Result.Policy, nil
 }
 
-func (c *IAMClient) GetPolicy(ctx context.Context, accessKey, secretKey, policyArn string) (*iamManagedPolicy, error) {
+func (c *IAMClient) GetPolicy(ctx context.Context, creds Credentials, policyArn string) (*iamManagedPolicy, error) {
 	params := url.Values{
 		"Action":    {"GetPolicy"},
 		"PolicyArn": {policyArn},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -687,13 +687,13 @@ func (c *IAMClient) GetPolicy(ctx context.Context, accessKey, secretKey, policyA
 }
 
 // GetPolicyDocument fetches the active policy version's JSON document.
-func (c *IAMClient) GetPolicyDocument(ctx context.Context, accessKey, secretKey, policyArn, versionId string) (string, error) {
+func (c *IAMClient) GetPolicyDocument(ctx context.Context, creds Credentials, policyArn, versionId string) (string, error) {
 	params := url.Values{
 		"Action":    {"GetPolicyVersion"},
 		"PolicyArn": {policyArn},
 		"VersionId": {versionId},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return "", fmt.Errorf("get policy version: %w", err)
 	}
@@ -708,12 +708,12 @@ func (c *IAMClient) GetPolicyDocument(ctx context.Context, accessKey, secretKey,
 	return decoded, nil
 }
 
-func (c *IAMClient) DeletePolicy(ctx context.Context, accessKey, secretKey, policyArn string) error {
+func (c *IAMClient) DeletePolicy(ctx context.Context, creds Credentials, policyArn string) error {
 	params := url.Values{
 		"Action":    {"DeletePolicy"},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -751,26 +751,26 @@ type listAttachedRolePoliciesResponse struct {
 	} `xml:"ListAttachedRolePoliciesResult"`
 }
 
-func (c *IAMClient) AttachUserPolicy(ctx context.Context, accessKey, secretKey, userName, policyArn string) error {
+func (c *IAMClient) AttachUserPolicy(ctx context.Context, creds Credentials, userName, policyArn string) error {
 	params := url.Values{
 		"Action":    {"AttachUserPolicy"},
 		"UserName":  {userName},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return fmt.Errorf("attach user policy: %w", err)
 	}
 	return nil
 }
 
-func (c *IAMClient) DetachUserPolicy(ctx context.Context, accessKey, secretKey, userName, policyArn string) error {
+func (c *IAMClient) DetachUserPolicy(ctx context.Context, creds Credentials, userName, policyArn string) error {
 	params := url.Values{
 		"Action":    {"DetachUserPolicy"},
 		"UserName":  {userName},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -780,12 +780,12 @@ func (c *IAMClient) DetachUserPolicy(ctx context.Context, accessKey, secretKey, 
 	return nil
 }
 
-func (c *IAMClient) ListAttachedUserPolicies(ctx context.Context, accessKey, secretKey, userName string) ([]string, error) {
+func (c *IAMClient) ListAttachedUserPolicies(ctx context.Context, creds Credentials, userName string) ([]string, error) {
 	params := url.Values{
 		"Action":   {"ListAttachedUserPolicies"},
 		"UserName": {userName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -803,26 +803,26 @@ func (c *IAMClient) ListAttachedUserPolicies(ctx context.Context, accessKey, sec
 	return arns, nil
 }
 
-func (c *IAMClient) AttachGroupPolicy(ctx context.Context, accessKey, secretKey, groupName, policyArn string) error {
+func (c *IAMClient) AttachGroupPolicy(ctx context.Context, creds Credentials, groupName, policyArn string) error {
 	params := url.Values{
 		"Action":    {"AttachGroupPolicy"},
 		"GroupName": {groupName},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return fmt.Errorf("attach group policy: %w", err)
 	}
 	return nil
 }
 
-func (c *IAMClient) DetachGroupPolicy(ctx context.Context, accessKey, secretKey, groupName, policyArn string) error {
+func (c *IAMClient) DetachGroupPolicy(ctx context.Context, creds Credentials, groupName, policyArn string) error {
 	params := url.Values{
 		"Action":    {"DetachGroupPolicy"},
 		"GroupName": {groupName},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -832,12 +832,12 @@ func (c *IAMClient) DetachGroupPolicy(ctx context.Context, accessKey, secretKey,
 	return nil
 }
 
-func (c *IAMClient) ListAttachedGroupPolicies(ctx context.Context, accessKey, secretKey, groupName string) ([]string, error) {
+func (c *IAMClient) ListAttachedGroupPolicies(ctx context.Context, creds Credentials, groupName string) ([]string, error) {
 	params := url.Values{
 		"Action":    {"ListAttachedGroupPolicies"},
 		"GroupName": {groupName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -855,26 +855,26 @@ func (c *IAMClient) ListAttachedGroupPolicies(ctx context.Context, accessKey, se
 	return arns, nil
 }
 
-func (c *IAMClient) AttachRolePolicy(ctx context.Context, accessKey, secretKey, roleName, policyArn string) error {
+func (c *IAMClient) AttachRolePolicy(ctx context.Context, creds Credentials, roleName, policyArn string) error {
 	params := url.Values{
 		"Action":    {"AttachRolePolicy"},
 		"RoleName":  {roleName},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		return fmt.Errorf("attach role policy: %w", err)
 	}
 	return nil
 }
 
-func (c *IAMClient) DetachRolePolicy(ctx context.Context, accessKey, secretKey, roleName, policyArn string) error {
+func (c *IAMClient) DetachRolePolicy(ctx context.Context, creds Credentials, roleName, policyArn string) error {
 	params := url.Values{
 		"Action":    {"DetachRolePolicy"},
 		"RoleName":  {roleName},
 		"PolicyArn": {policyArn},
 	}
-	_, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	_, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil
@@ -884,12 +884,12 @@ func (c *IAMClient) DetachRolePolicy(ctx context.Context, accessKey, secretKey, 
 	return nil
 }
 
-func (c *IAMClient) ListAttachedRolePolicies(ctx context.Context, accessKey, secretKey, roleName string) ([]string, error) {
+func (c *IAMClient) ListAttachedRolePolicies(ctx context.Context, creds Credentials, roleName string) ([]string, error) {
 	params := url.Values{
 		"Action":   {"ListAttachedRolePolicies"},
 		"RoleName": {roleName},
 	}
-	body, err := c.doSignedRequest(ctx, accessKey, secretKey, params)
+	body, err := c.doSignedRequest(ctx, creds, params)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
@@ -909,7 +909,7 @@ func (c *IAMClient) ListAttachedRolePolicies(ctx context.Context, accessKey, sec
 
 // --- SigV4 Signing ---
 
-func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey string, params url.Values) ([]byte, error) {
+func (c *IAMClient) doSignedRequest(ctx context.Context, creds Credentials, params url.Values) ([]byte, error) {
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("parsing endpoint: %w", err)
@@ -926,9 +926,14 @@ func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 	// Build canonical query string
 	body := params.Encode()
 
-	// Create the canonical request for POST with form-encoded body
+	// Create the canonical request for POST with form-encoded body.
+	// SigV4 canonical headers must be alphabetically sorted by header name.
 	canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-date:%s\n", host, amzdate)
 	signedHeaders := "host;x-amz-date"
+	if creds.SessionToken != "" {
+		canonicalHeaders += fmt.Sprintf("x-amz-security-token:%s\n", creds.SessionToken)
+		signedHeaders += ";x-amz-security-token"
+	}
 	payloadHash := sha256Hex([]byte(body))
 
 	canonicalRequest := strings.Join([]string{
@@ -952,12 +957,12 @@ func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 	}, "\n")
 
 	// Calculate signature
-	signingKey := getSignatureKey(secretKey, datestamp, region, service)
+	signingKey := getSignatureKey(creds.SecretKey, datestamp, region, service)
 	signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
 
 	// Build authorization header
 	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
-		accessKey, credentialScope, signedHeaders, signature)
+		creds.AccessKey, credentialScope, signedHeaders, signature)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(body))
 	if err != nil {
@@ -967,6 +972,9 @@ func (c *IAMClient) doSignedRequest(ctx context.Context, accessKey, secretKey st
 	req.Header.Set("Content-Type", contentTypeForm)
 	req.Header.Set("Host", host)
 	req.Header.Set("X-Amz-Date", amzdate)
+	if creds.SessionToken != "" {
+		req.Header.Set("X-Amz-Security-Token", creds.SessionToken)
+	}
 	req.Header.Set("Authorization", authHeader)
 
 	resp, err := c.httpClient.Do(req)

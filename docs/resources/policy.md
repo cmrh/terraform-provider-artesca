@@ -13,10 +13,9 @@ Manages a customer-managed IAM policy. Managed policies are referenced by ARN an
 
 ```hcl
 resource "artesca_policy" "read_only_s3" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  name               = "read-only-s3"
-  description        = "Read-only access to all buckets in this account"
+  account_name = artesca_account.app.name
+  name         = "read-only-s3"
+  description  = "Read-only access to all buckets in this account"
 
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -31,10 +30,9 @@ resource "artesca_policy" "read_only_s3" {
 }
 
 resource "artesca_user_policy_attachment" "alice_read" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  username           = artesca_user.alice.username
-  policy_arn         = artesca_policy.read_only_s3.arn
+  account_name = artesca_account.app.name
+  username     = artesca_user.alice.username
+  policy_arn   = artesca_policy.read_only_s3.arn
 }
 ```
 
@@ -42,8 +40,7 @@ resource "artesca_user_policy_attachment" "alice_read" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | Access key of the owning account. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `name` | String | Yes | Policy name (1–128 chars; alphanumeric and `+=,.@-`). Forces replacement. |
 | `policy_document` | String | Yes | JSON policy document. Forces replacement on change. |
 | `description` | String | No  | Free-text description. Forces replacement on change. |
@@ -60,12 +57,10 @@ resource "artesca_user_policy_attachment" "alice_read" {
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_policy.read_only_s3 <arn>
+tofu import artesca_policy.read_only_s3 <account_name>/<arn>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

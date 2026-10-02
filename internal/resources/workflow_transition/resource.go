@@ -25,7 +25,8 @@ var (
 )
 
 type WorkflowTransitionResource struct {
-	s3 *client.S3Client
+	accounts *client.AccountCredentialSource
+	s3       *client.S3Client
 }
 
 func NewWorkflowTransitionResource() resource.Resource {
@@ -40,16 +41,7 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 	resp.Schema = schema.Schema{
 		Description: "Manages a bucket transition lifecycle rule in ARTESCA via the S3 API.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key for the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key for the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"bucket_name": schema.StringAttribute{
 				Description: "The name of the bucket. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
@@ -116,6 +108,7 @@ func (r *WorkflowTransitionResource) Configure(_ context.Context, req resource.C
 		return
 	}
 	r.s3 = providerData.S3
+	r.accounts = providerData.Accounts
 }
 
 func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -125,8 +118,15 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	ak := plan.AccountAccessKey.ValueString()
-	sk := plan.AccountSecretKey.ValueString()
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	bucket := plan.BucketName.ValueString()
 
 	ruleID := plan.RuleID.ValueString()
@@ -141,7 +141,7 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 	r.s3.LockLifecycle()
 	defer r.s3.UnlockLifecycle()
 
-	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
+	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
@@ -151,7 +151,7 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 
 	tflog.Debug(ctx, "Creating transition lifecycle rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
 
-	if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, rules); err != nil {
+	if err := r.s3.PutBucketLifecycle(ctx, acctCreds, bucket, rules); err != nil {
 		resp.Diagnostics.AddError("Error creating transition lifecycle rule", err.Error())
 		return
 	}
@@ -167,12 +167,19 @@ func (r *WorkflowTransitionResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	ak := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	sk := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
-	rules, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
+	rules, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading lifecycle rules", err.Error())
 		return
@@ -202,15 +209,22 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	ak := plan.AccountAccessKey.ValueString()
-	sk := plan.AccountSecretKey.ValueString()
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	bucket := plan.BucketName.ValueString()
 	ruleID := plan.RuleID.ValueString()
 
 	r.s3.LockLifecycle()
 	defer r.s3.UnlockLifecycle()
 
-	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
+	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
@@ -228,7 +242,7 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 
 	tflog.Debug(ctx, "Updating transition lifecycle rule", map[string]any{"rule_id": ruleID})
 
-	if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, rules); err != nil {
+	if err := r.s3.PutBucketLifecycle(ctx, acctCreds, bucket, rules); err != nil {
 		resp.Diagnostics.AddError("Error updating transition lifecycle rule", err.Error())
 		return
 	}
@@ -243,15 +257,22 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	ak := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	sk := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
 	r.s3.LockLifecycle()
 	defer r.s3.UnlockLifecycle()
 
-	existing, err := r.s3.GetBucketLifecycle(ctx, ak, sk, bucket)
+	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
@@ -267,12 +288,12 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 	tflog.Debug(ctx, "Deleting transition lifecycle rule", map[string]any{"rule_id": ruleID})
 
 	if len(remaining) == 0 {
-		if err := r.s3.DeleteBucketLifecycle(ctx, ak, sk, bucket); err != nil {
+		if err := r.s3.DeleteBucketLifecycle(ctx, acctCreds, bucket); err != nil {
 			resp.Diagnostics.AddError("Error deleting lifecycle configuration", err.Error())
 			return
 		}
 	} else {
-		if err := r.s3.PutBucketLifecycle(ctx, ak, sk, bucket, remaining); err != nil {
+		if err := r.s3.PutBucketLifecycle(ctx, acctCreds, bucket, remaining); err != nil {
 			resp.Diagnostics.AddError("Error updating lifecycle configuration", err.Error())
 			return
 		}
@@ -280,14 +301,17 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 }
 
 func (r *WorkflowTransitionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
+		return
+	}
+	parts := strings.SplitN(rest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format bucket_name/rule_id, got %q", req.ID))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/bucket_name/rule_id, got %q", req.ID))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("bucket_name"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("rule_id"), parts[1])...)
-	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }
 
 func modelToLifecycleRule(model *WorkflowTransitionResourceModel, ruleID string) client.LifecycleRule {

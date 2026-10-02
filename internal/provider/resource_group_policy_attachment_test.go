@@ -43,10 +43,9 @@ func TestAccGroupPolicyAttachment_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_group_policy_attachment.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateGroupPolicyArn("artesca_group_policy_attachment.test")),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateGroupPolicyArn("artesca_group_policy_attachment.test")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "policy_arn",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -65,14 +64,12 @@ func testAccImportStateGroupPolicyArn(resourceName string) resource.ImportStateI
 func testAccGroupPolicyAttachmentConfig(accountName, groupName, policyName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_group" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 }
 
 resource "artesca_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 
   policy_document = jsonencode({
@@ -82,8 +79,7 @@ resource "artesca_policy" "test" {
 }
 
 resource "artesca_group_policy_attachment" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   group_name         = artesca_group.test.name
   policy_arn         = artesca_policy.test.arn
 }

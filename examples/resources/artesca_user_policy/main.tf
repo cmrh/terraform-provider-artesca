@@ -1,8 +1,7 @@
 resource "artesca_user_policy" "example" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
-  username           = artesca_user.example.username
-  policy_name        = "s3-read-write"
+  account_name = artesca_account.example.name
+  username     = artesca_user.example.username
+  policy_name  = "s3-read-write"
 
   policy_document = jsonencode({
     Version = "2012-10-17"

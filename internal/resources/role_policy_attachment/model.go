@@ -5,8 +5,7 @@ import (
 )
 
 type RolePolicyAttachmentResourceModel struct {
-	AccountAccessKey types.String `tfsdk:"account_access_key"`
-	AccountSecretKey types.String `tfsdk:"account_secret_key"`
-	RoleName         types.String `tfsdk:"role_name"`
-	PolicyArn        types.String `tfsdk:"policy_arn"`
+	AccountName types.String `tfsdk:"account_name"`
+	RoleName    types.String `tfsdk:"role_name"`
+	PolicyArn   types.String `tfsdk:"policy_arn"`
 }

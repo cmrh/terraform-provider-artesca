@@ -13,9 +13,8 @@ Creates an IAM user within an ARTESCA account. Users can be assigned policies an
 
 ```hcl
 resource "artesca_user" "operator" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  username           = "bucket-operator"
+  account_name = artesca_account.app.name
+  username     = "bucket-operator"
 }
 
 output "user_arn" {
@@ -27,8 +26,7 @@ output "user_arn" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | Access key of the owning account. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `username` | String | Yes | IAM username. Must be 1-64 characters, alphanumeric and `+=,.@-`. Forces replacement. |
 
 ## Attributes Exported
@@ -42,12 +40,10 @@ output "user_arn" {
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_user.operator <username>
+tofu import artesca_user.operator <account_name>/<username>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

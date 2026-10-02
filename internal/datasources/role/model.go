@@ -5,8 +5,7 @@ import (
 )
 
 type RoleDataSourceModel struct {
-	AccountAccessKey         types.String `tfsdk:"account_access_key"`
-	AccountSecretKey         types.String `tfsdk:"account_secret_key"`
+	AccountName              types.String `tfsdk:"account_name"`
 	Name                     types.String `tfsdk:"name"`
 	RoleID                   types.String `tfsdk:"role_id"`
 	ARN                      types.String `tfsdk:"arn"`

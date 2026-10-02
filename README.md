@@ -20,17 +20,17 @@ terraform {
 
 provider "artesca" {
   management_endpoint = "https://management.artesca.example.com"
-  oidc_url            = "https://10.0.0.1:8443"  # see note below
+  oidc_url            = "https://10.0.0.1:8443" # see note below
   username            = var.artesca_username
   password            = var.artesca_password
 
   # Optional
   instance_id          = "auto-discovered-if-omitted"
-  oidc_realm           = "artesca"          # default
-  client_id            = "zenko-ui"         # default
-  iam_region           = "us-east-1"        # default
-  insecure_skip_verify = false              # default
-  s3_endpoint          = "https://s3.artesca.example.com"  # required for bucket resources
+  oidc_realm           = "artesca"                        # default
+  client_id            = "zenko-ui"                       # default
+  iam_region           = "us-east-1"                      # default
+  insecure_skip_verify = false                            # default
+  s3_endpoint          = "https://s3.artesca.example.com" # required for bucket resources
 }
 ```
 
@@ -50,7 +50,7 @@ All attributes can also be set via environment variables:
 | `s3_endpoint` | `ARTESCA_S3_ENDPOINT` |
 | _(scope only)_ | `ARTESCA_OIDC_SCOPE` (default: `openid`) |
 
-Account-scoped resources (those with `account_access_key` / `account_secret_key`) also read `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` when the attribute isn't in state yet — this is how `tofu import` authenticates. One account per import run; see each resource's Import section in `docs/resources/`.
+Account-scoped resources (IAM and S3) identify their account with `account_name`; the provider obtains temporary credentials for it from the OIDC login, so no account keys are configured. Their import IDs start with the account name, e.g. `tofu import artesca_user.alice my-app/alice`.
 
 > **Finding the OIDC URL:** The `oidc_url` must be the control plane ingress endpoint (typically an IP-based URL like `https://10.0.0.1:8443`). Using a DNS alias with a non-standard port may produce OIDC tokens whose issuer doesn't match the internal trust policies, causing account deletion to fail. Retrieve the correct URL from an ARTESCA node:
 >
@@ -142,12 +142,12 @@ resource "artesca_location" "s3" {
   location_type = "location-aws-s3-v1"
 
   details {
-    access_key              = var.aws_access_key
-    secret_key              = var.aws_secret_key
-    bucket_name             = "my-target-bucket"
-    bucket_match            = true
-    region                  = "us-east-1"
-    server_side_encryption  = true
+    access_key             = var.aws_access_key
+    secret_key             = var.aws_secret_key
+    bucket_name            = "my-target-bucket"
+    bucket_match           = true
+    region                 = "us-east-1"
+    server_side_encryption = true
   }
 }
 ```
@@ -165,15 +165,13 @@ resource "artesca_endpoint" "data" {
 
 ```hcl
 resource "artesca_user" "app" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
-  username           = "app-user"
+  account_name = artesca_account.example.name
+  username     = "app-user"
 }
 
 resource "artesca_user_access_key" "app" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
-  username           = artesca_user.app.username
+  account_name = artesca_account.example.name
+  username     = artesca_user.app.username
 }
 ```
 

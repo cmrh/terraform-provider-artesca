@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync"
 	"testing"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
-	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -137,8 +137,7 @@ resource "artesca_bucket" %q {
   name                = %q
   location_constraint = %s
   versioning_enabled  = %t
-  account_access_key  = artesca_account.test.access_key
-  account_secret_key  = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
 }
 `, resourceName, bucketName, locationRef, versioned)
 }
@@ -194,6 +193,54 @@ func testAccIAMClient() (*client.IAMClient, error) {
 	}
 	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
 	return client.NewIAMClient(iamEndpoint, region, insecure), nil
+}
+
+var (
+	testAccAccountsOnce sync.Once
+	testAccAccounts     *client.AccountCredentialSource
+	testAccAccountsErr  error
+)
+
+// testAccAccountCredentials returns credentials for the account that owns an
+// account-scoped resource, the same way the provider obtains them. ok is false
+// when credentials can't be obtained (e.g. the account was already deleted);
+// destroy checks treat that as destroyed.
+func testAccAccountCredentials(rs *terraform.ResourceState) (client.Credentials, bool) {
+	testAccAccountsOnce.Do(func() {
+		mgmtClient, err := testAccManagementClient()
+		if err != nil {
+			testAccAccountsErr = err
+			return
+		}
+		iamClient, err := testAccIAMClient()
+		if err != nil {
+			testAccAccountsErr = err
+			return
+		}
+		var stsEndpoint string
+		if s3 := os.Getenv("ARTESCA_S3_ENDPOINT"); s3 != "" {
+			stsEndpoint, err = client.DeriveSTSEndpoint(s3)
+		} else {
+			stsEndpoint, err = client.DeriveSTSEndpointFromManagement(os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT"))
+		}
+		if err != nil {
+			testAccAccountsErr = err
+			return
+		}
+		insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+		testAccAccounts = client.NewAccountCredentialSource(iamClient, client.NewSTSClient(stsEndpoint, "us-east-1", insecure), mgmtClient.TokenSource)
+	})
+	if testAccAccountsErr != nil {
+		return client.Credentials{}, false
+	}
+	accountName := rs.Primary.Attributes["account_name"]
+	// Destroy checks run after the account may have been deleted and recreated.
+	testAccAccounts.Forget(accountName)
+	c, err := testAccAccounts.For(context.Background(), accountName)
+	if err != nil {
+		return client.Credentials{}, false
+	}
+	return c, true
 }
 
 func testAccCheckAccountDestroy(s *terraform.State) error {
@@ -296,9 +343,12 @@ func testAccCheckBucketDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_bucket" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		exists, err := s3Client.HeadBucket(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["name"])
 		if err != nil {
 			continue
@@ -323,9 +373,12 @@ func testAccCheckUserDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_user" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		user, err := iamClient.GetUser(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["username"])
 		if err != nil {
 			continue
@@ -350,9 +403,12 @@ func testAccCheckUserAccessKeyDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_user_access_key" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		keys, err := iamClient.ListAccessKeys(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["username"])
 		if err != nil {
 			continue
@@ -380,9 +436,12 @@ func testAccCheckUserPolicyDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_user_policy" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		doc, err := iamClient.GetUserPolicy(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["username"],
 			rs.Primary.Attributes["policy_name"])
 		if err != nil {
@@ -414,9 +473,12 @@ func testAccCheckGroupDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_group" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		g, err := iamClient.GetGroup(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["name"])
 		if err != nil {
 			continue
@@ -437,9 +499,12 @@ func testAccCheckGroupMembershipDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_group_membership" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		groups, err := iamClient.ListGroupsForUser(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["username"])
 		if err != nil {
 			continue
@@ -461,9 +526,12 @@ func testAccCheckGroupPolicyDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_group_policy" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		doc, err := iamClient.GetGroupPolicy(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["group_name"],
 			rs.Primary.Attributes["policy_name"])
 		if err != nil {
@@ -485,9 +553,12 @@ func testAccCheckRoleDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_role" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		role, err := iamClient.GetRole(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["name"])
 		if err != nil {
 			continue
@@ -508,9 +579,12 @@ func testAccCheckPolicyDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_policy" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		pol, err := iamClient.GetPolicy(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["arn"])
 		if err != nil {
 			continue
@@ -531,9 +605,12 @@ func testAccCheckUserPolicyAttachmentDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_user_policy_attachment" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		arns, err := iamClient.ListAttachedUserPolicies(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["username"])
 		if err != nil {
 			continue
@@ -555,9 +632,12 @@ func testAccCheckGroupPolicyAttachmentDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_group_policy_attachment" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		arns, err := iamClient.ListAttachedGroupPolicies(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["group_name"])
 		if err != nil {
 			continue
@@ -579,9 +659,12 @@ func testAccCheckRolePolicyAttachmentDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_role_policy_attachment" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		arns, err := iamClient.ListAttachedRolePolicies(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["role_name"])
 		if err != nil {
 			continue
@@ -594,25 +677,24 @@ func testAccCheckRolePolicyAttachmentDestroy(s *terraform.State) error {
 	return nil
 }
 
-// testAccImportWithAccountCreds wraps an ImportStateIdFunc for account-scoped
-// resources. An import ID carries no credentials, so the import-time Read
-// relies on the ARTESCA_ACCOUNT_* env fallback; this exports
-// artesca_account.test's keys into it before returning the import ID.
-func testAccImportWithAccountCreds(t *testing.T, idFunc resource.ImportStateIdFunc) resource.ImportStateIdFunc {
-	t.Helper()
+// testAccImportWithAccount wraps an ImportStateIdFunc for account-scoped
+// resources, prefixing the ID with artesca_account.test's name to form
+// "<account_name>/<id>".
+func testAccImportWithAccount(idFunc resource.ImportStateIdFunc) resource.ImportStateIdFunc {
 	return func(s *terraform.State) (string, error) {
 		rs, ok := s.RootModule().Resources["artesca_account.test"]
 		if !ok {
 			return "", fmt.Errorf("artesca_account.test not found in state")
 		}
-		accessKey := rs.Primary.Attributes["access_key"]
-		secretKey := rs.Primary.Attributes["secret_key"]
-		if accessKey == "" || secretKey == "" {
-			return "", fmt.Errorf("artesca_account.test has no access_key/secret_key in state")
+		accountName := rs.Primary.Attributes["name"]
+		if accountName == "" {
+			return "", fmt.Errorf("artesca_account.test has no name in state")
 		}
-		t.Setenv(creds.EnvAccessKey, accessKey)
-		t.Setenv(creds.EnvSecretKey, secretKey)
-		return idFunc(s)
+		id, err := idFunc(s)
+		if err != nil {
+			return "", err
+		}
+		return accountName + "/" + id, nil
 	}
 }
 

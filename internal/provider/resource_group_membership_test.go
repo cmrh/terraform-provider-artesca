@@ -42,10 +42,9 @@ func TestAccGroupMembership_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_group_membership.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rGroup+"/"+rUser)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rGroup + "/" + rUser)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "username",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -54,20 +53,17 @@ func TestAccGroupMembership_importState(t *testing.T) {
 func testAccGroupMembershipConfig(accountName, username, groupName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_user" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = %q
 }
 
 resource "artesca_group" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 }
 
 resource "artesca_group_membership" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   group_name         = artesca_group.test.name
   username           = artesca_user.test.username
 }

@@ -42,10 +42,10 @@ func TestAccPolicy_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_policy.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateAttr("artesca_policy.test", "arn")),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateAttr("artesca_policy.test", "arn")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "arn",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy_document"},
+				ImportStateVerifyIgnore:              []string{"policy_document"},
 			},
 		},
 	})
@@ -70,8 +70,7 @@ func testAccImportStateAttr(resourceName, attr string) resource.ImportStateIdFun
 func testAccPolicyConfig(accountName, policyName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 
   policy_document = jsonencode({

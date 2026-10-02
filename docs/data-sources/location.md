@@ -21,8 +21,7 @@ data "artesca_location" "primary" {
 resource "artesca_bucket" "example" {
   name                = "my-bucket"
   location_constraint = data.artesca_location.primary.name
-  account_access_key  = artesca_account.example.access_key
-  account_secret_key  = artesca_account.example.secret_key
+  account_name        = artesca_account.example.name
 }
 ```
 

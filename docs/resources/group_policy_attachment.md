@@ -13,10 +13,9 @@ Attaches a managed IAM policy (created via `artesca_policy`) to an IAM group. Al
 
 ```hcl
 resource "artesca_group_policy_attachment" "engineers_read" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  group_name         = artesca_group.engineers.name
-  policy_arn         = artesca_policy.read_only_s3.arn
+  account_name = artesca_account.app.name
+  group_name   = artesca_group.engineers.name
+  policy_arn   = artesca_policy.read_only_s3.arn
 }
 ```
 
@@ -24,20 +23,17 @@ resource "artesca_group_policy_attachment" "engineers_read" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | Access key of the owning account. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `group_name` | String | Yes | The IAM group to attach the policy to. Forces replacement. |
 | `policy_arn` | String | Yes | The ARN of the managed policy. Forces replacement. |
 
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_group_policy_attachment.engineers_read <group_name>/<policy_arn>
+tofu import artesca_group_policy_attachment.engineers_read <account_name>/<group_name>/<policy_arn>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

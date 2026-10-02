@@ -15,13 +15,12 @@ IAM operations are account-scoped, so you must supply the account's `access_key`
 
 ```hcl
 data "artesca_role" "writer" {
-  account_access_key = artesca_account.ops.access_key
-  account_secret_key = artesca_account.ops.secret_key
-  name               = "object-writer"
+  account_name = artesca_account.ops.name
+  name         = "object-writer"
 }
 
 ephemeral "artesca_assumed_role_credentials" "writer" {
-  role_arn         = data.artesca_role.writer.arn
+  role_arn          = data.artesca_role.writer.arn
   role_session_name = "tf-session"
 }
 ```
@@ -30,8 +29,7 @@ ephemeral "artesca_assumed_role_credentials" "writer" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | The access key of the account this role belongs to. Sensitive. |
-| `account_secret_key` | String | Yes | The secret key of the account this role belongs to. Sensitive. |
+| `account_name` | String | Yes | Name of the account to read from. |
 | `name` | String | Yes | The name of the IAM role to look up. |
 
 ## Attributes Exported

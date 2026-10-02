@@ -32,14 +32,12 @@ func TestAccEphemeralAssumedRoleCredentials_basic(t *testing.T) {
 func testAccEphemeralAssumedRoleCredentialsConfig(accountName, roleName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_user" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = "tf-acc-sts-caller"
 }
 
 resource "artesca_user_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = artesca_user.test.username
   policy_name        = "sts-all"
   policy_document = jsonencode({
@@ -49,14 +47,12 @@ resource "artesca_user_policy" "test" {
 }
 
 resource "artesca_user_access_key" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   username           = artesca_user.test.username
 }
 
 resource "artesca_role" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
   assume_role_policy_document = jsonencode({
     Version = "2012-10-17"

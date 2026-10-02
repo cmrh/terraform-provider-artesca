@@ -34,9 +34,8 @@ output "account_id" {
 # --- IAM User ---
 
 resource "artesca_user" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  username           = "inttest-user-${var.test_suffix}"
+  account_name = artesca_account.test.name
+  username     = "inttest-user-${var.test_suffix}"
 }
 
 output "user_username" {
@@ -46,9 +45,8 @@ output "user_username" {
 # --- User Access Key ---
 
 resource "artesca_user_access_key" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  username           = artesca_user.test.username
+  account_name = artesca_account.test.name
+  username     = artesca_user.test.username
 }
 
 output "user_access_key_id" {
@@ -58,10 +56,9 @@ output "user_access_key_id" {
 # --- User Policy ---
 
 resource "artesca_user_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  username           = artesca_user.test.username
-  policy_name        = "inttest-policy-${var.test_suffix}"
+  account_name = artesca_account.test.name
+  username     = artesca_user.test.username
+  policy_name  = "inttest-policy-${var.test_suffix}"
 
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -82,16 +79,14 @@ output "user_policy_name" {
 # --- IAM Group + Inline Policy + Membership ---
 
 resource "artesca_group" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  name               = "inttest-group-${var.test_suffix}"
+  account_name = artesca_account.test.name
+  name         = "inttest-group-${var.test_suffix}"
 }
 
 resource "artesca_group_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  group_name         = artesca_group.test.name
-  policy_name        = "inttest-group-policy-${var.test_suffix}"
+  account_name = artesca_account.test.name
+  group_name   = artesca_group.test.name
+  policy_name  = "inttest-group-policy-${var.test_suffix}"
 
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -106,19 +101,17 @@ resource "artesca_group_policy" "test" {
 }
 
 resource "artesca_group_membership" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  group_name         = artesca_group.test.name
-  username           = artesca_user.test.username
+  account_name = artesca_account.test.name
+  group_name   = artesca_group.test.name
+  username     = artesca_user.test.username
 }
 
 # --- IAM Managed Policy + Attachments (user/group/role) ---
 
 resource "artesca_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  name               = "inttest-managed-policy-${var.test_suffix}"
-  description        = "Integration test managed policy"
+  account_name = artesca_account.test.name
+  name         = "inttest-managed-policy-${var.test_suffix}"
+  description  = "Integration test managed policy"
 
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -133,26 +126,23 @@ resource "artesca_policy" "test" {
 }
 
 resource "artesca_user_policy_attachment" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  username           = artesca_user.test.username
-  policy_arn         = artesca_policy.test.arn
+  account_name = artesca_account.test.name
+  username     = artesca_user.test.username
+  policy_arn   = artesca_policy.test.arn
 }
 
 resource "artesca_group_policy_attachment" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  group_name         = artesca_group.test.name
-  policy_arn         = artesca_policy.test.arn
+  account_name = artesca_account.test.name
+  group_name   = artesca_group.test.name
+  policy_arn   = artesca_policy.test.arn
 }
 
 # --- IAM Role + Attachment ---
 
 resource "artesca_role" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  name               = "inttest-role-${var.test_suffix}"
-  description        = "Integration test role"
+  account_name = artesca_account.test.name
+  name         = "inttest-role-${var.test_suffix}"
+  description  = "Integration test role"
 
   assume_role_policy_document = jsonencode({
     Version = "2012-10-17"
@@ -167,10 +157,9 @@ resource "artesca_role" "test" {
 }
 
 resource "artesca_role_policy_attachment" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  role_name          = artesca_role.test.name
-  policy_arn         = artesca_policy.test.arn
+  account_name = artesca_account.test.name
+  role_name    = artesca_role.test.name
+  policy_arn   = artesca_policy.test.arn
 }
 
 # --- STS AssumeRole (ephemeral) ---
@@ -283,8 +272,7 @@ resource "artesca_bucket" "source" {
   name                = "inttest-bucket-${var.test_suffix}"
   location_constraint = artesca_location.source.name
   versioning_enabled  = true
-  account_access_key  = artesca_account.test.access_key
-  account_secret_key  = artesca_account.test.secret_key
+  account_name        = artesca_account.test.name
 }
 
 output "source_bucket_name" {
@@ -297,8 +285,7 @@ resource "artesca_bucket" "dest" {
   name                = "inttest-bucket-dest-${var.test_suffix}"
   location_constraint = artesca_location.dest.name
   versioning_enabled  = true
-  account_access_key  = artesca_account.test.access_key
-  account_secret_key  = artesca_account.test.secret_key
+  account_name        = artesca_account.test.name
 }
 
 output "dest_bucket_name" {
@@ -308,9 +295,8 @@ output "dest_bucket_name" {
 # --- Bucket Policy ---
 
 resource "artesca_bucket_policy" "source" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  bucket_name        = artesca_bucket.source.name
+  account_name = artesca_account.test.name
+  bucket_name  = artesca_bucket.source.name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -334,9 +320,8 @@ resource "artesca_bucket_policy" "source" {
 # --- Bucket Tagging ---
 
 resource "artesca_bucket_tagging" "source" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  bucket_name        = artesca_bucket.source.name
+  account_name = artesca_account.test.name
+  bucket_name  = artesca_bucket.source.name
 
   tags = {
     environment = "integration"
@@ -358,8 +343,7 @@ output "endpoint_hostname" {
 # --- Workflow: Transition ---
 
 resource "artesca_bucket_workflow_transition" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name       = artesca_account.test.name
   bucket_name        = artesca_bucket.source.name
   enabled            = true
   location_name      = artesca_location.dest.name
@@ -377,10 +361,9 @@ output "transition_rule_id" {
 # --- Workflow: Expiration ---
 
 resource "artesca_bucket_workflow_expiration" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
-  bucket_name        = artesca_bucket.source.name
-  enabled            = true
+  account_name = artesca_account.test.name
+  bucket_name  = artesca_bucket.source.name
+  enabled      = true
 
   current_version_trigger_delay_days = 30
 

@@ -41,10 +41,10 @@ func TestAccRole_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_role.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rRole)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rRole)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "assume_role_policy_document"},
+				ImportStateVerifyIgnore:              []string{"assume_role_policy_document"},
 			},
 		},
 	})
@@ -53,8 +53,7 @@ func TestAccRole_importState(t *testing.T) {
 func testAccRoleConfig(accountName, roleName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_role" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 
   assume_role_policy_document = jsonencode({
