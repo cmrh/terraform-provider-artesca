@@ -24,6 +24,7 @@ var (
 )
 
 type BucketTaggingResource struct {
+	accounts *client.AccountCredentialSource
 	s3Client *client.S3Client
 }
 
@@ -39,22 +40,7 @@ func (r *BucketTaggingResource) Schema(_ context.Context, _ resource.SchemaReque
 	resp.Schema = schema.Schema{
 		Description: "Manages the tag set on an ARTESCA bucket. Replaces the entire tag set on each apply.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"bucket_name": schema.StringAttribute{
 				Description: "The name of the bucket to tag.",
 				Required:    true,
@@ -87,6 +73,7 @@ func (r *BucketTaggingResource) Configure(_ context.Context, req resource.Config
 		return
 	}
 	r.s3Client = providerData.S3
+	r.accounts = providerData.Accounts
 }
 
 func (r *BucketTaggingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -104,9 +91,14 @@ func (r *BucketTaggingResource) Create(ctx context.Context, req resource.CreateR
 
 	tflog.Debug(ctx, "Putting bucket tags", map[string]any{"bucket": plan.BucketName.ValueString(), "count": len(tags)})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.PutBucketTagging(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.BucketName.ValueString(),
 		tags,
 	); err != nil {
@@ -124,9 +116,14 @@ func (r *BucketTaggingResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	tags, err := r.s3Client.GetBucketTagging(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.BucketName.ValueString(),
 	)
 	if err != nil {
@@ -162,9 +159,14 @@ func (r *BucketTaggingResource) Update(ctx context.Context, req resource.UpdateR
 
 	tflog.Debug(ctx, "Updating bucket tags", map[string]any{"bucket": plan.BucketName.ValueString(), "count": len(tags)})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.PutBucketTagging(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.BucketName.ValueString(),
 		tags,
 	); err != nil {
@@ -184,9 +186,14 @@ func (r *BucketTaggingResource) Delete(ctx context.Context, req resource.DeleteR
 
 	tflog.Debug(ctx, "Deleting bucket tags", map[string]any{"bucket": state.BucketName.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.DeleteBucketTagging(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.BucketName.ValueString(),
 	); err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket tags", err.Error())

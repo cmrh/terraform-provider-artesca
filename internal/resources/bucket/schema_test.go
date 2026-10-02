@@ -32,7 +32,7 @@ func TestSchema_Attributes(t *testing.T) {
 	resp := resource.SchemaResponse{}
 	r.Schema(ctx, resource.SchemaRequest{}, &resp)
 
-	requiredAttrs := []string{"name", "account_access_key", "account_secret_key"}
+	requiredAttrs := []string{"name", "account_name"}
 	for _, name := range requiredAttrs {
 		t.Run(name+" is required", func(t *testing.T) {
 			attr, ok := resp.Schema.Attributes[name]
@@ -41,16 +41,6 @@ func TestSchema_Attributes(t *testing.T) {
 			}
 			if !attr.IsRequired() {
 				t.Errorf("attribute %q should be required", name)
-			}
-		})
-	}
-
-	sensitiveAttrs := []string{"account_access_key", "account_secret_key"}
-	for _, name := range sensitiveAttrs {
-		t.Run(name+" is sensitive", func(t *testing.T) {
-			attr := resp.Schema.Attributes[name].(schema.StringAttribute)
-			if !attr.Sensitive {
-				t.Errorf("attribute %q should be sensitive", name)
 			}
 		})
 	}

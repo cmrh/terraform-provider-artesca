@@ -22,6 +22,7 @@ var (
 )
 
 type RoleResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -38,22 +39,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 		Description: "Manages an IAM role within an ARTESCA account. The role's trust policy " +
 			"(assume_role_policy_document) cannot be updated in place — changing it forces replacement.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"name": schema.StringAttribute{
 				Description: "The name of the role. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
@@ -120,6 +106,7 @@ func (r *RoleResource) Configure(_ context.Context, req resource.ConfigureReques
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -131,9 +118,14 @@ func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	tflog.Debug(ctx, "Creating IAM role", map[string]any{"name": plan.Name.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	role, err := r.iamClient.CreateRole(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.Name.ValueString(),
 		plan.AssumeRolePolicyDocument.ValueString(),
 		plan.Description.ValueString(),
@@ -157,9 +149,14 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	role, err := r.iamClient.GetRole(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.Name.ValueString(),
 	)
 	if err != nil {
@@ -199,9 +196,14 @@ func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 	tflog.Debug(ctx, "Deleting IAM role", map[string]any{"name": state.Name.ValueString()})
 
-	err := r.iamClient.DeleteRole(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DeleteRole(ctx,
+		acctCreds,
 		state.Name.ValueString(),
 	)
 	if err != nil {

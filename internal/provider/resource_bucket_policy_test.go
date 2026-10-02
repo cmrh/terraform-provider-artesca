@@ -125,10 +125,10 @@ func TestAccBucketPolicy_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket_policy.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rBucket)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rBucket)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "bucket_name",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy"},
+				ImportStateVerifyIgnore:              []string{"policy"},
 			},
 		},
 	})
@@ -137,8 +137,7 @@ func TestAccBucketPolicy_importState(t *testing.T) {
 func testAccBucketPolicyConfig(bucketName, action string) string {
 	return fmt.Sprintf(`
 resource "artesca_bucket_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   bucket_name        = artesca_bucket.test.name
 
   policy = jsonencode({
@@ -160,8 +159,7 @@ func testAccBucketPolicyRawConfig(bucketName, rawPolicy string) string {
 	// Use heredoc so embedded JSON braces don't conflict with HCL interpolation.
 	return fmt.Sprintf(`
 resource "artesca_bucket_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   bucket_name        = artesca_bucket.test.name
 
   policy = <<POLICY
@@ -183,9 +181,12 @@ func testAccCheckBucketPolicyDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_bucket_policy" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		policy, err := s3Client.GetBucketPolicy(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["bucket_name"])
 		// If the bucket itself is gone, GET will fail — accept that as destroyed.
 		if err != nil {

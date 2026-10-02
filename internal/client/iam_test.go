@@ -122,7 +122,7 @@ func TestCreateUser(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	user, err := client.CreateUser(context.Background(), "test-ak", "test-sk", "testuser")
+	user, err := client.CreateUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestGetUser(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	user, err := client.GetUser(context.Background(), "test-ak", "test-sk", "testuser")
+	user, err := client.GetUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err != nil {
 		t.Fatalf("GetUser returned error: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestGetUserNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	user, err := client.GetUser(context.Background(), "test-ak", "test-sk", "testuser")
+	user, err := client.GetUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err != nil {
 		t.Fatalf("GetUser with NoSuchEntity should return nil error, got: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestDeleteUser(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteUser(context.Background(), "test-ak", "test-sk", "testuser")
+	err := client.DeleteUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err != nil {
 		t.Fatalf("DeleteUser returned error: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestDeleteUserNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteUser(context.Background(), "test-ak", "test-sk", "gone-user")
+	err := client.DeleteUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "gone-user")
 	if err != nil {
 		t.Fatalf("expected NoSuchEntity to be treated as success, got error: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestPutUserPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.PutUserPolicy(context.Background(), "test-ak", "test-sk", "testuser", "mypolicy", policyDoc)
+	err := client.PutUserPolicy(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "mypolicy", policyDoc)
 	if err != nil {
 		t.Fatalf("PutUserPolicy returned error: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestGetUserPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	doc, err := client.GetUserPolicy(context.Background(), "test-ak", "test-sk", "testuser", "mypolicy")
+	doc, err := client.GetUserPolicy(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "mypolicy")
 	if err != nil {
 		t.Fatalf("GetUserPolicy returned error: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestGetUserPolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	doc, err := client.GetUserPolicy(context.Background(), "test-ak", "test-sk", "testuser", "mypolicy")
+	doc, err := client.GetUserPolicy(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "mypolicy")
 	if err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestDeleteUserPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteUserPolicy(context.Background(), "test-ak", "test-sk", "testuser", "mypolicy")
+	err := client.DeleteUserPolicy(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "mypolicy")
 	if err != nil {
 		t.Fatalf("DeleteUserPolicy returned error: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestDeleteUserPolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteUserPolicy(context.Background(), "test-ak", "test-sk", "testuser", "gone-policy")
+	err := client.DeleteUserPolicy(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "gone-policy")
 	if err != nil {
 		t.Fatalf("expected NoSuchEntity to be treated as success, got error: %v", err)
 	}
@@ -342,7 +342,7 @@ func TestCreateAccessKey(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	key, err := client.CreateAccessKey(context.Background(), "test-ak", "test-sk", "testuser")
+	key, err := client.CreateAccessKey(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err != nil {
 		t.Fatalf("CreateAccessKey returned error: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestListAccessKeys(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	keys, err := client.ListAccessKeys(context.Background(), "test-ak", "test-sk", "testuser")
+	keys, err := client.ListAccessKeys(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err != nil {
 		t.Fatalf("ListAccessKeys returned error: %v", err)
 	}
@@ -396,7 +396,7 @@ func TestDeleteAccessKey(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteAccessKey(context.Background(), "test-ak", "test-sk", "testuser", "AKIATEST")
+	err := client.DeleteAccessKey(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "AKIATEST")
 	if err != nil {
 		t.Fatalf("DeleteAccessKey returned error: %v", err)
 	}
@@ -410,7 +410,7 @@ func TestDeleteAccessKeyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteAccessKey(context.Background(), "test-ak", "test-sk", "testuser", "AKIAGONE")
+	err := client.DeleteAccessKey(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser", "AKIAGONE")
 	if err != nil {
 		t.Fatalf("expected NoSuchEntity to be treated as success, got error: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestGetUserServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.GetUser(context.Background(), "ak", "sk", "testuser")
+	_, err := client.GetUser(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "testuser")
 	if err == nil {
 		t.Fatal("expected error for 403 response")
 	}
@@ -445,7 +445,7 @@ func TestDeleteUserServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteUser(context.Background(), "ak", "sk", "testuser")
+	err := client.DeleteUser(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "testuser")
 	if err == nil {
 		t.Fatal("expected error for 403 response")
 	}
@@ -462,7 +462,7 @@ func TestPutUserPolicyServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.PutUserPolicy(context.Background(), "ak", "sk", "user", "policy", "{}")
+	err := client.PutUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "user", "policy", "{}")
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -479,7 +479,7 @@ func TestGetUserPolicyServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.GetUserPolicy(context.Background(), "ak", "sk", "user", "policy")
+	_, err := client.GetUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "user", "policy")
 	if err == nil {
 		t.Fatal("expected error for 403 response")
 	}
@@ -496,7 +496,7 @@ func TestGetUserPolicyUnescapeFallback(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	doc, err := client.GetUserPolicy(context.Background(), "ak", "sk", "u", "p")
+	doc, err := client.GetUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "u", "p")
 	if err != nil {
 		t.Fatalf("GetUserPolicy returned error: %v", err)
 	}
@@ -513,7 +513,7 @@ func TestDeleteUserPolicyServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteUserPolicy(context.Background(), "ak", "sk", "user", "policy")
+	err := client.DeleteUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "user", "policy")
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -530,7 +530,7 @@ func TestCreateAccessKeyServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.CreateAccessKey(context.Background(), "ak", "sk", "user")
+	_, err := client.CreateAccessKey(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "user")
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -547,7 +547,7 @@ func TestListAccessKeysServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.ListAccessKeys(context.Background(), "ak", "sk", "user")
+	_, err := client.ListAccessKeys(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "user")
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -564,7 +564,7 @@ func TestDeleteAccessKeyServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	err := client.DeleteAccessKey(context.Background(), "ak", "sk", "user", "AKIATEST")
+	err := client.DeleteAccessKey(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "user", "AKIATEST")
 	if err == nil {
 		t.Fatal("expected error for 403 response")
 	}
@@ -585,7 +585,7 @@ func TestServerErrorXML(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.CreateUser(context.Background(), "test-ak", "test-sk", "testuser")
+	_, err := client.CreateUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err == nil {
 		t.Fatal("expected error from 500 response")
 	}
@@ -602,7 +602,7 @@ func TestServerErrorNonXML(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.CreateUser(context.Background(), "test-ak", "test-sk", "testuser")
+	_, err := client.CreateUser(context.Background(), Credentials{AccessKey: "test-ak", SecretKey: "test-sk"}, "testuser")
 	if err == nil {
 		t.Fatal("expected error from 503 response")
 	}
@@ -625,7 +625,7 @@ func TestRequestIsPostWithFormContentType(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.CreateUser(context.Background(), "ak", "sk", "x")
+	_, err := client.CreateUser(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -645,7 +645,7 @@ func TestVersionParameterIncluded(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.CreateUser(context.Background(), "ak", "sk", "x")
+	_, err := client.CreateUser(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -669,7 +669,7 @@ func TestSigV4AuthorizationHeaderPresent(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	_, err := client.CreateUser(context.Background(), "AKIAEXAMPLE", "secret", "x")
+	_, err := client.CreateUser(context.Background(), Credentials{AccessKey: "AKIAEXAMPLE", SecretKey: "secret"}, "x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -696,7 +696,7 @@ func TestCreateGroup(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	g, err := client.CreateGroup(context.Background(), "ak", "sk", "devs")
+	g, err := client.CreateGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs")
 	if err != nil {
 		t.Fatalf("CreateGroup: %v", err)
 	}
@@ -713,7 +713,7 @@ func TestGetGroup(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	g, err := client.GetGroup(context.Background(), "ak", "sk", "devs")
+	g, err := client.GetGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs")
 	if err != nil {
 		t.Fatalf("GetGroup: %v", err)
 	}
@@ -730,7 +730,7 @@ func TestGetGroupNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	g, err := client.GetGroup(context.Background(), "ak", "sk", "devs")
+	g, err := client.GetGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs")
 	if err != nil {
 		t.Fatalf("expected nil error on NoSuchEntity, got: %v", err)
 	}
@@ -749,7 +749,7 @@ func TestDeleteGroup(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeleteGroup(context.Background(), "ak", "sk", "devs"); err != nil {
+	if err := client.DeleteGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs"); err != nil {
 		t.Fatalf("DeleteGroup: %v", err)
 	}
 }
@@ -762,7 +762,7 @@ func TestDeleteGroupNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeleteGroup(context.Background(), "ak", "sk", "devs"); err != nil {
+	if err := client.DeleteGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs"); err != nil {
 		t.Fatalf("expected nil error on NoSuchEntity, got: %v", err)
 	}
 }
@@ -783,7 +783,7 @@ func TestAddUserToGroup(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.AddUserToGroup(context.Background(), "ak", "sk", "devs", "alice"); err != nil {
+	if err := client.AddUserToGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "alice"); err != nil {
 		t.Fatalf("AddUserToGroup: %v", err)
 	}
 }
@@ -798,7 +798,7 @@ func TestRemoveUserFromGroup(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.RemoveUserFromGroup(context.Background(), "ak", "sk", "devs", "alice"); err != nil {
+	if err := client.RemoveUserFromGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "alice"); err != nil {
 		t.Fatalf("RemoveUserFromGroup: %v", err)
 	}
 }
@@ -811,7 +811,7 @@ func TestRemoveUserFromGroupNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.RemoveUserFromGroup(context.Background(), "ak", "sk", "devs", "alice"); err != nil {
+	if err := client.RemoveUserFromGroup(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "alice"); err != nil {
 		t.Fatalf("expected nil error on NoSuchEntity, got: %v", err)
 	}
 }
@@ -824,7 +824,7 @@ func TestListGroupsForUser(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	groups, err := client.ListGroupsForUser(context.Background(), "ak", "sk", "alice")
+	groups, err := client.ListGroupsForUser(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "alice")
 	if err != nil {
 		t.Fatalf("ListGroupsForUser: %v", err)
 	}
@@ -841,7 +841,7 @@ func TestListGroupsForUserNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	groups, err := client.ListGroupsForUser(context.Background(), "ak", "sk", "alice")
+	groups, err := client.ListGroupsForUser(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "alice")
 	if err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
@@ -869,7 +869,7 @@ func TestPutGroupPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.PutGroupPolicy(context.Background(), "ak", "sk", "devs", "pol", doc); err != nil {
+	if err := client.PutGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "pol", doc); err != nil {
 		t.Fatalf("PutGroupPolicy: %v", err)
 	}
 }
@@ -882,7 +882,7 @@ func TestGetGroupPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	doc, err := client.GetGroupPolicy(context.Background(), "ak", "sk", "devs", "pol")
+	doc, err := client.GetGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "pol")
 	if err != nil {
 		t.Fatalf("GetGroupPolicy: %v", err)
 	}
@@ -899,7 +899,7 @@ func TestGetGroupPolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	doc, err := client.GetGroupPolicy(context.Background(), "ak", "sk", "devs", "pol")
+	doc, err := client.GetGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "pol")
 	if err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
@@ -918,7 +918,7 @@ func TestDeleteGroupPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeleteGroupPolicy(context.Background(), "ak", "sk", "devs", "pol"); err != nil {
+	if err := client.DeleteGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "pol"); err != nil {
 		t.Fatalf("DeleteGroupPolicy: %v", err)
 	}
 }
@@ -931,7 +931,7 @@ func TestDeleteGroupPolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeleteGroupPolicy(context.Background(), "ak", "sk", "devs", "pol"); err != nil {
+	if err := client.DeleteGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "pol"); err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
 }
@@ -956,7 +956,7 @@ func TestCreateRole(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	role, err := client.CreateRole(context.Background(), "ak", "sk", "myrole", trust, "test role")
+	role, err := client.CreateRole(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole", trust, "test role")
 	if err != nil {
 		t.Fatalf("CreateRole: %v", err)
 	}
@@ -982,7 +982,7 @@ func TestCreateRoleNoDescription(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if _, err := client.CreateRole(context.Background(), "ak", "sk", "r", "{}", ""); err != nil {
+	if _, err := client.CreateRole(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "r", "{}", ""); err != nil {
 		t.Fatalf("CreateRole: %v", err)
 	}
 }
@@ -995,7 +995,7 @@ func TestGetRole(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	role, err := client.GetRole(context.Background(), "ak", "sk", "myrole")
+	role, err := client.GetRole(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole")
 	if err != nil {
 		t.Fatalf("GetRole: %v", err)
 	}
@@ -1015,7 +1015,7 @@ func TestGetRoleNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	role, err := client.GetRole(context.Background(), "ak", "sk", "myrole")
+	role, err := client.GetRole(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole")
 	if err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
@@ -1034,7 +1034,7 @@ func TestDeleteRole(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeleteRole(context.Background(), "ak", "sk", "myrole"); err != nil {
+	if err := client.DeleteRole(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole"); err != nil {
 		t.Fatalf("DeleteRole: %v", err)
 	}
 }
@@ -1047,7 +1047,7 @@ func TestDeleteRoleNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeleteRole(context.Background(), "ak", "sk", "myrole"); err != nil {
+	if err := client.DeleteRole(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole"); err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
 }
@@ -1072,7 +1072,7 @@ func TestCreatePolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	pol, err := client.CreatePolicy(context.Background(), "ak", "sk", "mp", doc, "d")
+	pol, err := client.CreatePolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "mp", doc, "d")
 	if err != nil {
 		t.Fatalf("CreatePolicy: %v", err)
 	}
@@ -1092,7 +1092,7 @@ func TestGetPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	pol, err := client.GetPolicy(context.Background(), "ak", "sk", "arn:aws:iam::123:policy/mp")
+	pol, err := client.GetPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn:aws:iam::123:policy/mp")
 	if err != nil {
 		t.Fatalf("GetPolicy: %v", err)
 	}
@@ -1109,7 +1109,7 @@ func TestGetPolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	pol, err := client.GetPolicy(context.Background(), "ak", "sk", "arn:...")
+	pol, err := client.GetPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn:...")
 	if err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
@@ -1129,7 +1129,7 @@ func TestGetPolicyDocument(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	doc, err := client.GetPolicyDocument(context.Background(), "ak", "sk", "arn", "v1")
+	doc, err := client.GetPolicyDocument(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn", "v1")
 	if err != nil {
 		t.Fatalf("GetPolicyDocument: %v", err)
 	}
@@ -1148,7 +1148,7 @@ func TestDeletePolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeletePolicy(context.Background(), "ak", "sk", "arn"); err != nil {
+	if err := client.DeletePolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn"); err != nil {
 		t.Fatalf("DeletePolicy: %v", err)
 	}
 }
@@ -1161,7 +1161,7 @@ func TestDeletePolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DeletePolicy(context.Background(), "ak", "sk", "arn"); err != nil {
+	if err := client.DeletePolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn"); err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
 }
@@ -1183,7 +1183,7 @@ func TestAttachUserPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.AttachUserPolicy(context.Background(), "ak", "sk", "alice", "arn"); err != nil {
+	if err := client.AttachUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "alice", "arn"); err != nil {
 		t.Fatalf("AttachUserPolicy: %v", err)
 	}
 }
@@ -1198,7 +1198,7 @@ func TestDetachUserPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DetachUserPolicy(context.Background(), "ak", "sk", "alice", "arn"); err != nil {
+	if err := client.DetachUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "alice", "arn"); err != nil {
 		t.Fatalf("DetachUserPolicy: %v", err)
 	}
 }
@@ -1211,7 +1211,7 @@ func TestDetachUserPolicyNoSuchEntity(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DetachUserPolicy(context.Background(), "ak", "sk", "alice", "arn"); err != nil {
+	if err := client.DetachUserPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "alice", "arn"); err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
 	}
 }
@@ -1224,7 +1224,7 @@ func TestListAttachedUserPolicies(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	arns, err := client.ListAttachedUserPolicies(context.Background(), "ak", "sk", "alice")
+	arns, err := client.ListAttachedUserPolicies(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "alice")
 	if err != nil {
 		t.Fatalf("ListAttachedUserPolicies: %v", err)
 	}
@@ -1246,7 +1246,7 @@ func TestAttachGroupPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.AttachGroupPolicy(context.Background(), "ak", "sk", "devs", "arn"); err != nil {
+	if err := client.AttachGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "arn"); err != nil {
 		t.Fatalf("AttachGroupPolicy: %v", err)
 	}
 }
@@ -1261,7 +1261,7 @@ func TestDetachGroupPolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DetachGroupPolicy(context.Background(), "ak", "sk", "devs", "arn"); err != nil {
+	if err := client.DetachGroupPolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs", "arn"); err != nil {
 		t.Fatalf("DetachGroupPolicy: %v", err)
 	}
 }
@@ -1274,7 +1274,7 @@ func TestListAttachedGroupPolicies(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	arns, err := client.ListAttachedGroupPolicies(context.Background(), "ak", "sk", "devs")
+	arns, err := client.ListAttachedGroupPolicies(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "devs")
 	if err != nil {
 		t.Fatalf("ListAttachedGroupPolicies: %v", err)
 	}
@@ -1296,7 +1296,7 @@ func TestAttachRolePolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.AttachRolePolicy(context.Background(), "ak", "sk", "myrole", "arn"); err != nil {
+	if err := client.AttachRolePolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole", "arn"); err != nil {
 		t.Fatalf("AttachRolePolicy: %v", err)
 	}
 }
@@ -1311,7 +1311,7 @@ func TestDetachRolePolicy(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	if err := client.DetachRolePolicy(context.Background(), "ak", "sk", "myrole", "arn"); err != nil {
+	if err := client.DetachRolePolicy(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole", "arn"); err != nil {
 		t.Fatalf("DetachRolePolicy: %v", err)
 	}
 }
@@ -1324,7 +1324,7 @@ func TestListAttachedRolePolicies(t *testing.T) {
 	defer server.Close()
 
 	client := NewIAMClient(server.URL, "us-east-1", false)
-	arns, err := client.ListAttachedRolePolicies(context.Background(), "ak", "sk", "myrole")
+	arns, err := client.ListAttachedRolePolicies(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "myrole")
 	if err != nil {
 		t.Fatalf("ListAttachedRolePolicies: %v", err)
 	}

@@ -29,7 +29,7 @@ func TestCreateBucket(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "us-east-1")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "us-east-1")
 	if err != nil {
 		t.Fatalf("CreateBucket returned error: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestCreateBucketWithLocationConstraint(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "my-location")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "my-location")
 	if err != nil {
 		t.Fatalf("CreateBucket returned error: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestCreateBucketError(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
 	if err == nil {
 		t.Fatal("expected error for 409 response")
 	}
@@ -85,7 +85,7 @@ func TestHeadBucketExists(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	exists, err := client.HeadBucket(context.Background(), "AKID", "secret", "my-bucket")
+	exists, err := client.HeadBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("HeadBucket returned error: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestHeadBucketNotFound(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	exists, err := client.HeadBucket(context.Background(), "AKID", "secret", "my-bucket")
+	exists, err := client.HeadBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("HeadBucket returned error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestHeadBucketServerError(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	_, err := client.HeadBucket(context.Background(), "AKID", "secret", "my-bucket")
+	_, err := client.HeadBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -137,7 +137,7 @@ func TestDeleteBucket(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.DeleteBucket(context.Background(), "AKID", "secret", "my-bucket")
+	err := client.DeleteBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("DeleteBucket returned error: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestDeleteBucketNotFound(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.DeleteBucket(context.Background(), "AKID", "secret", "my-bucket")
+	err := client.DeleteBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("expected 404 to be treated as success, got error: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestDeleteBucketError(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.DeleteBucket(context.Background(), "AKID", "secret", "my-bucket")
+	err := client.DeleteBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err == nil {
 		t.Fatal("expected error for BucketNotEmpty")
 	}
@@ -194,7 +194,7 @@ func TestPutBucketVersioningEnabled(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.PutBucketVersioning(context.Background(), "AKID", "secret", "my-bucket", true)
+	err := client.PutBucketVersioning(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", true)
 	if err != nil {
 		t.Fatalf("PutBucketVersioning returned error: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestPutBucketVersioningSuspended(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.PutBucketVersioning(context.Background(), "AKID", "secret", "my-bucket", false)
+	err := client.PutBucketVersioning(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", false)
 	if err != nil {
 		t.Fatalf("PutBucketVersioning returned error: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestPutBucketVersioningError(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.PutBucketVersioning(context.Background(), "AKID", "secret", "my-bucket", true)
+	err := client.PutBucketVersioning(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", true)
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -252,7 +252,7 @@ func TestGetBucketVersioningEnabled(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	enabled, err := client.GetBucketVersioning(context.Background(), "AKID", "secret", "my-bucket")
+	enabled, err := client.GetBucketVersioning(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketVersioning returned error: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestGetBucketVersioningDisabled(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	enabled, err := client.GetBucketVersioning(context.Background(), "AKID", "secret", "my-bucket")
+	enabled, err := client.GetBucketVersioning(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketVersioning returned error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestGetBucketVersioningSuspended(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	enabled, err := client.GetBucketVersioning(context.Background(), "AKID", "secret", "my-bucket")
+	enabled, err := client.GetBucketVersioning(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketVersioning returned error: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestPutBucketPolicy(t *testing.T) {
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	policy := `{"Version":"2012-10-17"}`
-	if err := client.PutBucketPolicy(context.Background(), "AKID", "secret", "my-bucket", policy); err != nil {
+	if err := client.PutBucketPolicy(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", policy); err != nil {
 		t.Fatalf("PutBucketPolicy returned error: %v", err)
 	}
 	if requestBody != policy {
@@ -335,7 +335,7 @@ func TestGetBucketPolicy(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	got, err := client.GetBucketPolicy(context.Background(), "AKID", "secret", "my-bucket")
+	got, err := client.GetBucketPolicy(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketPolicy returned error: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestGetBucketPolicyNoSuchBucketPolicy(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	got, err := client.GetBucketPolicy(context.Background(), "AKID", "secret", "my-bucket")
+	got, err := client.GetBucketPolicy(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("expected NoSuchBucketPolicy to be silenced, got error: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestDeleteBucketPolicy(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	if err := client.DeleteBucketPolicy(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+	if err := client.DeleteBucketPolicy(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket"); err != nil {
 		t.Fatalf("DeleteBucketPolicy returned error: %v", err)
 	}
 }
@@ -387,7 +387,7 @@ func TestDeleteBucketPolicyAlreadyAbsent(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	if err := client.DeleteBucketPolicy(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+	if err := client.DeleteBucketPolicy(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket"); err != nil {
 		t.Fatalf("expected NoSuchBucketPolicy to be treated as success: %v", err)
 	}
 }
@@ -407,7 +407,7 @@ func TestPutBucketTagging(t *testing.T) {
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	tags := []BucketTag{{Key: "env", Value: "prod"}, {Key: "team", Value: "data"}}
-	if err := client.PutBucketTagging(context.Background(), "AKID", "secret", "my-bucket", tags); err != nil {
+	if err := client.PutBucketTagging(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", tags); err != nil {
 		t.Fatalf("PutBucketTagging returned error: %v", err)
 	}
 	if !strings.Contains(requestBody, "<Key>env</Key>") || !strings.Contains(requestBody, "<Value>prod</Value>") {
@@ -433,7 +433,7 @@ func TestGetBucketTagging(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	tags, err := client.GetBucketTagging(context.Background(), "AKID", "secret", "my-bucket")
+	tags, err := client.GetBucketTagging(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("GetBucketTagging returned error: %v", err)
 	}
@@ -456,7 +456,7 @@ func TestGetBucketTaggingNoSuchTagSet(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	tags, err := client.GetBucketTagging(context.Background(), "AKID", "secret", "my-bucket")
+	tags, err := client.GetBucketTagging(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
 	if err != nil {
 		t.Fatalf("expected NoSuchTagSet to be silenced, got error: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestDeleteBucketTagging(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	if err := client.DeleteBucketTagging(context.Background(), "AKID", "secret", "my-bucket"); err != nil {
+	if err := client.DeleteBucketTagging(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket"); err != nil {
 		t.Fatalf("DeleteBucketTagging returned error: %v", err)
 	}
 }
@@ -511,7 +511,7 @@ func TestDoSignedRequestRetriesTransientGatewayStatus(t *testing.T) {
 			client := NewS3Client(apiServer.URL, "us-east-1", false)
 			client.transientBackoffOverride = time.Millisecond
 
-			err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+			err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
 			if err != nil {
 				t.Fatalf("CreateBucket returned error: %v", err)
 			}
@@ -534,7 +534,7 @@ func TestDoSignedRequestNoRetryOn500(t *testing.T) {
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	client.transientBackoffOverride = time.Millisecond
 
-	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -554,7 +554,7 @@ func TestDoSignedRequestGivesUpAfterMaxAttempts(t *testing.T) {
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	client.transientBackoffOverride = time.Millisecond
 
-	err := client.CreateBucket(context.Background(), "AKID", "secret", "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
 	if err == nil {
 		t.Fatal("expected error after exhausting retries")
 	}

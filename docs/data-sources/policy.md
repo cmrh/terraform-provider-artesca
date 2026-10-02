@@ -15,9 +15,8 @@ IAM operations are account-scoped, so you must supply the account's `access_key`
 
 ```hcl
 data "artesca_policy" "readonly" {
-  account_access_key = artesca_account.ops.access_key
-  account_secret_key = artesca_account.ops.secret_key
-  arn                = "arn:aws:iam::511865208010:policy/readonly"
+  account_name = artesca_account.ops.name
+  arn          = "arn:aws:iam::511865208010:policy/readonly"
 }
 
 output "readonly_document" {
@@ -29,8 +28,7 @@ output "readonly_document" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | The access key of the account this policy belongs to. Sensitive. |
-| `account_secret_key` | String | Yes | The secret key of the account this policy belongs to. Sensitive. |
+| `account_name` | String | Yes | Name of the account to read from. |
 | `arn` | String | Yes | The ARN of the IAM managed policy to look up. |
 
 ## Attributes Exported

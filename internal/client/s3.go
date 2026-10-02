@@ -86,7 +86,7 @@ func isLocationPropagationError(err error) bool {
 
 const propagationTimeout = 300 * time.Second
 
-func (c *S3Client) CreateBucket(ctx context.Context, accessKey, secretKey, bucket, locationConstraint string) error {
+func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, locationConstraint string) error {
 	var body string
 	if locationConstraint != "" {
 		body = fmt.Sprintf(
@@ -99,7 +99,7 @@ func (c *S3Client) CreateBucket(ctx context.Context, accessKey, secretKey, bucke
 	backoff := 5 * time.Second
 
 	for {
-		_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "", body, accessKey, secretKey)
+		_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "", body, creds)
 		if err != nil && isLocationPropagationError(err) && time.Now().Before(deadline) {
 			time.Sleep(backoff)
 			if backoff < 30*time.Second {
@@ -118,7 +118,7 @@ func (c *S3Client) CreateBucket(ctx context.Context, accessKey, secretKey, bucke
 	}
 }
 
-func (c *S3Client) PutBucketVersioning(ctx context.Context, accessKey, secretKey, bucket string, enabled bool) error {
+func (c *S3Client) PutBucketVersioning(ctx context.Context, creds Credentials, bucket string, enabled bool) error {
 	status := "Suspended"
 	if enabled {
 		status = "Enabled"
@@ -127,7 +127,7 @@ func (c *S3Client) PutBucketVersioning(ctx context.Context, accessKey, secretKey
 		`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>%s</Status></VersioningConfiguration>`,
 		status,
 	)
-	_, httpStatus, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "versioning", body, accessKey, secretKey)
+	_, httpStatus, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "versioning", body, creds)
 	if err != nil {
 		return err
 	}
@@ -138,8 +138,8 @@ func (c *S3Client) PutBucketVersioning(ctx context.Context, accessKey, secretKey
 	return nil
 }
 
-func (c *S3Client) GetBucketVersioning(ctx context.Context, accessKey, secretKey, bucket string) (bool, error) {
-	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "versioning", "", accessKey, secretKey)
+func (c *S3Client) GetBucketVersioning(ctx context.Context, creds Credentials, bucket string) (bool, error) {
+	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "versioning", "", creds)
 	if err != nil {
 		return false, err
 	}
@@ -158,8 +158,8 @@ func (c *S3Client) GetBucketVersioning(ctx context.Context, accessKey, secretKey
 	return conf.Status == "Enabled", nil
 }
 
-func (c *S3Client) HeadBucket(ctx context.Context, accessKey, secretKey, bucket string) (bool, error) {
-	_, status, err := c.doSignedRequest(ctx, http.MethodHead, "/"+bucket, "", "", accessKey, secretKey)
+func (c *S3Client) HeadBucket(ctx context.Context, creds Credentials, bucket string) (bool, error) {
+	_, status, err := c.doSignedRequest(ctx, http.MethodHead, "/"+bucket, "", "", creds)
 	if err != nil {
 		return false, err
 	}
@@ -173,8 +173,8 @@ func (c *S3Client) HeadBucket(ctx context.Context, accessKey, secretKey, bucket 
 	return false, fmt.Errorf("head bucket unexpected status %d", status)
 }
 
-func (c *S3Client) GetBucketLocation(ctx context.Context, accessKey, secretKey, bucket string) (string, error) {
-	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "location", "", accessKey, secretKey)
+func (c *S3Client) GetBucketLocation(ctx context.Context, creds Credentials, bucket string) (string, error) {
+	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "location", "", creds)
 	if err != nil {
 		return "", err
 	}
@@ -199,8 +199,8 @@ func (c *S3Client) GetBucketLocation(ctx context.Context, accessKey, secretKey, 
 // PutBucketPolicy attaches a JSON policy document to the bucket. ARTESCA
 // validates the policy server-side (Resource ARNs must match the bucket;
 // MalformedPolicy is returned otherwise) -- no client-side validation needed.
-func (c *S3Client) PutBucketPolicy(ctx context.Context, accessKey, secretKey, bucket, policy string) error {
-	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "policy", policy, accessKey, secretKey)
+func (c *S3Client) PutBucketPolicy(ctx context.Context, creds Credentials, bucket, policy string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "policy", policy, creds)
 	if err != nil {
 		return err
 	}
@@ -213,8 +213,8 @@ func (c *S3Client) PutBucketPolicy(ctx context.Context, accessKey, secretKey, bu
 // GetBucketPolicy returns the policy document attached to the bucket. If the
 // bucket has no policy, it returns ("", nil) so callers can treat it as a
 // state-removed signal.
-func (c *S3Client) GetBucketPolicy(ctx context.Context, accessKey, secretKey, bucket string) (string, error) {
-	body, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "policy", "", accessKey, secretKey)
+func (c *S3Client) GetBucketPolicy(ctx context.Context, creds Credentials, bucket string) (string, error) {
+	body, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "policy", "", creds)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchBucketPolicy") {
 			return "", nil
@@ -230,8 +230,8 @@ func (c *S3Client) GetBucketPolicy(ctx context.Context, accessKey, secretKey, bu
 	return string(body), nil
 }
 
-func (c *S3Client) DeleteBucketPolicy(ctx context.Context, accessKey, secretKey, bucket string) error {
-	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "policy", "", accessKey, secretKey)
+func (c *S3Client) DeleteBucketPolicy(ctx context.Context, creds Credentials, bucket string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "policy", "", creds)
 	if status == http.StatusNotFound {
 		return nil
 	}
@@ -278,7 +278,7 @@ type taggingResponseTagSet struct {
 }
 
 // PutBucketTagging replaces the bucket's tag set with the given tags.
-func (c *S3Client) PutBucketTagging(ctx context.Context, accessKey, secretKey, bucket string, tags []BucketTag) error {
+func (c *S3Client) PutBucketTagging(ctx context.Context, creds Credentials, bucket string, tags []BucketTag) error {
 	req := taggingRequest{
 		XMLNS: "http://s3.amazonaws.com/doc/2006-03-01/",
 	}
@@ -289,7 +289,7 @@ func (c *S3Client) PutBucketTagging(ctx context.Context, accessKey, secretKey, b
 	if err != nil {
 		return fmt.Errorf("marshaling tagging body: %w", err)
 	}
-	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "tagging", string(body), accessKey, secretKey)
+	_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "tagging", string(body), creds)
 	if err != nil {
 		return err
 	}
@@ -301,8 +301,8 @@ func (c *S3Client) PutBucketTagging(ctx context.Context, accessKey, secretKey, b
 
 // GetBucketTagging returns the bucket's tag set. If the bucket has no tags,
 // returns (nil, nil) so callers can treat absence as a state-removed signal.
-func (c *S3Client) GetBucketTagging(ctx context.Context, accessKey, secretKey, bucket string) ([]BucketTag, error) {
-	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "tagging", "", accessKey, secretKey)
+func (c *S3Client) GetBucketTagging(ctx context.Context, creds Credentials, bucket string) ([]BucketTag, error) {
+	respBody, status, err := c.doSignedRequest(ctx, http.MethodGet, "/"+bucket, "tagging", "", creds)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchTagSet") {
 			return nil, nil
@@ -327,8 +327,8 @@ func (c *S3Client) GetBucketTagging(ctx context.Context, accessKey, secretKey, b
 	return tags, nil
 }
 
-func (c *S3Client) DeleteBucketTagging(ctx context.Context, accessKey, secretKey, bucket string) error {
-	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "tagging", "", accessKey, secretKey)
+func (c *S3Client) DeleteBucketTagging(ctx context.Context, creds Credentials, bucket string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "tagging", "", creds)
 	if status == http.StatusNotFound {
 		return nil
 	}
@@ -344,8 +344,8 @@ func (c *S3Client) DeleteBucketTagging(ctx context.Context, accessKey, secretKey
 	return nil
 }
 
-func (c *S3Client) DeleteBucket(ctx context.Context, accessKey, secretKey, bucket string) error {
-	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "", "", accessKey, secretKey)
+func (c *S3Client) DeleteBucket(ctx context.Context, creds Credentials, bucket string) error {
+	_, status, err := c.doSignedRequest(ctx, http.MethodDelete, "/"+bucket, "", "", creds)
 	if status == http.StatusNotFound {
 		return nil
 	}
@@ -359,7 +359,7 @@ func (c *S3Client) DeleteBucket(ctx context.Context, accessKey, secretKey, bucke
 	return nil
 }
 
-func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, body, accessKey, secretKey string) ([]byte, int, error) {
+func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, body string, creds Credentials) ([]byte, int, error) {
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
 		return nil, 0, fmt.Errorf("parsing endpoint: %w", err)
@@ -373,6 +373,9 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 		canonicalQueryString = query + "="
 	}
 	signedHeaders := "host;x-amz-content-sha256;x-amz-date"
+	if creds.SessionToken != "" {
+		signedHeaders += ";x-amz-security-token"
+	}
 
 	fullURL := c.endpoint + path
 	if query != "" {
@@ -391,7 +394,11 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 		datestamp := now.Format("20060102")
 		amzdate := now.Format("20060102T150405Z")
 
+		// SigV4 canonical headers must be alphabetically sorted by header name.
 		canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-content-sha256:%s\nx-amz-date:%s\n", host, payloadHash, amzdate)
+		if creds.SessionToken != "" {
+			canonicalHeaders += fmt.Sprintf("x-amz-security-token:%s\n", creds.SessionToken)
+		}
 
 		canonicalRequest := strings.Join([]string{
 			method,
@@ -410,11 +417,11 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 			sha256Hex([]byte(canonicalRequest)),
 		}, "\n")
 
-		signingKey := getSignatureKey(secretKey, datestamp, c.region, s3AWSService)
+		signingKey := getSignatureKey(creds.SecretKey, datestamp, c.region, s3AWSService)
 		signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
 
 		authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
-			accessKey, credentialScope, signedHeaders, signature)
+			creds.AccessKey, credentialScope, signedHeaders, signature)
 
 		req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(body))
 		if err != nil {
@@ -424,6 +431,9 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 		req.Header.Set("Host", host)
 		req.Header.Set("X-Amz-Date", amzdate)
 		req.Header.Set("X-Amz-Content-Sha256", payloadHash)
+		if creds.SessionToken != "" {
+			req.Header.Set("X-Amz-Security-Token", creds.SessionToken)
+		}
 		req.Header.Set("Authorization", authHeader)
 		if body != "" {
 			req.Header.Set("Content-Type", "application/xml")

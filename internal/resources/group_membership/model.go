@@ -5,8 +5,7 @@ import (
 )
 
 type GroupMembershipResourceModel struct {
-	AccountAccessKey types.String `tfsdk:"account_access_key"`
-	AccountSecretKey types.String `tfsdk:"account_secret_key"`
-	GroupName        types.String `tfsdk:"group_name"`
-	Username         types.String `tfsdk:"username"`
+	AccountName types.String `tfsdk:"account_name"`
+	GroupName   types.String `tfsdk:"group_name"`
+	Username    types.String `tfsdk:"username"`
 }

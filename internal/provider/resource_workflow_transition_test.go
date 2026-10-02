@@ -74,10 +74,9 @@ func TestAccWorkflowTransition_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket_workflow_transition.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateBucketAndAttr("artesca_bucket_workflow_transition.test", "rule_id")),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateBucketAndAttr("artesca_bucket_workflow_transition.test", "rule_id")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "rule_id",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -90,8 +89,7 @@ func testAccWorkflowTransitionConfig(acctName, srcLocName, dstLocName, bucketNam
 		testAccBucketConfig("test", bucketName, "artesca_location.source.name", false) +
 		fmt.Sprintf(`
 resource "artesca_bucket_workflow_transition" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   bucket_name        = artesca_bucket.test.name
   enabled            = %t
   location_name      = artesca_location.dest.name

@@ -24,6 +24,7 @@ var (
 )
 
 type BucketPolicyResource struct {
+	accounts *client.AccountCredentialSource
 	s3Client *client.S3Client
 }
 
@@ -39,22 +40,7 @@ func (r *BucketPolicyResource) Schema(_ context.Context, _ resource.SchemaReques
 	resp.Schema = schema.Schema{
 		Description: "Attaches an S3 bucket policy to an ARTESCA bucket. ARTESCA validates the policy server-side; Resource ARNs that don't match the bucket are rejected with MalformedPolicy.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account that owns the bucket.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"bucket_name": schema.StringAttribute{
 				Description: "The name of the bucket to attach the policy to.",
 				Required:    true,
@@ -92,6 +78,7 @@ func (r *BucketPolicyResource) Configure(_ context.Context, req resource.Configu
 		return
 	}
 	r.s3Client = providerData.S3
+	r.accounts = providerData.Accounts
 }
 
 func (r *BucketPolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -103,9 +90,14 @@ func (r *BucketPolicyResource) Create(ctx context.Context, req resource.CreateRe
 
 	tflog.Debug(ctx, "Attaching bucket policy", map[string]any{"bucket": plan.BucketName.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.PutBucketPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.BucketName.ValueString(),
 		plan.Policy.ValueString(),
 	); err != nil {
@@ -123,9 +115,14 @@ func (r *BucketPolicyResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	remote, err := r.s3Client.GetBucketPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.BucketName.ValueString(),
 	)
 	if err != nil {
@@ -152,9 +149,14 @@ func (r *BucketPolicyResource) Update(ctx context.Context, req resource.UpdateRe
 
 	tflog.Debug(ctx, "Updating bucket policy", map[string]any{"bucket": plan.BucketName.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.PutBucketPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.BucketName.ValueString(),
 		plan.Policy.ValueString(),
 	); err != nil {
@@ -174,9 +176,14 @@ func (r *BucketPolicyResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	tflog.Debug(ctx, "Deleting bucket policy", map[string]any{"bucket": state.BucketName.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	if err := r.s3Client.DeleteBucketPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.BucketName.ValueString(),
 	); err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket policy", err.Error())

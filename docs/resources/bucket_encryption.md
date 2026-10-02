@@ -15,9 +15,8 @@ ARTESCA currently supports **SSE-S3** (`SSEAlgorithm = "AES256"`). SSE-KMS is no
 
 ```hcl
 resource "artesca_bucket_encryption" "example" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
-  bucket_name        = artesca_bucket.example.name
+  account_name = artesca_account.example.name
+  bucket_name  = artesca_bucket.example.name
 
   sse_algorithm      = "AES256"
   bucket_key_enabled = false
@@ -28,8 +27,7 @@ resource "artesca_bucket_encryption" "example" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | The access key of the account that owns the bucket. Sensitive. Forces replacement. |
-| `account_secret_key` | String | Yes | The secret key of the account that owns the bucket. Sensitive. Forces replacement. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `bucket_name` | String | Yes | The name of the bucket to configure encryption on. Forces replacement. |
 | `sse_algorithm` | String | Yes | The SSE algorithm. Must be `"AES256"`. |
 | `bucket_key_enabled` | Bool | Optional | Whether to use an S3 Bucket Key. Defaults to `false` and is also computed from the server. |
@@ -37,12 +35,10 @@ resource "artesca_bucket_encryption" "example" {
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_bucket_encryption.example <bucket_name>
+tofu import artesca_bucket_encryption.example <account_name>/<bucket_name>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

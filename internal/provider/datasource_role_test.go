@@ -18,8 +18,7 @@ func TestAccDataSourceRole_basic(t *testing.T) {
 			{
 				Config: testAccRoleConfig(rAcct, rRole) + `
 data "artesca_role" "lookup" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = artesca_role.test.name
 }
 `,
@@ -48,8 +47,7 @@ func TestAccDataSourceRole_notFound(t *testing.T) {
 			{
 				Config: testAccAccountConfig(rAcct) + `
 data "artesca_role" "missing" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = "tf-acc-no-such-role-12345"
 }
 `,

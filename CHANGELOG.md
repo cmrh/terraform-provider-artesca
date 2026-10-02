@@ -14,11 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **`email` and `access_key` from `data.artesca_account`, and `email` from `data.artesca_accounts`.** The account listing does not return them (#35).
+- **`account_access_key` / `account_secret_key`** from the 17 account-scoped resources and `data.artesca_group`, `data.artesca_policy`, `data.artesca_role`, `data.artesca_user`. Use `account_name` (#36).
 
 ### Added
 
-- **`internal/creds` package**: env-var fallback (`ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY`) for per-account credentials, used during `tofu import` when state attributes are empty.
-- **Import support** for 17 previously-unimportable resources: `artesca_bucket`, all bucket sub-resources (`_policy`, `_tagging`, `_encryption`), all IAM resources (users, groups, roles, policies, attachments, memberships), and all workflow resources (expiration, transition, replication).
+- **Temporary per-account credentials (#36).** Account-scoped resources and data sources take `account_name`. The provider resolves the account and obtains credentials on its storage-manager role via STS `AssumeRoleWithWebIdentity` with the provider's OIDC token, caching them per account until shortly before expiry. IAM and S3 requests sign the session token. The STS endpoint is now always configured (derived from the management endpoint when `s3_endpoint` is unset).
+- **Import support** for 17 previously-unimportable resources: `artesca_bucket`, all bucket sub-resources (`_policy`, `_tagging`, `_encryption`), all IAM resources (users, groups, roles, policies, attachments, memberships), and all workflow resources (expiration, transition, replication). Import IDs for account-scoped resources start with the account name (`<account_name>/<id>`).
 
 ### Changed
 

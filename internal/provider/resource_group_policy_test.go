@@ -42,10 +42,10 @@ func TestAccGroupPolicy_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_group_policy.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rGroup+"/"+rPolicy)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rGroup + "/" + rPolicy)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "policy_name",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "policy_document"},
+				ImportStateVerifyIgnore:              []string{"policy_document"},
 			},
 		},
 	})
@@ -54,14 +54,12 @@ func TestAccGroupPolicy_importState(t *testing.T) {
 func testAccGroupPolicyConfig(accountName, groupName, policyName string) string {
 	return testAccAccountConfig(accountName) + fmt.Sprintf(`
 resource "artesca_group" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = %q
 }
 
 resource "artesca_group_policy" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   group_name         = artesca_group.test.name
   policy_name        = %q
 

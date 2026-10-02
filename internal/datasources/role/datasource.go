@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -13,7 +14,8 @@ import (
 var _ datasource.DataSource = &RoleDataSource{}
 
 type RoleDataSource struct {
-	client *client.IAMClient
+	accounts *client.AccountCredentialSource
+	client   *client.IAMClient
 }
 
 func NewRoleDataSource() datasource.DataSource {
@@ -28,16 +30,7 @@ func (d *RoleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		Description: "Looks up an existing IAM role within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account this role belongs to.",
-				Required:    true,
-				Sensitive:   true,
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account this role belongs to.",
-				Required:    true,
-				Sensitive:   true,
-			},
+			creds.AttrAccountName: creds.DataSourceAttribute(),
 			"name": schema.StringAttribute{
 				Description: "The name of the IAM role to look up.",
 				Required:    true,
@@ -79,6 +72,7 @@ func (d *RoleDataSource) Configure(_ context.Context, req datasource.ConfigureRe
 		return
 	}
 	d.client = providerData.IAM
+	d.accounts = providerData.Accounts
 }
 
 func (d *RoleDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -88,7 +82,13 @@ func (d *RoleDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	role, err := d.client.GetRole(ctx, data.AccountAccessKey.ValueString(), data.AccountSecretKey.ValueString(), data.Name.ValueString())
+	acctCreds, err := d.accounts.For(ctx, data.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	role, err := d.client.GetRole(ctx, acctCreds, data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading IAM role", err.Error())
 		return

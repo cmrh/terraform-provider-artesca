@@ -24,6 +24,7 @@ var (
 )
 
 type GroupPolicyResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -39,22 +40,7 @@ func (r *GroupPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest
 	resp.Schema = schema.Schema{
 		Description: "Attaches an inline IAM policy to a group within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"group_name": schema.StringAttribute{
 				Description: "The IAM group to attach the policy to.",
 				Required:    true,
@@ -99,6 +85,7 @@ func (r *GroupPolicyResource) Configure(_ context.Context, req resource.Configur
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *GroupPolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -113,9 +100,14 @@ func (r *GroupPolicyResource) Create(ctx context.Context, req resource.CreateReq
 		"policy": plan.PolicyName.ValueString(),
 	})
 
-	err := r.iamClient.PutGroupPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.PutGroupPolicy(ctx,
+		acctCreds,
 		plan.GroupName.ValueString(),
 		plan.PolicyName.ValueString(),
 		plan.PolicyDocument.ValueString(),
@@ -135,9 +127,14 @@ func (r *GroupPolicyResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	doc, err := r.iamClient.GetGroupPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.GroupName.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -163,9 +160,14 @@ func (r *GroupPolicyResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	err := r.iamClient.PutGroupPolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.PutGroupPolicy(ctx,
+		acctCreds,
 		plan.GroupName.ValueString(),
 		plan.PolicyName.ValueString(),
 		plan.PolicyDocument.ValueString(),
@@ -185,9 +187,14 @@ func (r *GroupPolicyResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := r.iamClient.DeleteGroupPolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DeleteGroupPolicy(ctx,
+		acctCreds,
 		state.GroupName.ValueString(),
 		state.PolicyName.ValueString(),
 	)
@@ -198,12 +205,15 @@ func (r *GroupPolicyResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 func (r *GroupPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
+		return
+	}
+	parts := strings.SplitN(rest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format group_name/policy_name, got %q", req.ID))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/group_name/policy_name, got %q", req.ID))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_name"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_name"), parts[1])...)
-	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

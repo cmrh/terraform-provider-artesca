@@ -24,6 +24,7 @@ var (
 )
 
 type GroupMembershipResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -39,22 +40,7 @@ func (r *GroupMembershipResource) Schema(_ context.Context, _ resource.SchemaReq
 	resp.Schema = schema.Schema{
 		Description: "Attaches an IAM user to a group within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"group_name": schema.StringAttribute{
 				Description: "The IAM group to add the user to.",
 				Required:    true,
@@ -92,6 +78,7 @@ func (r *GroupMembershipResource) Configure(_ context.Context, req resource.Conf
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *GroupMembershipResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -106,9 +93,14 @@ func (r *GroupMembershipResource) Create(ctx context.Context, req resource.Creat
 		"username": plan.Username.ValueString(),
 	})
 
-	err := r.iamClient.AddUserToGroup(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.AddUserToGroup(ctx,
+		acctCreds,
 		plan.GroupName.ValueString(),
 		plan.Username.ValueString(),
 	)
@@ -127,9 +119,14 @@ func (r *GroupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	groups, err := r.iamClient.ListGroupsForUser(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+		acctCreds,
 		state.Username.ValueString(),
 	)
 	if err != nil {
@@ -155,9 +152,14 @@ func (r *GroupMembershipResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	err := r.iamClient.RemoveUserFromGroup(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.RemoveUserFromGroup(ctx,
+		acctCreds,
 		state.GroupName.ValueString(),
 		state.Username.ValueString(),
 	)
@@ -168,12 +170,15 @@ func (r *GroupMembershipResource) Delete(ctx context.Context, req resource.Delet
 }
 
 func (r *GroupMembershipResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
+		return
+	}
+	parts := strings.SplitN(rest, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format group_name/username, got %q", req.ID))
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/group_name/username, got %q", req.ID))
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_name"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("username"), parts[1])...)
-	creds.WriteImport(ctx, &resp.State, &resp.Diagnostics)
 }

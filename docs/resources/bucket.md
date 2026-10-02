@@ -13,8 +13,7 @@ Manages an S3 bucket on the ARTESCA S3 endpoint. Supports versioning and locatio
 
 ```hcl
 resource "artesca_bucket" "data" {
-  account_access_key  = artesca_account.app.access_key
-  account_secret_key  = artesca_account.app.secret_key
+  account_name        = artesca_account.app.name
   name                = "app-data"
   location_constraint = artesca_location.ring_s3.name
   versioning_enabled  = true
@@ -25,9 +24,8 @@ resource "artesca_bucket" "data" {
 
 ```hcl
 resource "artesca_bucket" "logs" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  name               = "app-logs"
+  account_name = artesca_account.app.name
+  name         = "app-logs"
 }
 ```
 
@@ -36,8 +34,7 @@ resource "artesca_bucket" "logs" {
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | String | Yes | Bucket name. Must be 3-63 characters, lowercase letters, numbers, hyphens, and periods. Forces replacement. |
-| `account_access_key` | String | Yes | Access key of the owning account. Sensitive. |
-| `account_secret_key` | String | Yes | Secret key of the owning account. Sensitive. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `location_constraint` | String | No | ARTESCA location name to use as the storage backend. Forces replacement. |
 | `versioning_enabled` | Boolean | No | Whether versioning is enabled. Default: `false`. Required for replication workflows. |
 
@@ -48,12 +45,10 @@ All arguments are also exported.
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_bucket.data <name>
+tofu import artesca_bucket.data <account_name>/<name>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

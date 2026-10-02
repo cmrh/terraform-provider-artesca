@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -13,7 +14,8 @@ import (
 var _ datasource.DataSource = &UserDataSource{}
 
 type UserDataSource struct {
-	client *client.IAMClient
+	accounts *client.AccountCredentialSource
+	client   *client.IAMClient
 }
 
 func NewUserDataSource() datasource.DataSource {
@@ -28,16 +30,7 @@ func (d *UserDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		Description: "Looks up an existing IAM user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-			},
+			creds.AttrAccountName: creds.DataSourceAttribute(),
 			"username": schema.StringAttribute{
 				Description: "The name of the IAM user to look up.",
 				Required:    true,
@@ -71,6 +64,7 @@ func (d *UserDataSource) Configure(_ context.Context, req datasource.ConfigureRe
 		return
 	}
 	d.client = providerData.IAM
+	d.accounts = providerData.Accounts
 }
 
 func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -80,7 +74,13 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	user, err := d.client.GetUser(ctx, data.AccountAccessKey.ValueString(), data.AccountSecretKey.ValueString(), data.Username.ValueString())
+	acctCreds, err := d.accounts.For(ctx, data.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	user, err := d.client.GetUser(ctx, acctCreds, data.Username.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading IAM user", err.Error())
 		return

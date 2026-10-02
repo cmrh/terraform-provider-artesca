@@ -18,8 +18,7 @@ func TestAccDataSourcePolicy_basic(t *testing.T) {
 			{
 				Config: testAccPolicyConfig(rAcct, rPolicy) + `
 data "artesca_policy" "lookup" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   arn                = artesca_policy.test.arn
 }
 `,
@@ -48,8 +47,7 @@ func TestAccDataSourcePolicy_notFound(t *testing.T) {
 			{
 				Config: testAccAccountConfig(rAcct) + `
 data "artesca_policy" "missing" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   arn                = "arn:aws:iam::000000000000:policy/no-such-policy"
 }
 `,

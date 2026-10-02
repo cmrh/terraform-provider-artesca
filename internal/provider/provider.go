@@ -253,26 +253,35 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 	iamClient := client.NewIAMClient(iamEndpoint, iamRegion, insecureSkipVerify)
 
 	var s3Client *client.S3Client
-	var stsClient *client.STSClient
 	if s3Endpoint != "" {
 		s3Client = client.NewS3Client(s3Endpoint, iamRegion, insecureSkipVerify)
 		tflog.Info(ctx, "Configured S3 client", map[string]any{"s3_endpoint": s3Endpoint})
-
-		// STS endpoint is derived from the S3 endpoint (s3.<cluster> -> sts.<cluster>).
-		stsEndpoint, err := client.DeriveSTSEndpoint(s3Endpoint)
-		if err != nil {
-			tflog.Warn(ctx, "STS endpoint derivation failed; STS-backed ephemeral resources will be unavailable", map[string]any{"error": err.Error()})
-		} else {
-			stsClient = client.NewSTSClient(stsEndpoint, iamRegion, insecureSkipVerify)
-			tflog.Info(ctx, "Configured STS client", map[string]any{"sts_endpoint": stsEndpoint})
-		}
 	}
+
+	// STS endpoint is derived from the S3 endpoint (s3.<cluster> -> sts.<cluster>)
+	// when set, otherwise from the management endpoint (management.<cluster> -> sts.<cluster>).
+	var stsEndpoint string
+	if s3Endpoint != "" {
+		stsEndpoint, err = client.DeriveSTSEndpoint(s3Endpoint)
+	} else {
+		stsEndpoint, err = client.DeriveSTSEndpointFromManagement(managementEndpoint)
+	}
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"STS Endpoint Derivation Failed",
+			fmt.Sprintf("Failed to derive STS endpoint: %s", err),
+		)
+		return
+	}
+	stsClient := client.NewSTSClient(stsEndpoint, iamRegion, insecureSkipVerify)
+	tflog.Info(ctx, "Configured STS client", map[string]any{"sts_endpoint": stsEndpoint})
 
 	clients := &client.ProviderClients{
 		Management: mgmtClient,
 		IAM:        iamClient,
 		S3:         s3Client,
 		STS:        stsClient,
+		Accounts:   client.NewAccountCredentialSource(iamClient, stsClient, tokenSource),
 	}
 
 	resp.ResourceData = clients

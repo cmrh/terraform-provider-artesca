@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -18,6 +19,7 @@ import (
 var _ resource.Resource = &UserAccessKeyResource{}
 
 type UserAccessKeyResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -33,22 +35,7 @@ func (r *UserAccessKeyResource) Schema(_ context.Context, _ resource.SchemaReque
 	resp.Schema = schema.Schema{
 		Description: "Creates an IAM access key for a user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account this user belongs to.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"username": schema.StringAttribute{
 				Description: "The IAM user to create the access key for. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
@@ -99,6 +86,7 @@ func (r *UserAccessKeyResource) Configure(_ context.Context, req resource.Config
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *UserAccessKeyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -112,9 +100,14 @@ func (r *UserAccessKeyResource) Create(ctx context.Context, req resource.CreateR
 		"username": plan.Username.ValueString(),
 	})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	ak, err := r.iamClient.CreateAccessKey(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.Username.ValueString(),
 	)
 	if err != nil {
@@ -136,9 +129,14 @@ func (r *UserAccessKeyResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	keys, err := r.iamClient.ListAccessKeys(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+		acctCreds,
 		state.Username.ValueString(),
 	)
 	if err != nil {
@@ -182,9 +180,14 @@ func (r *UserAccessKeyResource) Delete(ctx context.Context, req resource.DeleteR
 		"access_key_id": state.AccessKeyID.ValueString(),
 	})
 
-	err := r.iamClient.DeleteAccessKey(ctx,
-		state.AccountAccessKey.ValueString(),
-		state.AccountSecretKey.ValueString(),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DeleteAccessKey(ctx,
+		acctCreds,
 		state.Username.ValueString(),
 		state.AccessKeyID.ValueString(),
 	)

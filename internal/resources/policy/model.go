@@ -5,8 +5,7 @@ import (
 )
 
 type PolicyResourceModel struct {
-	AccountAccessKey types.String `tfsdk:"account_access_key"`
-	AccountSecretKey types.String `tfsdk:"account_secret_key"`
+	AccountName      types.String `tfsdk:"account_name"`
 	Name             types.String `tfsdk:"name"`
 	PolicyDocument   types.String `tfsdk:"policy_document"`
 	Description      types.String `tfsdk:"description"`

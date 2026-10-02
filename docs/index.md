@@ -14,18 +14,20 @@ The provider authenticates via three API surfaces:
 - **IAM API** -- AWS Signature V4 with per-account credentials (users, groups, roles, policies, access keys). Account lookups use the provider's OIDC token.
 - **S3 / STS API** -- AWS Signature V4 with per-account credentials (buckets and sub-resources; assume-role and caller-identity).
 
-The IAM endpoint is automatically derived from the management endpoint (`management.` → `iam.`). The STS endpoint is derived from the S3 endpoint (`s3.` → `sts.`).
+Per-account credentials are temporary: for each `account_name`, the provider exchanges its OIDC token for credentials on the account's storage-manager role (STS `AssumeRoleWithWebIdentity`) and refreshes them before they expire. No account keys are configured or stored.
+
+The IAM endpoint is automatically derived from the management endpoint (`management.` → `iam.`). The STS endpoint is derived from the S3 endpoint (`s3.` → `sts.`), or from the management endpoint (`management.` → `sts.`) when `s3_endpoint` is not set.
 
 ## Provider Configuration
 
 ```hcl
 provider "artesca" {
-  management_endpoint = "https://management.artesca.example.com"  # or ARTESCA_MANAGEMENT_ENDPOINT
-  oidc_url            = "https://ui.artesca.example.com"          # or ARTESCA_OIDC_URL
-  oidc_realm          = "artesca"                                 # or ARTESCA_OIDC_REALM (default: "artesca")
-  client_id           = "zenko-ui"                                # or ARTESCA_CLIENT_ID (default: "zenko-ui")
-  username            = var.artesca_username                      # or ARTESCA_USERNAME
-  password            = var.artesca_password                      # or ARTESCA_PASSWORD
+  management_endpoint  = "https://management.artesca.example.com" # or ARTESCA_MANAGEMENT_ENDPOINT
+  oidc_url             = "https://ui.artesca.example.com"         # or ARTESCA_OIDC_URL
+  oidc_realm           = "artesca"                                # or ARTESCA_OIDC_REALM (default: "artesca")
+  client_id            = "zenko-ui"                               # or ARTESCA_CLIENT_ID (default: "zenko-ui")
+  username             = var.artesca_username                     # or ARTESCA_USERNAME
+  password             = var.artesca_password                     # or ARTESCA_PASSWORD
   insecure_skip_verify = true                                     # or ARTESCA_INSECURE_SKIP_VERIFY
 
   # instance_id is auto-discovered from the OIDC token if omitted
@@ -99,9 +101,9 @@ The OIDC scope requested at login defaults to `openid` and can be changed with `
 |----------|-------------|
 | [ephemeral.artesca_assumed_role_credentials](ephemeral-resources/assumed_role_credentials.md) | Mint short-lived role credentials via STS `AssumeRole`; session tokens never persist to state |
 
-## Credential Pattern
+## Account-Scoped Resources
 
-Account credentials are generated on creation and stored in state. Use them to configure per-account IAM resources:
+IAM and S3 resources name the account they belong to with `account_name`. The provider obtains credentials for that account itself:
 
 ```hcl
 resource "artesca_account" "app" {
@@ -110,31 +112,22 @@ resource "artesca_account" "app" {
 }
 
 resource "artesca_user" "operator" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  username           = "bucket-operator"
+  account_name = artesca_account.app.name
+  username     = "bucket-operator"
 }
 
 resource "artesca_user_access_key" "operator_key" {
-  account_access_key = artesca_account.app.access_key
-  account_secret_key = artesca_account.app.secret_key
-  username           = artesca_user.operator.username
+  account_name = artesca_account.app.name
+  username     = artesca_user.operator.username
 }
 ```
 
 ## Importing Account-Scoped Resources
 
-Resources that take `account_access_key` / `account_secret_key` read the owning account's keys from environment variables during `tofu import`, because an import ID carries no credentials:
-
-| Environment Variable | Used for |
-|---|---|
-| `ARTESCA_ACCOUNT_ACCESS_KEY` | `account_access_key` when it is not yet in state (import) |
-| `ARTESCA_ACCOUNT_SECRET_KEY` | `account_secret_key` when it is not yet in state (import) |
+Import IDs for account-scoped resources start with the account name:
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_user.operator bucket-operator
+tofu import artesca_user.operator my-app/bucket-operator
 ```
 
-One account per import run. After import, keep `account_access_key` / `account_secret_key` in your configuration as usual. See each resource's Import section for its ID format. `artesca_user_access_key` cannot be imported.
+See each resource's Import section for its ID format. `artesca_user_access_key` cannot be imported.

@@ -15,9 +15,8 @@ IAM operations are account-scoped, so you must supply the account's `access_key`
 
 ```hcl
 data "artesca_group" "admins" {
-  account_access_key = artesca_account.ops.access_key
-  account_secret_key = artesca_account.ops.secret_key
-  name               = "platform-admins"
+  account_name = artesca_account.ops.name
+  name         = "platform-admins"
 }
 
 output "admins_arn" {
@@ -29,8 +28,7 @@ output "admins_arn" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_access_key` | String | Yes | The access key of the account this group belongs to. Sensitive. |
-| `account_secret_key` | String | Yes | The secret key of the account this group belongs to. Sensitive. |
+| `account_name` | String | Yes | Name of the account to read from. |
 | `name` | String | Yes | The name of the IAM group to look up. |
 
 ## Attributes Exported

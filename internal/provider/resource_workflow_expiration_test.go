@@ -71,10 +71,9 @@ func TestAccWorkflowExpiration_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket_workflow_expiration.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateBucketAndAttr("artesca_bucket_workflow_expiration.test", "rule_id")),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateBucketAndAttr("artesca_bucket_workflow_expiration.test", "rule_id")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "rule_id",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -98,8 +97,7 @@ func testAccWorkflowExpirationConfig(acctName, locName, bucketName string, days 
 		testAccBucketConfig("test", bucketName, "artesca_location.source.name", false) +
 		fmt.Sprintf(`
 resource "artesca_bucket_workflow_expiration" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   bucket_name        = artesca_bucket.test.name
   enabled            = %t
 

@@ -22,6 +22,7 @@ var (
 )
 
 type PolicyResource struct {
+	accounts  *client.AccountCredentialSource
 	iamClient *client.IAMClient
 }
 
@@ -39,22 +40,7 @@ func (r *PolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"Managed policies can be attached to users, groups, and roles via the " +
 			"*_policy_attachment resources.",
 		Attributes: map[string]schema.Attribute{
-			"account_access_key": schema.StringAttribute{
-				Description: "The access key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"account_secret_key": schema.StringAttribute{
-				Description: "The secret key of the account.",
-				Required:    true,
-				Sensitive:   true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"name": schema.StringAttribute{
 				Description: "The name of the policy. Must be 1–128 characters, alphanumeric and +=,.@-.",
 				Required:    true,
@@ -127,6 +113,7 @@ func (r *PolicyResource) Configure(_ context.Context, req resource.ConfigureRequ
 		return
 	}
 	r.iamClient = providerData.IAM
+	r.accounts = providerData.Accounts
 }
 
 func (r *PolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -138,9 +125,14 @@ func (r *PolicyResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	tflog.Debug(ctx, "Creating managed policy", map[string]any{"name": plan.Name.ValueString()})
 
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
 	pol, err := r.iamClient.CreatePolicy(ctx,
-		plan.AccountAccessKey.ValueString(),
-		plan.AccountSecretKey.ValueString(),
+		acctCreds,
 		plan.Name.ValueString(),
 		plan.PolicyDocument.ValueString(),
 		plan.Description.ValueString(),
@@ -165,9 +157,16 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	ak := creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey)
-	sk := creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey)
-	pol, err := r.iamClient.GetPolicy(ctx, ak, sk, state.ARN.ValueString())
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+
+	if err != nil {
+
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+
+		return
+
+	}
+	pol, err := r.iamClient.GetPolicy(ctx, acctCreds, state.ARN.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading managed policy", err.Error())
 		return
@@ -190,7 +189,7 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 		state.Description = types.StringValue(pol.Description)
 	}
 	if state.PolicyDocument.IsNull() || state.PolicyDocument.ValueString() == "" {
-		doc, err := r.iamClient.GetPolicyDocument(ctx, ak, sk, state.ARN.ValueString(), pol.DefaultVersionId)
+		doc, err := r.iamClient.GetPolicyDocument(ctx, acctCreds, state.ARN.ValueString(), pol.DefaultVersionId)
 		if err != nil {
 			resp.Diagnostics.AddError("Error reading managed policy document", err.Error())
 			return
@@ -214,9 +213,14 @@ func (r *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	tflog.Debug(ctx, "Deleting managed policy", map[string]any{"arn": state.ARN.ValueString()})
 
-	err := r.iamClient.DeletePolicy(ctx,
-		creds.Resolve(state.AccountAccessKey, creds.EnvAccessKey),
-		creds.Resolve(state.AccountSecretKey, creds.EnvSecretKey),
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	err = r.iamClient.DeletePolicy(ctx,
+		acctCreds,
 		state.ARN.ValueString(),
 	)
 	if err != nil {

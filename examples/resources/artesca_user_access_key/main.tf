@@ -1,7 +1,6 @@
 resource "artesca_user_access_key" "example" {
-  account_access_key = artesca_account.example.access_key
-  account_secret_key = artesca_account.example.secret_key
-  username           = artesca_user.example.username
+  account_name = artesca_account.example.name
+  username     = artesca_user.example.username
 }
 
 output "user_access_key_id" {

@@ -5,10 +5,9 @@ import (
 )
 
 type GroupDataSourceModel struct {
-	AccountAccessKey types.String `tfsdk:"account_access_key"`
-	AccountSecretKey types.String `tfsdk:"account_secret_key"`
-	Name             types.String `tfsdk:"name"`
-	GroupID          types.String `tfsdk:"group_id"`
-	ARN              types.String `tfsdk:"arn"`
-	Path             types.String `tfsdk:"path"`
+	AccountName types.String `tfsdk:"account_name"`
+	Name        types.String `tfsdk:"name"`
+	GroupID     types.String `tfsdk:"group_id"`
+	ARN         types.String `tfsdk:"arn"`
+	Path        types.String `tfsdk:"path"`
 }

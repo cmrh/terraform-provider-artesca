@@ -41,8 +41,8 @@ resource "artesca_bucket_workflow_expiration" "maintenance" {
   enabled     = true
 
   expire_delete_markers_trigger                  = true
-  incomplete_multipart_upload_trigger_delay_days  = 7
-  previous_version_trigger_delay_days             = 30
+  incomplete_multipart_upload_trigger_delay_days = 7
+  previous_version_trigger_delay_days            = 30
 }
 ```
 
@@ -86,12 +86,10 @@ resource "artesca_bucket_workflow_expiration" "maintenance" {
 ## Import
 
 ```bash
-export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
-export ARTESCA_ACCOUNT_SECRET_KEY="..."
-tofu import artesca_bucket_workflow_expiration.cleanup <bucket_name>/<rule_id>
+tofu import artesca_bucket_workflow_expiration.cleanup <account_name>/<bucket_name>/<rule_id>
 ```
 
-The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 

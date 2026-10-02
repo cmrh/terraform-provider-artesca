@@ -42,8 +42,8 @@ type LifecycleRule struct {
 	TransitionLocation string
 }
 
-func (c *S3Client) GetBucketLifecycle(ctx context.Context, accessKey, secretKey, bucket string) ([]LifecycleRule, error) {
-	body, statusCode, err := c.doSignedRequest(ctx, "GET", "/"+bucket, "lifecycle", "", accessKey, secretKey)
+func (c *S3Client) GetBucketLifecycle(ctx context.Context, creds Credentials, bucket string) ([]LifecycleRule, error) {
+	body, statusCode, err := c.doSignedRequest(ctx, "GET", "/"+bucket, "lifecycle", "", creds)
 	if err != nil && statusCode == 404 {
 		return nil, nil
 	}
@@ -84,7 +84,7 @@ func (c *S3Client) GetBucketLifecycle(ctx context.Context, accessKey, secretKey,
 	return rules, nil
 }
 
-func (c *S3Client) PutBucketLifecycle(ctx context.Context, accessKey, secretKey, bucket string, rules []LifecycleRule) error {
+func (c *S3Client) PutBucketLifecycle(ctx context.Context, creds Credentials, bucket string, rules []LifecycleRule) error {
 	config := lifecycleConfiguration{}
 
 	for _, r := range rules {
@@ -116,7 +116,7 @@ func (c *S3Client) PutBucketLifecycle(ctx context.Context, accessKey, secretKey,
 	backoff := 5 * time.Second
 
 	for {
-		respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, "lifecycle", string(xmlBody), accessKey, secretKey)
+		respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, "lifecycle", string(xmlBody), creds)
 		if err != nil && isLocationPropagationError(err) && time.Now().Before(deadline) {
 			time.Sleep(backoff)
 			if backoff < 30*time.Second {
@@ -135,8 +135,8 @@ func (c *S3Client) PutBucketLifecycle(ctx context.Context, accessKey, secretKey,
 	}
 }
 
-func (c *S3Client) DeleteBucketLifecycle(ctx context.Context, accessKey, secretKey, bucket string) error {
-	body, statusCode, err := c.doSignedRequest(ctx, "DELETE", "/"+bucket, "lifecycle", "", accessKey, secretKey)
+func (c *S3Client) DeleteBucketLifecycle(ctx context.Context, creds Credentials, bucket string) error {
+	body, statusCode, err := c.doSignedRequest(ctx, "DELETE", "/"+bucket, "lifecycle", "", creds)
 	if err != nil && statusCode != 404 {
 		return fmt.Errorf("delete bucket lifecycle: %w", err)
 	}

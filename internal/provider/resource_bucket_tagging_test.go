@@ -86,10 +86,9 @@ func TestAccBucketTagging_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket_tagging.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rBucket)),
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateID(rBucket)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "bucket_name",
-				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
 			},
 		},
 	})
@@ -103,8 +102,7 @@ func testAccBucketTaggingConfig(tags map[string]string) string {
 	body += "  }"
 	return fmt.Sprintf(`
 resource "artesca_bucket_tagging" "test" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   bucket_name        = artesca_bucket.test.name
   tags = %s
 }
@@ -123,9 +121,12 @@ func testAccCheckBucketTaggingDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_bucket_tagging" {
 			continue
 		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
 		tags, err := s3Client.GetBucketTagging(context.Background(),
-			rs.Primary.Attributes["account_access_key"],
-			rs.Primary.Attributes["account_secret_key"],
+			acctCreds,
 			rs.Primary.Attributes["bucket_name"])
 		// If the bucket itself is gone, GET will fail — accept that as destroyed.
 		if err != nil {

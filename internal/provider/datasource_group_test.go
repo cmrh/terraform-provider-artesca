@@ -18,8 +18,7 @@ func TestAccDataSourceGroup_basic(t *testing.T) {
 			{
 				Config: testAccGroupConfig(rAcct, rGroup) + `
 data "artesca_group" "lookup" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = artesca_group.test.name
 }
 `,
@@ -47,8 +46,7 @@ func TestAccDataSourceGroup_notFound(t *testing.T) {
 			{
 				Config: testAccAccountConfig(rAcct) + `
 data "artesca_group" "missing" {
-  account_access_key = artesca_account.test.access_key
-  account_secret_key = artesca_account.test.secret_key
+  account_name = artesca_account.test.name
   name               = "tf-acc-no-such-group-12345"
 }
 `,
