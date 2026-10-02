@@ -50,6 +50,8 @@ All attributes can also be set via environment variables:
 | `s3_endpoint` | `ARTESCA_S3_ENDPOINT` |
 | _(scope only)_ | `ARTESCA_OIDC_SCOPE` (default: `openid`) |
 
+Account-scoped resources (those with `account_access_key` / `account_secret_key`) also read `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` when the attribute isn't in state yet — this is how `tofu import` authenticates. One account per import run; see each resource's Import section in `docs/resources/`.
+
 > **Finding the OIDC URL:** The `oidc_url` must be the control plane ingress endpoint (typically an IP-based URL like `https://10.0.0.1:8443`). Using a DNS alias with a non-standard port may produce OIDC tokens whose issuer doesn't match the internal trust policies, causing account deletion to fail. Retrieve the correct URL from an ARTESCA node:
 >
 > ```bash

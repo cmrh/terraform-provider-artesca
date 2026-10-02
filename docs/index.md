@@ -10,8 +10,8 @@ description: |-
 Terraform/OpenTofu provider for managing ARTESCA storage infrastructure. Supports account management, storage locations, endpoints, IAM (users, groups, roles, policies, access keys), STS, S3 buckets and bucket sub-resources (policy, tagging, encryption), and bucket lifecycle workflows.
 
 The provider authenticates via three API surfaces:
-- **Management API** -- OIDC bearer token for infrastructure operations (accounts, locations, endpoints, replication, workflows).
-- **IAM API** -- AWS Signature V4 with per-account credentials (users, groups, roles, policies, access keys).
+- **Management API** -- OIDC bearer token for infrastructure operations (account creation and deletion, locations, endpoints, replication, workflows).
+- **IAM API** -- AWS Signature V4 with per-account credentials (users, groups, roles, policies, access keys). Account lookups use the provider's OIDC token.
 - **S3 / STS API** -- AWS Signature V4 with per-account credentials (buckets and sub-resources; assume-role and caller-identity).
 
 The IAM endpoint is automatically derived from the management endpoint (`management.` → `iam.`). The STS endpoint is derived from the S3 endpoint (`s3.` → `sts.`).
@@ -33,10 +33,15 @@ provider "artesca" {
 
   # iam_region defaults to "us-east-1"
   # iam_region = "us-east-1"                                      # or ARTESCA_IAM_REGION
+
+  # Required for bucket resources and STS
+  # s3_endpoint = "https://s3.artesca.example.com"                # or ARTESCA_S3_ENDPOINT
 }
 ```
 
 `management_endpoint`, `oidc_url`, `username`, and `password` are required. All other attributes have defaults or are auto-discovered.
+
+The OIDC scope requested at login defaults to `openid` and can be changed with `ARTESCA_OIDC_SCOPE` (environment variable only).
 
 ## Resources
 
@@ -116,3 +121,20 @@ resource "artesca_user_access_key" "operator_key" {
   username           = artesca_user.operator.username
 }
 ```
+
+## Importing Account-Scoped Resources
+
+Resources that take `account_access_key` / `account_secret_key` read the owning account's keys from environment variables during `tofu import`, because an import ID carries no credentials:
+
+| Environment Variable | Used for |
+|---|---|
+| `ARTESCA_ACCOUNT_ACCESS_KEY` | `account_access_key` when it is not yet in state (import) |
+| `ARTESCA_ACCOUNT_SECRET_KEY` | `account_secret_key` when it is not yet in state (import) |
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_user.operator bucket-operator
+```
+
+One account per import run. After import, keep `account_access_key` / `account_secret_key` in your configuration as usual. See each resource's Import section for its ID format. `artesca_user_access_key` cannot be imported.

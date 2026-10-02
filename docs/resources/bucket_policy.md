@@ -54,6 +54,16 @@ resource "artesca_bucket_policy" "example" {
 | `bucket_name` | String | Yes | The name of the bucket to attach the policy to. Forces replacement. |
 | `policy` | String | Yes | The JSON policy document. Whitespace and key-ordering differences are ignored when detecting drift. |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_bucket_policy.example <bucket_name>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - ARTESCA validates the policy on `PUT`. Common rejection: `MalformedPolicy: Policy has invalid resource` when a Resource ARN names a different bucket.

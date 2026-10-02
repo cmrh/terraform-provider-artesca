@@ -34,6 +34,16 @@ resource "artesca_bucket_encryption" "example" {
 | `sse_algorithm` | String | Yes | The SSE algorithm. Must be `"AES256"`. |
 | `bucket_key_enabled` | Bool | Optional | Whether to use an S3 Bucket Key. Defaults to `false` and is also computed from the server. |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_bucket_encryption.example <bucket_name>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - The encryption configuration replaces any existing configuration on each apply.

@@ -69,7 +69,9 @@ resource "artesca_bucket_workflow_replication" "backup" {
 
 ## Import
 
-Import is planned for a future release.
+```bash
+tofu import artesca_bucket_workflow_replication.backup <account_id>/<bucket_name>/<workflow_id>
+```
 
 ## Notes
 

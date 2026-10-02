@@ -43,6 +43,10 @@ output "operator_credentials" {
 | `secret_access_key` | The secret access key. Sensitive. Only available at creation. |
 | `status` | Key status (`Active` or `Inactive`). |
 
+## Import
+
+Not supported. The `secret_key` is only returned when the key is created and cannot be read back.
+
 ## Notes
 
 - All arguments force replacement -- changing any value destroys the key and creates a new one.
