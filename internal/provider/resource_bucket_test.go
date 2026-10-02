@@ -48,7 +48,7 @@ func TestAccBucket_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket.test",
 				ImportState:                          true,
-				ImportStateId:                        rBucket,
+				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rBucket)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
 				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},

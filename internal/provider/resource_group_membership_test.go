@@ -42,7 +42,7 @@ func TestAccGroupMembership_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_group_membership.test",
 				ImportState:                          true,
-				ImportStateId:                        rGroup + "/" + rUser,
+				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rGroup+"/"+rUser)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "username",
 				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},

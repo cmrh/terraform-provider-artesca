@@ -41,7 +41,7 @@ func TestAccRole_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_role.test",
 				ImportState:                          true,
-				ImportStateId:                        rRole,
+				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rRole)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
 				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key", "assume_role_policy_document"},

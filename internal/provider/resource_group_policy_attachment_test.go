@@ -43,7 +43,7 @@ func TestAccGroupPolicyAttachment_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_group_policy_attachment.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportStateGroupPolicyArn("artesca_group_policy_attachment.test"),
+				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateGroupPolicyArn("artesca_group_policy_attachment.test")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "policy_arn",
 				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
