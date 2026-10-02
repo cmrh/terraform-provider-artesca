@@ -74,7 +74,7 @@ func TestAccWorkflowTransition_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_bucket_workflow_transition.test",
 				ImportState:                          true,
-				ImportStateIdFunc:                    testAccImportStateBucketAndAttr("artesca_bucket_workflow_transition.test", "rule_id"),
+				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateBucketAndAttr("artesca_bucket_workflow_transition.test", "rule_id")),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "rule_id",
 				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},

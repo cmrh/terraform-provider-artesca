@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -590,4 +592,33 @@ func testAccCheckRolePolicyAttachmentDestroy(s *terraform.State) error {
 		}
 	}
 	return nil
+}
+
+// testAccImportWithAccountCreds wraps an ImportStateIdFunc for account-scoped
+// resources. An import ID carries no credentials, so the import-time Read
+// relies on the ARTESCA_ACCOUNT_* env fallback; this exports
+// artesca_account.test's keys into it before returning the import ID.
+func testAccImportWithAccountCreds(t *testing.T, idFunc resource.ImportStateIdFunc) resource.ImportStateIdFunc {
+	t.Helper()
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources["artesca_account.test"]
+		if !ok {
+			return "", fmt.Errorf("artesca_account.test not found in state")
+		}
+		accessKey := rs.Primary.Attributes["access_key"]
+		secretKey := rs.Primary.Attributes["secret_key"]
+		if accessKey == "" || secretKey == "" {
+			return "", fmt.Errorf("artesca_account.test has no access_key/secret_key in state")
+		}
+		t.Setenv(creds.EnvAccessKey, accessKey)
+		t.Setenv(creds.EnvSecretKey, secretKey)
+		return idFunc(s)
+	}
+}
+
+// testAccImportStateID returns an ImportStateIdFunc for a fixed import ID.
+func testAccImportStateID(id string) resource.ImportStateIdFunc {
+	return func(*terraform.State) (string, error) {
+		return id, nil
+	}
 }

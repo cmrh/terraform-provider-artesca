@@ -41,7 +41,7 @@ func TestAccUser_importState(t *testing.T) {
 			{
 				ResourceName:                         "artesca_user.test",
 				ImportState:                          true,
-				ImportStateId:                        rUser,
+				ImportStateIdFunc:                    testAccImportWithAccountCreds(t, testAccImportStateID(rUser)),
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "username",
 				ImportStateVerifyIgnore:              []string{"account_access_key", "account_secret_key"},
