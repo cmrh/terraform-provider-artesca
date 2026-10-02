@@ -127,9 +127,6 @@ func TestGetOverlay(t *testing.T) {
 		Locations: map[string]Location{
 			"us-east-1": {Name: "us-east-1", LocationType: "location-aws-s3-v1"},
 		},
-		Users: []User{
-			{AccountName: "admin", UserName: "admin"},
-		},
 		Endpoints: []Endpoint{
 			{Hostname: "s3.example.com", LocationName: "us-east-1"},
 		},
@@ -164,12 +161,6 @@ func TestGetOverlay(t *testing.T) {
 	}
 	if got.Locations["us-east-1"].LocationType != "location-aws-s3-v1" {
 		t.Errorf("location type = %q, want location-aws-s3-v1", got.Locations["us-east-1"].LocationType)
-	}
-	if len(got.Users) != 1 {
-		t.Fatalf("expected 1 user, got %d", len(got.Users))
-	}
-	if got.Users[0].AccountName != "admin" {
-		t.Errorf("user account name = %q, want admin", got.Users[0].AccountName)
 	}
 	if len(got.Endpoints) != 1 {
 		t.Fatalf("expected 1 endpoint, got %d", len(got.Endpoints))
@@ -215,8 +206,5 @@ func TestGetOverlayEmptyOverlay(t *testing.T) {
 	}
 	if len(got.Locations) != 0 {
 		t.Errorf("expected 0 locations, got %d", len(got.Locations))
-	}
-	if len(got.Users) != 0 {
-		t.Errorf("expected 0 users, got %d", len(got.Users))
 	}
 }

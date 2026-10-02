@@ -7,7 +7,7 @@ description: |-
 
 # Data Source: artesca_accounts
 
-Lists every account visible on the management overlay. Useful for inventory, iteration, or filtering. For looking up a single account by name, use [`artesca_account`](account.md) (singular) — it returns the `access_key` too, which this data source does not.
+Lists every account on the cluster. Useful for inventory, iteration, or filtering. For looking up a single account by name, use [`artesca_account`](account.md) (singular).
 
 ## Example — Output every account name
 
@@ -19,7 +19,7 @@ output "account_names" {
 }
 ```
 
-## Example — Filter by email domain
+## Example — Filter by name prefix
 
 ```hcl
 data "artesca_accounts" "all" {}
@@ -27,7 +27,7 @@ data "artesca_accounts" "all" {}
 locals {
   ops_accounts = [
     for a in data.artesca_accounts.all.accounts : a
-    if endswith(a.email, "@ops.example.com")
+    if startswith(a.name, "ops-")
   ]
 }
 ```
@@ -40,6 +40,6 @@ No arguments.
 
 | Name | Description |
 |------|-------------|
-| `accounts` | List of account summaries. Each element has: `name`, `id`, `canonical_id`, `arn`, `email`. |
+| `accounts` | List of account summaries. Each element has: `name`, `id`, `canonical_id`, `arn` (root ARN, `arn:aws:iam::<id>:root`). |
 
-Note: this data source does not return `access_key` or `secret_key` — the management overlay does not include them. Use `data.artesca_account` for that.
+Note: this data source does not return `email`, `access_key`, or `secret_key` — the account listing does not expose them.

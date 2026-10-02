@@ -14,6 +14,7 @@ var _ datasource.DataSource = &AccountsDataSource{}
 
 type AccountsDataSource struct {
 	client *client.ManagementClient
+	iam    *client.IAMClient
 }
 
 func NewAccountsDataSource() datasource.DataSource {
@@ -26,18 +27,17 @@ func (d *AccountsDataSource) Metadata(_ context.Context, req datasource.Metadata
 
 func (d *AccountsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Lists all ARTESCA accounts on the cluster. Access keys and secrets are not returned -- the overlay view does not include them.",
+		Description: "Lists all ARTESCA accounts on the cluster. Email and access keys are not returned -- the account listing does not expose them.",
 		Attributes: map[string]schema.Attribute{
 			"accounts": schema.ListNestedAttribute{
-				Description: "All accounts visible on the management overlay.",
+				Description: "All accounts on the cluster.",
 				Computed:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name":         schema.StringAttribute{Description: "Account name.", Computed: true},
 						"id":           schema.StringAttribute{Description: "Unique account ID.", Computed: true},
 						"canonical_id": schema.StringAttribute{Description: "Canonical ID.", Computed: true},
-						"arn":          schema.StringAttribute{Description: "Account ARN as returned by the API.", Computed: true},
-						"email":        schema.StringAttribute{Description: "Account email.", Computed: true},
+						"arn":          schema.StringAttribute{Description: "Account root ARN (arn:aws:iam::<id>:root).", Computed: true},
 					},
 				},
 			},
@@ -58,29 +58,31 @@ func (d *AccountsDataSource) Configure(_ context.Context, req datasource.Configu
 		return
 	}
 	d.client = providerData.Management
+	d.iam = providerData.IAM
 }
 
 func (d *AccountsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
-	overlay, err := d.client.GetOverlay(ctx)
+	token, err := d.client.TokenSource.Token(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading accounts", fmt.Sprintf("getting auth token: %s", err))
+		return
+	}
+
+	accounts, err := d.iam.ListAccounts(ctx, token)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading accounts", err.Error())
 		return
 	}
 
 	out := AccountsDataSourceModel{
-		Accounts: make([]AccountSummary, 0, len(overlay.Users)),
+		Accounts: make([]AccountSummary, 0, len(accounts)),
 	}
-	for _, u := range overlay.Users {
-		name := u.AccountName
-		if name == "" {
-			name = u.UserName
-		}
+	for _, a := range accounts {
 		out.Accounts = append(out.Accounts, AccountSummary{
-			Name:        types.StringValue(name),
-			ID:          types.StringValue(u.ID),
-			CanonicalID: types.StringValue(u.CanonicalID),
-			ARN:         types.StringValue(u.ARN),
-			Email:       types.StringValue(u.Email),
+			Name:        types.StringValue(a.Name),
+			ID:          types.StringValue(a.ID),
+			CanonicalID: types.StringValue(a.CanonicalID),
+			ARN:         types.StringValue(client.AccountARN(a.ID)),
 		})
 	}
 

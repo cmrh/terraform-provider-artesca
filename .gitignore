@@ -50,3 +50,6 @@ coverage.txt
 
 # Claude Code
 CLAUDE.md
+
+# Swagger
+artesca-swagger.json

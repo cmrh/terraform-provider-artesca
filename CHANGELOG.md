@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Spurious drift and cascade replacement on refresh immediately after apply.** The management API's overlay view (`GET /config/overlay/view/{instanceId}`) is eventually consistent — a freshly-created account/location/endpoint/replication stream can be absent from the overlay for a second or two after the successful Create. Read was interpreting that absence as "resource deleted," removing the resource from state, and causing every downstream resource with a `RequiresReplace` reference (e.g. `account_access_key` sourced from `artesca_account.access_key`) to plan a full replacement. The management client now retries overlay lookups with a small exponential backoff before concluding "gone," which absorbs the consistency window without changing legitimate delete-detection.
+- **Accounts reported as deleted right after creation.** `artesca_account`, `data.artesca_account`, and `data.artesca_accounts` looked accounts up in the management overlay view, which does not list them. They now use IAM `GetRolesForWebIdentity` with the provider's OIDC token (#35). `artesca_account.arn` is now the account root ARN (`arn:aws:iam::<id>:root`).
+
+### Removed
+
+- **`email` and `access_key` from `data.artesca_account`, and `email` from `data.artesca_accounts`.** The account listing does not return them (#35).
 
 ### Added
 

@@ -14,6 +14,7 @@ var _ datasource.DataSource = &AccountDataSource{}
 
 type AccountDataSource struct {
 	client *client.ManagementClient
+	iam    *client.IAMClient
 }
 
 func NewAccountDataSource() datasource.DataSource {
@@ -26,7 +27,7 @@ func (d *AccountDataSource) Metadata(_ context.Context, req datasource.MetadataR
 
 func (d *AccountDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Looks up an existing ARTESCA account by name. The account's secret key is not returned -- the API does not expose it after creation.",
+		Description: "Looks up an existing ARTESCA account by name. Email and access keys are not returned -- the account listing does not expose them.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Description: "The name of the account to look up.",
@@ -41,17 +42,8 @@ func (d *AccountDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Computed:    true,
 			},
 			"arn": schema.StringAttribute{
-				Description: "The ARN of the account.",
+				Description: "The root ARN of the account (arn:aws:iam::<id>:root).",
 				Computed:    true,
-			},
-			"email": schema.StringAttribute{
-				Description: "The email associated with the account.",
-				Computed:    true,
-			},
-			"access_key": schema.StringAttribute{
-				Description: "The account's access key.",
-				Computed:    true,
-				Sensitive:   true,
 			},
 		},
 	}
@@ -70,6 +62,7 @@ func (d *AccountDataSource) Configure(_ context.Context, req datasource.Configur
 		return
 	}
 	d.client = providerData.Management
+	d.iam = providerData.IAM
 }
 
 func (d *AccountDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -79,12 +72,18 @@ func (d *AccountDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	user, err := d.client.GetAccount(ctx, data.Name.ValueString())
+	token, err := d.client.TokenSource.Token(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading account", fmt.Sprintf("getting auth token: %s", err))
+		return
+	}
+
+	acct, err := d.iam.GetAccountByName(ctx, token, data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading account", err.Error())
 		return
 	}
-	if user == nil {
+	if acct == nil {
 		resp.Diagnostics.AddError(
 			"Account not found",
 			fmt.Sprintf("No account exists with name %q.", data.Name.ValueString()),
@@ -92,16 +91,10 @@ func (d *AccountDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	if user.AccountName != "" {
-		data.Name = types.StringValue(user.AccountName)
-	} else if user.UserName != "" {
-		data.Name = types.StringValue(user.UserName)
-	}
-	data.ID = types.StringValue(user.ID)
-	data.CanonicalID = types.StringValue(user.CanonicalID)
-	data.ARN = types.StringValue(user.ARN)
-	data.Email = types.StringValue(user.Email)
-	data.AccessKey = types.StringValue(user.AccessKey)
+	data.Name = types.StringValue(acct.Name)
+	data.ID = types.StringValue(acct.ID)
+	data.CanonicalID = types.StringValue(acct.CanonicalID)
+	data.ARN = types.StringValue(client.AccountARN(acct.ID))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

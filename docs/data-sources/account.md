@@ -9,7 +9,7 @@ description: |-
 
 Looks up an existing ARTESCA account by name. Useful for referencing an account that exists outside Terraform without recreating it.
 
-The account's `secret_key` is **not** returned -- the API does not expose it after creation. Only the `access_key` is enumerable from the management view.
+Email and access keys are **not** returned — the account listing does not expose them. Use the `access_key` / `secret_key` of the `artesca_account` resource that created the account.
 
 ## Example
 
@@ -18,9 +18,8 @@ data "artesca_account" "ops" {
   name = "operations"
 }
 
-output "ops_access_key" {
-  value     = data.artesca_account.ops.access_key
-  sensitive = true
+output "ops_arn" {
+  value = data.artesca_account.ops.arn
 }
 ```
 
@@ -36,6 +35,4 @@ output "ops_access_key" {
 |------|-------------|
 | `id` | The unique account ID. |
 | `canonical_id` | The canonical ID of the account. |
-| `arn` | The ARN of the account. |
-| `email` | The email associated with the account. |
-| `access_key` | The account's access key. Sensitive. |
+| `arn` | The root ARN of the account (`arn:aws:iam::<id>:root`). |

@@ -179,8 +179,31 @@ func testAccManagementClient() (*client.ManagementClient, error) {
 	return mgmtClient, nil
 }
 
+// testAccIAMClient returns an IAM client for the endpoint the provider derives
+// from ARTESCA_MANAGEMENT_ENDPOINT.
+func testAccIAMClient() (*client.IAMClient, error) {
+	iamEndpoint, err := client.DeriveIAMEndpoint(os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT"))
+	if err != nil {
+		return nil, err
+	}
+	region := os.Getenv("ARTESCA_IAM_REGION")
+	if region == "" {
+		region = "us-east-1"
+	}
+	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+	return client.NewIAMClient(iamEndpoint, region, insecure), nil
+}
+
 func testAccCheckAccountDestroy(s *terraform.State) error {
 	mgmtClient, err := testAccManagementClient()
+	if err != nil {
+		return err
+	}
+	iamClient, err := testAccIAMClient()
+	if err != nil {
+		return err
+	}
+	token, err := mgmtClient.TokenSource.Token(context.Background())
 	if err != nil {
 		return err
 	}
@@ -188,7 +211,7 @@ func testAccCheckAccountDestroy(s *terraform.State) error {
 		if rs.Type != "artesca_account" {
 			continue
 		}
-		acct, err := mgmtClient.GetAccount(context.Background(), rs.Primary.Attributes["name"])
+		acct, err := iamClient.GetAccountByName(context.Background(), token, rs.Primary.Attributes["name"])
 		if err != nil {
 			return err
 		}

@@ -84,8 +84,8 @@ Each resource is a package with:
 
 | Client | Auth | Wire Format | Used By |
 |--------|------|-------------|---------|
-| `ManagementClient` | OIDC bearer (`X-Authentication-Token` header) | JSON/REST | accounts, locations, endpoints, replication, workflow_replication |
-| `IAMClient` | SigV4 (service `iam`) | XML / form-encoded | users, user_access_key, user_policy, user_policy_attachment, group, group_membership, group_policy, group_policy_attachment, policy, role, role_policy_attachment |
+| `ManagementClient` | OIDC bearer (`X-Authentication-Token` header) | JSON/REST | account create/delete/key generation, locations, endpoints, replication, workflow_replication |
+| `IAMClient` | SigV4 (service `iam`); unsigned with `WebIdentityToken` for account lookup | XML / form-encoded; JSON for `GetRolesForWebIdentity` | account read + account data sources, users, user_access_key, user_policy, user_policy_attachment, group, group_membership, group_policy, group_policy_attachment, policy, role, role_policy_attachment |
 | `S3Client` | SigV4 (service `s3`) | XML / REST | bucket, bucket_encryption, bucket_policy, bucket_tagging, workflow_expiration, workflow_transition |
 | `STSClient` | SigV4 (service `sts`) | XML | caller_identity data source, assumed_role_credentials ephemeral |
 
