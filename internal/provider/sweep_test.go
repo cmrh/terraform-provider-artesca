@@ -40,19 +40,24 @@ func sweepAccounts(_ string) error {
 		return nil
 	}
 
-	ctx := context.Background()
-	overlay, err := mgmtClient.GetOverlay(ctx)
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
 
-	for _, user := range overlay.Users {
-		name := user.AccountName
-		if name == "" {
-			name = user.UserName
-		}
-		if strings.HasPrefix(name, "tf-acc") {
-			_ = mgmtClient.DeleteAccount(ctx, name)
+	ctx := context.Background()
+	token, err := mgmtClient.TokenSource.Token(ctx)
+	if err != nil {
+		return err
+	}
+	accounts, err := iamClient.ListAccounts(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	for _, acct := range accounts {
+		if strings.HasPrefix(acct.Name, "tf-acc") {
+			_ = mgmtClient.DeleteAccount(ctx, acct.Name)
 		}
 	}
 	return nil

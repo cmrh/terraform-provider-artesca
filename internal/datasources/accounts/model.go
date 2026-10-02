@@ -13,5 +13,4 @@ type AccountSummary struct {
 	ID          types.String `tfsdk:"id"`
 	CanonicalID types.String `tfsdk:"canonical_id"`
 	ARN         types.String `tfsdk:"arn"`
-	Email       types.String `tfsdk:"email"`
 }

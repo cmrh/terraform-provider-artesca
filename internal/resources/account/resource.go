@@ -23,6 +23,7 @@ var (
 
 type AccountResource struct {
 	client *client.ManagementClient
+	iam    *client.IAMClient
 }
 
 func NewAccountResource() resource.Resource {
@@ -48,10 +49,18 @@ func (r *AccountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"email": schema.StringAttribute{
-				Description: "The email address associated with the account. Cannot be changed after creation.",
+				Description: "The email address associated with the account. Cannot be changed after creation. Not readable from the API, so it is not imported; an imported account adopts the configured value without replacement.",
 				Optional:    true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					// Email can't be read back, so a null state value (after import)
+					// means "unknown", not "no email" -- adopt the config in place.
+					stringplanmodifier.RequiresReplaceIf(
+						func(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+							resp.RequiresReplace = !req.StateValue.IsNull()
+						},
+						"Changing email replaces the account.",
+						"Changing `email` replaces the account.",
+					),
 				},
 				Validators: []validator.String{
 					validators.Email{},
@@ -111,6 +120,7 @@ func (r *AccountResource) Configure(_ context.Context, req resource.ConfigureReq
 		return
 	}
 	r.client = providerData.Management
+	r.iam = providerData.IAM
 }
 
 func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -162,37 +172,36 @@ func (r *AccountResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	user, err := r.client.GetAccount(ctx, state.Name.ValueString())
+	token, err := r.client.TokenSource.Token(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading account", fmt.Sprintf("getting auth token: %s", err))
+		return
+	}
+
+	acct, err := r.iam.GetAccountByName(ctx, token, state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading account", err.Error())
 		return
 	}
-	if user == nil {
+	if acct == nil {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	// Preserve sensitive fields from state since the API may not return them.
-	accessKey := state.AccessKey
-	secretKey := state.SecretKey
-
-	apiUserToModel(user, &state)
-
-	// Restore sensitive fields if the API returned empty values.
-	if state.AccessKey.IsNull() || state.AccessKey.ValueString() == "" {
-		state.AccessKey = accessKey
-	}
-	if state.SecretKey.IsNull() || state.SecretKey.ValueString() == "" {
-		state.SecretKey = secretKey
-	}
+	// The account listing doesn't return email or keys; those keep their
+	// configured/state values.
+	state.Name = types.StringValue(acct.Name)
+	state.ID = types.StringValue(acct.ID)
+	state.CanonicalID = types.StringValue(acct.CanonicalID)
+	state.ARN = types.StringValue(client.AccountARN(acct.ID))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r *AccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// Name is ForceNew, so the only updatable field is email.
-	// The management API may not support email updates directly.
-	// For now, just sync state.
+	// Name is ForceNew; email only reaches Update when adopting a value into
+	// state after import (see the email plan modifier). Nothing to call on the
+	// API -- just sync state.
 	var plan AccountResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -251,13 +260,11 @@ func apiUserToModel(user *client.User, model *AccountResourceModel) {
 	if user.SecretKey != "" {
 		model.SecretKey = types.StringValue(user.SecretKey)
 	}
-	if user.ARN != "" {
-		model.ARN = types.StringValue(user.ARN)
-	}
 	if user.CanonicalID != "" {
 		model.CanonicalID = types.StringValue(user.CanonicalID)
 	}
 	if user.ID != "" {
 		model.ID = types.StringValue(user.ID)
+		model.ARN = types.StringValue(client.AccountARN(user.ID))
 	}
 }

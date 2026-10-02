@@ -8,21 +8,6 @@ import (
 	"net/url"
 )
 
-func (c *ManagementClient) GetAccount(ctx context.Context, name string) (*User, error) {
-	overlay, err := c.GetOverlay(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, user := range overlay.Users {
-		if user.AccountName == name || user.UserName == name {
-			return &user, nil
-		}
-	}
-
-	return nil, nil
-}
-
 type createUserRequest struct {
 	UserName string `json:"userName"`
 	Email    string `json:"email,omitempty"`
