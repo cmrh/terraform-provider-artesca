@@ -50,3 +50,13 @@ resource "artesca_role" "deployer" {
 | `role_id` | Unique IAM role ID. |
 | `arn` | ARN of the role. |
 | `path` | Role path (always `/`). |
+
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_role.deployer <name>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.

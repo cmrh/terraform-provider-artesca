@@ -35,6 +35,16 @@ resource "artesca_group" "engineers" {
 | `arn` | ARN of the group. |
 | `path` | Group path (always `/`). |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_group.engineers <name>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - All attributes force replacement; groups cannot be renamed in place.

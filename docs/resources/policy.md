@@ -57,6 +57,16 @@ resource "artesca_user_policy_attachment" "alice_read" {
 | `path` | Policy path (always `/`). |
 | `default_version_id` | Active policy version ID. |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_policy.read_only_s3 <arn>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - All attributes force replacement on change. Update the policy by replacing the resource (Terraform will delete and re-create).

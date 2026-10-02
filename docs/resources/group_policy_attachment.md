@@ -29,6 +29,16 @@ resource "artesca_group_policy_attachment" "engineers_read" {
 | `group_name` | String | Yes | The IAM group to attach the policy to. Forces replacement. |
 | `policy_arn` | String | Yes | The ARN of the managed policy. Forces replacement. |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_group_policy_attachment.engineers_read <group_name>/<policy_arn>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - Each resource manages exactly one group–policy pairing.

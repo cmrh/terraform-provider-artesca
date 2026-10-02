@@ -41,6 +41,16 @@ resource "artesca_group_policy" "engineers_s3" {
 | `policy_name` | String | Yes | Name of the inline policy. Forces replacement. |
 | `policy_document` | String | Yes | JSON policy document. Updated in-place on change. |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_group_policy.engineers_s3 <group_name>/<policy_name>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - Only `policy_document` can be updated in-place. Other attributes force replacement.

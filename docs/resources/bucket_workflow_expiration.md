@@ -85,7 +85,13 @@ resource "artesca_bucket_workflow_expiration" "maintenance" {
 
 ## Import
 
-Import is planned for a future release.
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_bucket_workflow_expiration.cleanup <bucket_name>/<rule_id>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
 
 ## Notes
 

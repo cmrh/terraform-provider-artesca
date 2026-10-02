@@ -34,6 +34,16 @@ resource "artesca_bucket_tagging" "example" {
 | `bucket_name` | String | Yes | The name of the bucket to tag. Forces replacement. |
 | `tags` | Map(String) | Yes | Map of tag key/value pairs. Replacing this map replaces the bucket's entire tag set. |
 
+## Import
+
+```bash
+export ARTESCA_ACCOUNT_ACCESS_KEY="..."   # access key of the account that owns the resource
+export ARTESCA_ACCOUNT_SECRET_KEY="..."
+tofu import artesca_bucket_tagging.example <bucket_name>
+```
+
+The import ID carries no credentials, so the provider reads the owning account's keys from `ARTESCA_ACCOUNT_ACCESS_KEY` / `ARTESCA_ACCOUNT_SECRET_KEY` during import. One account per import run. Keep `account_access_key` / `account_secret_key` in your configuration as usual.
+
 ## Notes
 
 - The S3 PUT bucket-tagging API replaces the full tag set on every call. If another client adds a tag out-of-band, it will be removed on the next Terraform apply.
