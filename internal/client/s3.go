@@ -28,11 +28,17 @@ type S3Client struct {
 	region                   string
 	httpClient               *http.Client
 	lifecycleMu              sync.Mutex
+	replicationMu            sync.Mutex
 	transientBackoffOverride time.Duration
 }
 
 func (c *S3Client) LockLifecycle()   { c.lifecycleMu.Lock() }
 func (c *S3Client) UnlockLifecycle() { c.lifecycleMu.Unlock() }
+
+// LockReplication serializes read-merge-write of a bucket's replication
+// configuration, which PutBucketReplication replaces as a whole.
+func (c *S3Client) LockReplication()   { c.replicationMu.Lock() }
+func (c *S3Client) UnlockReplication() { c.replicationMu.Unlock() }
 
 func (c *S3Client) transientBackoff() time.Duration {
 	if c.transientBackoffOverride > 0 {

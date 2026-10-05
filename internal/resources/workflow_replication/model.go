@@ -5,32 +5,14 @@ import (
 )
 
 type WorkflowReplicationResourceModel struct {
-	InstanceID  types.String                    `tfsdk:"instance_id"`
-	AccountID   types.String                    `tfsdk:"account_id"`
-	BucketName  types.String                    `tfsdk:"bucket_name"`
-	WorkflowID  types.String                    `tfsdk:"workflow_id"`
-	Name        types.String                    `tfsdk:"name"`
-	Version     types.Int64                     `tfsdk:"version"`
-	Enabled     types.Bool                      `tfsdk:"enabled"`
-	Source      *WorkflowReplicationSourceModel `tfsdk:"source"`
-	Destination *WorkflowReplicationDestModel   `tfsdk:"destination"`
+	AccountName           types.String         `tfsdk:"account_name"`
+	BucketName            types.String         `tfsdk:"bucket_name"`
+	RuleID                types.String         `tfsdk:"rule_id"`
+	Enabled               types.Bool           `tfsdk:"enabled"`
+	DestinationBucketName types.String         `tfsdk:"destination_bucket_name"`
+	Filter                *WorkflowFilterModel `tfsdk:"filter"`
 }
 
-type WorkflowReplicationSourceModel struct {
-	BucketName types.String `tfsdk:"bucket_name"`
-	Prefix     types.String `tfsdk:"prefix"`
-	Location   types.String `tfsdk:"location"`
-}
-
-type WorkflowReplicationDestModel struct {
-	BucketName            types.String                      `tfsdk:"bucket_name"`
-	Location              types.String                      `tfsdk:"location"`
-	Locations             []WorkflowReplicationDestLocModel `tfsdk:"locations"`
-	PreferredReadLocation types.String                      `tfsdk:"preferred_read_location"`
-	Role                  types.String                      `tfsdk:"role"`
-}
-
-type WorkflowReplicationDestLocModel struct {
-	Name         types.String `tfsdk:"name"`
-	StorageClass types.String `tfsdk:"storage_class"`
+type WorkflowFilterModel struct {
+	ObjectKeyPrefix types.String `tfsdk:"object_key_prefix"`
 }

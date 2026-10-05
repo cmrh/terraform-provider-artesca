@@ -52,7 +52,7 @@ output "expiration_workflow_ids" {
 | `destination_preferred_read_location` | Preferred read location. |
 | `destination_role` | IAM role for replication. |
 
-> Note: the workflow-search endpoint does not return `name` or `version` for replication workflows (the server returns `null` for those fields). Use `artesca_bucket_workflow_replication` if you need them.
+> `workflow_id` is the S3 replication rule ID — the same value as `artesca_bucket_workflow_replication.rule_id`.
 
 `expirations` — list of:
 

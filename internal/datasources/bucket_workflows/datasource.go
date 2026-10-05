@@ -42,7 +42,7 @@ func (d *BucketWorkflowsDataSource) Schema(_ context.Context, _ datasource.Schem
 				Required:    true,
 			},
 			"replications": schema.ListNestedAttribute{
-				Description: "Replication workflows configured on the bucket. Note: name and version are not returned by the workflow-search endpoint — use the artesca_bucket_workflow_replication resource if you need those.",
+				Description: "Replication rules configured on the bucket. workflow_id is the S3 replication rule ID.",
 				Computed:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{

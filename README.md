@@ -95,7 +95,7 @@ Account-scoped resources (IAM and S3) identify their account with `account_name`
 |---|---|
 | `artesca_bucket_workflow_expiration` | Manage object expiration lifecycle rules |
 | `artesca_bucket_workflow_transition` | Manage object transition lifecycle rules |
-| `artesca_bucket_workflow_replication` | Manage bucket-scoped replication workflows |
+| `artesca_bucket_workflow_replication` | Manage bucket replication rules (S3 replication configuration) |
 
 ## Data Sources
 

@@ -87,14 +87,11 @@ func (d *PolicyDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	}
 
 	acctCreds, err := d.accounts.For(ctx, data.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	arn := data.ARN.ValueString()
 
 	policy, err := d.client.GetPolicy(ctx, acctCreds, arn)

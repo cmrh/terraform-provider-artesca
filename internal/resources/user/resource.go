@@ -99,14 +99,11 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	username := plan.Username.ValueString()
 
 	tflog.Debug(ctx, "Creating IAM user", map[string]any{"username": username})
@@ -132,14 +129,11 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 
 	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	username := state.Username.ValueString()
 
 	user, err := r.iamClient.GetUser(ctx, acctCreds, username)
@@ -172,14 +166,11 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	}
 
 	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	username := state.Username.ValueString()
 
 	tflog.Debug(ctx, "Deleting IAM user", map[string]any{"username": username})
