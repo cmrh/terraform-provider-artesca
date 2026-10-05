@@ -158,14 +158,11 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	pol, err := r.iamClient.GetPolicy(ctx, acctCreds, state.ARN.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading managed policy", err.Error())

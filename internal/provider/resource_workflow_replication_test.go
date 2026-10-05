@@ -1,13 +1,17 @@
 package provider
 
 import (
+	"context"
 	"fmt"
-	"regexp"
+	"os"
 	"testing"
 
+	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
+
+const testAccReplicationResource = "artesca_bucket_workflow_replication.test"
 
 func TestAccWorkflowReplication_basic(t *testing.T) {
 	rAcct := randomName("tf-acc")
@@ -19,19 +23,16 @@ func TestAccWorkflowReplication_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, 1, true),
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "name", "tf-acc-repl"),
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "version", "1"),
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "enabled", "true"),
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "bucket_name", rSrcBkt),
-					resource.TestCheckResourceAttrSet("artesca_bucket_workflow_replication.test", "workflow_id"),
-					resource.TestCheckResourceAttrSet("artesca_bucket_workflow_replication.test", "instance_id"),
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "source.bucket_name", rSrcBkt),
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "source.prefix", ""),
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "destination.bucket_name", rDstBkt),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "true"),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "bucket_name", rSrcBkt),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "destination_bucket_name", rDstBkt),
+					resource.TestCheckResourceAttrSet(testAccReplicationResource, "rule_id"),
+					testAccCheckReplicationRules(rSrcBkt, 1),
 				),
 			},
 		},
@@ -48,80 +49,59 @@ func TestAccWorkflowReplication_update(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, 1, true),
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, ""),
+				Check:  resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "true"),
+			},
+			{
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, false, "logs/"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "enabled", "true"),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "false"),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "filter.object_key_prefix", "logs/"),
 				),
 			},
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, 1, false),
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.test", "enabled", "false"),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "true"),
+					resource.TestCheckNoResourceAttr(testAccReplicationResource, "filter.object_key_prefix"),
 				),
 			},
 		},
 	})
 }
 
-func TestAccWorkflowReplication_validateConfigRejectLocation(t *testing.T) {
+// Two rules on one bucket exercise the read-merge-write path: creating the
+// second must keep the first, and removing one must keep the other.
+func TestAccWorkflowReplication_multipleRules(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rSrcLoc := randomName("tf-acc-sloc")
+	rDstLoc := randomName("tf-acc-dloc")
+	rSrcBkt := randomName("tf-acc-sbkt")
+	rDstBkt := randomName("tf-acc-dbkt")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: `
-resource "artesca_bucket_workflow_replication" "test" {
-  account_id  = "fake-account-id"
-  bucket_name = "fake-bucket"
-  name        = "test-repl"
-  version     = 1
-  enabled     = true
-
-  source {
-    bucket_name = "fake-bucket"
-    prefix      = ""
-  }
-
-  destination {
-    location = "some-location"
-  }
-}
-`,
-				ExpectError: regexp.MustCompile(`(?s)does not support.*destination\.location`),
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "a/") +
+					testAccWorkflowReplicationExtraRule("b/"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(testAccReplicationResource, "filter.object_key_prefix", "a/"),
+					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.second", "filter.object_key_prefix", "b/"),
+					testAccCheckReplicationRules(rSrcBkt, 2),
+				),
 			},
-		},
-	})
-}
-
-func TestAccWorkflowReplication_validateConfigRejectLocations(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
 			{
-				Config: `
-resource "artesca_bucket_workflow_replication" "test" {
-  account_id  = "fake-account-id"
-  bucket_name = "fake-bucket"
-  name        = "test-repl"
-  version     = 1
-  enabled     = true
-
-  source {
-    bucket_name = "fake-bucket"
-    prefix      = ""
-  }
-
-  destination {
-    locations {
-      name = "some-location"
-    }
-  }
-}
-`,
-				ExpectError: regexp.MustCompile(`(?s)does not support.*destination\.locations`),
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "a/"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(testAccReplicationResource, "filter.object_key_prefix", "a/"),
+					testAccCheckReplicationRules(rSrcBkt, 1),
+				),
 			},
 		},
 	})
@@ -137,38 +117,84 @@ func TestAccWorkflowReplication_importState(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
-			{Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, 1, true)},
+			{Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "logs/")},
 			{
-				ResourceName:      "artesca_bucket_workflow_replication.test",
-				ImportState:       true,
-				ImportStateIdFunc: testAccImportStateWorkflowReplication("artesca_bucket_workflow_replication.test"),
-				ImportStateVerify: true,
-				// workflow_search returns null name/version for replication workflows
-				// (issue #37), and the data we round-trip preserves null. ignore those
-				// two until the upstream fix lands.
-				ImportStateVerifyIdentifierAttribute: "workflow_id",
-				ImportStateVerifyIgnore:              []string{"name", "version"},
+				ResourceName:                         testAccReplicationResource,
+				ImportState:                          true,
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateBucketAndAttr(testAccReplicationResource, "rule_id")),
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "rule_id",
 			},
 		},
 	})
 }
 
-func testAccImportStateWorkflowReplication(resourceName string) resource.ImportStateIdFunc {
-	return func(s *terraform.State) (string, error) {
-		rs, ok := s.RootModule().Resources[resourceName]
+// testAccCheckReplicationRules asserts the source bucket's S3 replication
+// configuration holds exactly want rules.
+func testAccCheckReplicationRules(bucket string, want int) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[testAccReplicationResource]
 		if !ok {
-			return "", fmt.Errorf("resource %s not found", resourceName)
+			return fmt.Errorf("%s not found in state", testAccReplicationResource)
 		}
-		return fmt.Sprintf("%s/%s/%s",
-			rs.Primary.Attributes["account_id"],
-			rs.Primary.Attributes["bucket_name"],
-			rs.Primary.Attributes["workflow_id"],
-		), nil
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			return fmt.Errorf("could not get credentials for account %q", rs.Primary.Attributes["account_name"])
+		}
+		cfg, err := testAccS3Client().GetBucketReplication(context.Background(), acctCreds, bucket)
+		if err != nil {
+			return err
+		}
+		got := 0
+		if cfg != nil {
+			got = len(cfg.Rules)
+		}
+		if got != want {
+			return fmt.Errorf("bucket %s has %d replication rules, want %d", bucket, got, want)
+		}
+		return nil
 	}
 }
 
-func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktName, dstBktName string, version int, enabled bool) string {
+func testAccCheckWorkflowReplicationDestroy(s *terraform.State) error {
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "artesca_bucket_workflow_replication" {
+			continue
+		}
+		acctCreds, ok := testAccAccountCredentials(rs)
+		if !ok {
+			continue
+		}
+		cfg, err := testAccS3Client().GetBucketReplication(context.Background(), acctCreds, rs.Primary.Attributes["bucket_name"])
+		// If the bucket itself is gone, GET fails — accept that as destroyed.
+		if err != nil || cfg == nil {
+			continue
+		}
+		for _, rule := range cfg.Rules {
+			if rule.ID == rs.Primary.Attributes["rule_id"] {
+				return fmt.Errorf("replication rule %s on %s still exists", rule.ID, rs.Primary.Attributes["bucket_name"])
+			}
+		}
+	}
+	return nil
+}
+
+func testAccS3Client() *client.S3Client {
+	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+	return client.NewS3Client(os.Getenv("ARTESCA_S3_ENDPOINT"), "us-east-1", insecure)
+}
+
+func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktName, dstBktName string, enabled bool, prefix string) string {
+	filter := ""
+	if prefix != "" {
+		filter = fmt.Sprintf(`
+
+  filter {
+    object_key_prefix = %q
+  }`, prefix)
+	}
 	return testAccAccountConfig(acctName) +
 		testAccLocationSourceConfig(srcLocName) +
 		testAccLocationDestConfig(dstLocName) +
@@ -176,20 +202,25 @@ func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktNa
 		testAccBucketConfig("dest", dstBktName, "artesca_location.dest.name", true) +
 		fmt.Sprintf(`
 resource "artesca_bucket_workflow_replication" "test" {
-  account_id  = artesca_account.test.id
-  bucket_name = artesca_bucket.source.name
-  name        = "tf-acc-repl"
-  version     = %d
-  enabled     = %t
+  account_name            = artesca_account.test.name
+  bucket_name             = artesca_bucket.source.name
+  destination_bucket_name = artesca_bucket.dest.name
+  enabled                 = %t%s
+}
+`, enabled, filter)
+}
 
-  source {
-    bucket_name = artesca_bucket.source.name
-    prefix      = ""
-  }
+func testAccWorkflowReplicationExtraRule(prefix string) string {
+	return fmt.Sprintf(`
+resource "artesca_bucket_workflow_replication" "second" {
+  account_name            = artesca_account.test.name
+  bucket_name             = artesca_bucket.source.name
+  destination_bucket_name = artesca_bucket.dest.name
+  enabled                 = true
 
-  destination {
-    bucket_name = artesca_bucket.dest.name
+  filter {
+    object_key_prefix = %q
   }
 }
-`, version, enabled)
+`, prefix)
 }

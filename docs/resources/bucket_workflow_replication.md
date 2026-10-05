@@ -2,32 +2,26 @@
 page_title: "artesca_bucket_workflow_replication Resource - artesca"
 subcategory: "Bucket Workflows"
 description: |-
-  Manages a bucket-scoped replication workflow for per-account replication in ARTESCA.
+  Manages a bucket replication rule in ARTESCA via the S3 API.
 ---
 
 # artesca_bucket_workflow_replication
 
-Manages a bucket-scoped replication workflow in ARTESCA. This is an account-scoped resource, as opposed to the config-scoped `artesca_replication` resource which operates at the instance level.
+Manages one rule of a bucket's S3 replication configuration, replicating objects from `bucket_name` to `destination_bucket_name`. Each resource manages a single rule; several resources can target the same bucket, and the provider merges them into the bucket's configuration. Replication rules appear as replication workflows in the ARTESCA UI, identified by their rule ID.
 
-~> **Note:** Per-bucket replication only supports `destination.bucket_name`. The `destination.location` and `destination.locations` attributes are not supported for this resource. For location-based replication, use `artesca_replication` instead.
+For instance-level, location-based replication, use `artesca_replication` instead.
 
 ## Example
 
 ```hcl
 resource "artesca_bucket_workflow_replication" "backup" {
-  account_id  = artesca_account.app.id
-  bucket_name = "my-source-bucket"
-  name        = "replicate-to-backup"
-  version     = 1
-  enabled     = true
+  account_name            = artesca_account.app.name
+  bucket_name             = artesca_bucket.source.name
+  destination_bucket_name = artesca_bucket.backup.name
+  enabled                 = true
 
-  source {
-    bucket_name = "my-source-bucket"
-    prefix      = ""
-  }
-
-  destination {
-    bucket_name = "my-backup-bucket"
+  filter {
+    object_key_prefix = "logs/"
   }
 }
 ```
@@ -36,46 +30,35 @@ resource "artesca_bucket_workflow_replication" "backup" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `instance_id` | String | No | Instance UUID. Defaults to the provider's auto-discovered instance ID. Forces replacement. |
-| `account_id` | String | Yes | Account ID (from `artesca_account.id`). Forces replacement. |
-| `bucket_name` | String | Yes | Source bucket name. Forces replacement. |
-| `name` | String | Yes | Replication workflow name. |
-| `version` | Int | Yes | Configuration version. |
-| `enabled` | Boolean | Yes | Whether the replication workflow is active. |
-| `source` | Block | Yes | Source configuration. See below. |
-| `destination` | Block | Yes | Destination configuration. See below. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
+| `bucket_name` | String | Yes | Source bucket. Versioning must be enabled. Forces replacement. |
+| `destination_bucket_name` | String | Yes | Bucket objects are replicated to. Versioning must be enabled. |
+| `enabled` | Boolean | Yes | Whether the rule is active. |
+| `rule_id` | String | No | Replication rule ID. Generated if not set. Forces replacement. |
+| `filter` | Block | No | Object filter. See below. |
 
-### Source Block
+### Filter Block
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `bucket_name` | String | Yes | Source bucket name. |
-| `prefix` | String | Yes | Object key prefix filter. Use `""` for all objects. |
-
-### Destination Block
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `bucket_name` | String | No | Destination bucket name. |
-| `preferred_read_location` | String | No | Preferred location for reads. |
-| `role` | String | No | IAM role ARN for replication. |
+| `object_key_prefix` | String | No | Only replicate objects whose key starts with this prefix. |
 
 ## Attributes Exported
 
 | Name | Description |
 |------|-------------|
-| `workflow_id` | Unique workflow identifier assigned by the server. |
-| `instance_id` | The resolved instance ID (useful when auto-discovered). |
+| `rule_id` | The replication rule ID (shown as the workflow ID in the ARTESCA UI). |
 
 ## Import
 
 ```bash
-tofu import artesca_bucket_workflow_replication.backup <account_id>/<bucket_name>/<workflow_id>
+tofu import artesca_bucket_workflow_replication.backup <account_name>/<bucket_name>/<rule_id>
 ```
+
+The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
-- `instance_id`, `account_id`, and `bucket_name` force replacement -- the workflow cannot be moved.
-- `destination.location` and `destination.locations` are rejected by validation. Use `destination.bucket_name` only.
-- For instance-level, location-based replication, use `artesca_replication` instead.
-- Referenced buckets must exist before creating the workflow.
+- `account_name`, `bucket_name`, and `rule_id` force replacement — a rule cannot be moved.
+- Changes to `enabled`, `destination_bucket_name`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
+- Both buckets must exist with versioning enabled before the rule is created.

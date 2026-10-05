@@ -18,7 +18,7 @@ func TestAccDataSourceBucketWorkflows_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, 1, true) + `
+				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "") + `
 data "artesca_bucket_workflows" "lookup" {
   account_id  = artesca_account.test.id
   bucket_name = artesca_bucket.source.name

@@ -2,10 +2,12 @@ package workflowreplication
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,7 +25,8 @@ var (
 )
 
 type WorkflowReplicationResource struct {
-	client *client.ManagementClient
+	accounts *client.AccountCredentialSource
+	s3       *client.S3Client
 }
 
 func NewWorkflowReplicationResource() resource.Resource {
@@ -36,26 +39,11 @@ func (r *WorkflowReplicationResource) Metadata(_ context.Context, req resource.M
 
 func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a bucket replication workflow in ARTESCA.",
+		Description: "Manages a bucket replication rule in ARTESCA via the S3 API. Replicates objects from bucket_name to destination_bucket_name.",
 		Attributes: map[string]schema.Attribute{
-			"instance_id": schema.StringAttribute{
-				Description: "The instance ID. Defaults to the provider's instance_id if omitted.",
-				Optional:    true,
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"account_id": schema.StringAttribute{
-				Description: "The account ID that owns the bucket.",
-				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
+			creds.AttrAccountName: creds.ResourceAttribute(),
 			"bucket_name": schema.StringAttribute{
-				Description: "The name of the bucket this workflow applies to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Description: "The source bucket. Versioning must be enabled. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -64,85 +52,34 @@ func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.Schem
 					validators.BucketName{},
 				},
 			},
-			"workflow_id": schema.StringAttribute{
-				Description: "The workflow ID assigned by ARTESCA.",
+			"rule_id": schema.StringAttribute{
+				Description: "The replication rule ID. Auto-generated if not set.",
+				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"name": schema.StringAttribute{
-				Description: "The name of the replication workflow.",
-				Required:    true,
-			},
-			"version": schema.Int64Attribute{
-				Description: "The version of the replication workflow.",
-				Required:    true,
-			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the replication workflow is enabled.",
+				Description: "Whether the replication rule is enabled.",
 				Required:    true,
+			},
+			"destination_bucket_name": schema.StringAttribute{
+				Description: "The bucket objects are replicated to. Versioning must be enabled. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Required:    true,
+				Validators: []validator.String{
+					validators.BucketName{},
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
-			"source": schema.SingleNestedBlock{
-				Description: "Source configuration for replication.",
+			"filter": schema.SingleNestedBlock{
+				Description: "Filter to scope which objects this rule replicates.",
 				Attributes: map[string]schema.Attribute{
-					"bucket_name": schema.StringAttribute{
-						Description: "Source bucket name. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
-						Required:    true,
-						Validators: []validator.String{
-							validators.BucketName{},
-						},
-					},
-					"prefix": schema.StringAttribute{
-						Description: "Object key prefix filter for replication.",
-						Required:    true,
-					},
-					"location": schema.StringAttribute{
-						Description: "Source location name.",
+					"object_key_prefix": schema.StringAttribute{
+						Description: "Object key prefix filter.",
 						Optional:    true,
-					},
-				},
-			},
-			"destination": schema.SingleNestedBlock{
-				Description: "Destination configuration for replication.",
-				Attributes: map[string]schema.Attribute{
-					"bucket_name": schema.StringAttribute{
-						Description: "Destination bucket name. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
-						Optional:    true,
-						Validators: []validator.String{
-							validators.BucketName{},
-						},
-					},
-					"location": schema.StringAttribute{
-						Description: "Destination location name.",
-						Optional:    true,
-					},
-					"preferred_read_location": schema.StringAttribute{
-						Description: "Preferred read location.",
-						Optional:    true,
-					},
-					"role": schema.StringAttribute{
-						Description: "IAM role for replication.",
-						Optional:    true,
-					},
-				},
-				Blocks: map[string]schema.Block{
-					"locations": schema.ListNestedBlock{
-						Description: "Destination locations with storage class.",
-						NestedObject: schema.NestedBlockObject{
-							Attributes: map[string]schema.Attribute{
-								"name": schema.StringAttribute{
-									Description: "Destination location name.",
-									Required:    true,
-								},
-								"storage_class": schema.StringAttribute{
-									Description: "Storage class at the destination location.",
-									Optional:    true,
-								},
-							},
-						},
 					},
 				},
 			},
@@ -162,32 +99,15 @@ func (r *WorkflowReplicationResource) Configure(_ context.Context, req resource.
 		)
 		return
 	}
-	r.client = providerData.Management
-}
-
-func (r *WorkflowReplicationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var config WorkflowReplicationResourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-	if resp.Diagnostics.HasError() {
+	if providerData.S3 == nil {
+		resp.Diagnostics.AddError(
+			"S3 Client Not Configured",
+			"The s3_endpoint must be set in the provider configuration to use bucket workflow resources.",
+		)
 		return
 	}
-
-	if config.Destination != nil {
-		if !config.Destination.Location.IsNull() && !config.Destination.Location.IsUnknown() {
-			resp.Diagnostics.AddError(
-				"Invalid destination configuration",
-				"The per-bucket workflow replication API does not support destination.location. "+
-					"Use destination.bucket_name only. For location-based replication, use the artesca_replication resource instead.",
-			)
-		}
-		if len(config.Destination.Locations) > 0 {
-			resp.Diagnostics.AddError(
-				"Invalid destination configuration",
-				"The per-bucket workflow replication API does not support destination.locations. "+
-					"Use destination.bucket_name only. For multi-backend replication, use the artesca_replication resource instead.",
-			)
-		}
-	}
+	r.s3 = providerData.S3
+	r.accounts = providerData.Accounts
 }
 
 func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -197,25 +117,49 @@ func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&plan)
-	accountID := plan.AccountID.ValueString()
-	bucketName := plan.BucketName.ValueString()
-
-	apiStream := modelToAPIReplication(&plan)
-
-	tflog.Debug(ctx, "Creating bucket workflow replication", map[string]any{
-		"bucket": bucketName,
-		"name":   plan.Name.ValueString(),
-	})
-
-	created, err := r.client.CreateBucketWorkflowReplication(ctx, instanceID, accountID, bucketName, apiStream)
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating bucket workflow replication", err.Error())
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
 
-	plan.InstanceID = types.StringValue(instanceID)
-	apiReplicationToModel(created, &plan)
+	bucket := plan.BucketName.ValueString()
+
+	ruleID := plan.RuleID.ValueString()
+	if ruleID == "" {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		ruleID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	}
+
+	r.s3.LockReplication()
+	defer r.s3.UnlockReplication()
+
+	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading existing replication rules", err.Error())
+		return
+	}
+	if cfg == nil {
+		cfg = &client.BucketReplication{Role: client.DefaultReplicationRole}
+	}
+	for _, rule := range cfg.Rules {
+		if rule.ID == ruleID {
+			resp.Diagnostics.AddError("Replication rule already exists",
+				fmt.Sprintf("Bucket %q already has a replication rule with ID %q.", bucket, ruleID))
+			return
+		}
+	}
+	cfg.Rules = append(cfg.Rules, modelToReplicationRule(&plan, ruleID))
+
+	tflog.Debug(ctx, "Creating replication rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
+
+	if err := r.s3.PutBucketReplication(ctx, acctCreds, bucket, *cfg); err != nil {
+		resp.Diagnostics.AddError("Error creating replication rule", err.Error())
+		return
+	}
+
+	plan.RuleID = types.StringValue(ruleID)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -226,22 +170,28 @@ func (r *WorkflowReplicationResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&state)
-	accountID := state.AccountID.ValueString()
-	bucketName := state.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
-
-	results, err := r.client.SearchWorkflows(ctx, instanceID, accountID, []string{bucketName})
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading bucket workflow replication", err.Error())
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
 
-	var found *client.ReplicationStream
-	for _, item := range results {
-		if item.Replication != nil && item.Replication.StreamID == workflowID {
-			found = item.Replication
-			break
+	bucket := state.BucketName.ValueString()
+	ruleID := state.RuleID.ValueString()
+
+	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading replication rules", err.Error())
+		return
+	}
+
+	var found *client.ReplicationRule
+	if cfg != nil {
+		for i := range cfg.Rules {
+			if cfg.Rules[i].ID == ruleID {
+				found = &cfg.Rules[i]
+				break
+			}
 		}
 	}
 	if found == nil {
@@ -249,15 +199,7 @@ func (r *WorkflowReplicationResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	// Workflow search returns name and version as null even when they were set
-	// at create time, so preserve those from existing state.
-	preservedName := state.Name
-	preservedVersion := state.Version
-
-	state.InstanceID = types.StringValue(instanceID)
-	apiReplicationToModel(found, &state)
-	state.Name = preservedName
-	state.Version = preservedVersion
+	replicationRuleToModel(found, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -268,30 +210,45 @@ func (r *WorkflowReplicationResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	var state WorkflowReplicationResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	instanceID := r.resolveInstanceID(&plan)
-	accountID := plan.AccountID.ValueString()
-	bucketName := plan.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
-
-	apiStream := modelToAPIReplication(&plan)
-	apiStream.StreamID = workflowID
-
-	tflog.Debug(ctx, "Updating bucket workflow replication", map[string]any{"workflow_id": workflowID})
-
-	updated, err := r.client.UpdateBucketWorkflowReplication(ctx, instanceID, accountID, bucketName, workflowID, apiStream)
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating bucket workflow replication", err.Error())
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
 
-	plan.InstanceID = types.StringValue(instanceID)
-	apiReplicationToModel(updated, &plan)
+	bucket := plan.BucketName.ValueString()
+	ruleID := plan.RuleID.ValueString()
+
+	r.s3.LockReplication()
+	defer r.s3.UnlockReplication()
+
+	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading existing replication rules", err.Error())
+		return
+	}
+	replaced := false
+	if cfg != nil {
+		for i := range cfg.Rules {
+			if cfg.Rules[i].ID == ruleID {
+				cfg.Rules[i] = modelToReplicationRule(&plan, ruleID)
+				replaced = true
+			}
+		}
+	}
+	if !replaced {
+		resp.Diagnostics.AddError("Replication rule not found",
+			fmt.Sprintf("Bucket %q has no replication rule with ID %q.", bucket, ruleID))
+		return
+	}
+
+	tflog.Debug(ctx, "Updating replication rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
+
+	if err := r.s3.PutBucketReplication(ctx, acctCreds, bucket, *cfg); err != nil {
+		resp.Diagnostics.AddError("Error updating replication rule", err.Error())
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -302,139 +259,91 @@ func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.D
 		return
 	}
 
-	instanceID := r.resolveInstanceID(&state)
-	accountID := state.AccountID.ValueString()
-	bucketName := state.BucketName.ValueString()
-	workflowID := state.WorkflowID.ValueString()
-
-	tflog.Debug(ctx, "Deleting bucket workflow replication", map[string]any{"workflow_id": workflowID})
-
-	err := r.client.DeleteBucketWorkflowReplication(ctx, instanceID, accountID, bucketName, workflowID)
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting bucket workflow replication", err.Error())
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
+	}
+
+	bucket := state.BucketName.ValueString()
+	ruleID := state.RuleID.ValueString()
+
+	r.s3.LockReplication()
+	defer r.s3.UnlockReplication()
+
+	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading existing replication rules", err.Error())
+		return
+	}
+	if cfg == nil {
+		return
+	}
+
+	remaining := make([]client.ReplicationRule, 0, len(cfg.Rules))
+	for _, rule := range cfg.Rules {
+		if rule.ID != ruleID {
+			remaining = append(remaining, rule)
+		}
+	}
+
+	tflog.Debug(ctx, "Deleting replication rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
+
+	if len(remaining) == 0 {
+		if err := r.s3.DeleteBucketReplication(ctx, acctCreds, bucket); err != nil {
+			resp.Diagnostics.AddError("Error deleting replication configuration", err.Error())
+		}
+		return
+	}
+	cfg.Rules = remaining
+	if err := r.s3.PutBucketReplication(ctx, acctCreds, bucket, *cfg); err != nil {
+		resp.Diagnostics.AddError("Error updating replication configuration", err.Error())
 	}
 }
 
 func (r *WorkflowReplicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format account_id/bucket_name/workflow_id, got %q", req.ID))
+	rest, ok := creds.ImportAccount(ctx, req, resp)
+	if !ok {
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("account_id"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("bucket_name"), parts[1])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("workflow_id"), parts[2])...)
+	parts := strings.SplitN(rest, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("Expected format <account_name>/bucket_name/rule_id, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("bucket_name"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("rule_id"), parts[1])...)
 }
 
-func (r *WorkflowReplicationResource) resolveInstanceID(model *WorkflowReplicationResourceModel) string {
-	if !model.InstanceID.IsNull() && !model.InstanceID.IsUnknown() && model.InstanceID.ValueString() != "" {
-		return model.InstanceID.ValueString()
+func modelToReplicationRule(model *WorkflowReplicationResourceModel, ruleID string) client.ReplicationRule {
+	status := "Disabled"
+	if model.Enabled.ValueBool() {
+		status = "Enabled"
 	}
-	return r.client.InstanceID
+
+	rule := client.ReplicationRule{
+		ID:                ruleID,
+		Status:            status,
+		DestinationBucket: model.DestinationBucketName.ValueString(),
+	}
+	if model.Filter != nil && !model.Filter.ObjectKeyPrefix.IsNull() {
+		rule.Prefix = model.Filter.ObjectKeyPrefix.ValueString()
+	}
+	return rule
 }
 
-// --- Conversion helpers ---
-
-func modelToAPIReplication(model *WorkflowReplicationResourceModel) *client.ReplicationStream {
-	stream := &client.ReplicationStream{
-		Name:    model.Name.ValueString(),
-		Version: model.Version.ValueInt64(),
-		Enabled: model.Enabled.ValueBool(),
-	}
-
-	if model.Source != nil {
-		stream.Source = &client.ReplicationSource{
-			BucketName: model.Source.BucketName.ValueString(),
-			Prefix:     model.Source.Prefix.ValueString(),
+func replicationRuleToModel(rule *client.ReplicationRule, model *WorkflowReplicationResourceModel) {
+	model.Enabled = types.BoolValue(rule.Status == "Enabled")
+	model.DestinationBucketName = types.StringValue(rule.DestinationBucket)
+	switch {
+	case model.Filter != nil:
+		// An unset prefix is stored as ""; keep it null so it doesn't diff.
+		if !model.Filter.ObjectKeyPrefix.IsNull() || rule.Prefix != "" {
+			model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
 		}
-		if !model.Source.Location.IsNull() && !model.Source.Location.IsUnknown() {
-			stream.Source.Location = model.Source.Location.ValueString()
-		}
-	}
-
-	if model.Destination != nil {
-		stream.Destination = &client.ReplicationDest{}
-		if !model.Destination.BucketName.IsNull() && !model.Destination.BucketName.IsUnknown() {
-			stream.Destination.BucketName = model.Destination.BucketName.ValueString()
-		}
-		if !model.Destination.Location.IsNull() && !model.Destination.Location.IsUnknown() {
-			stream.Destination.Location = model.Destination.Location.ValueString()
-		}
-		if !model.Destination.PreferredReadLocation.IsNull() && !model.Destination.PreferredReadLocation.IsUnknown() {
-			stream.Destination.PreferredReadLocation = model.Destination.PreferredReadLocation.ValueString()
-		}
-		if !model.Destination.Role.IsNull() && !model.Destination.Role.IsUnknown() {
-			stream.Destination.Role = model.Destination.Role.ValueString()
-		}
-		for _, loc := range model.Destination.Locations {
-			destLoc := client.ReplicationDestLocation{
-				Name: loc.Name.ValueString(),
-			}
-			if !loc.StorageClass.IsNull() && !loc.StorageClass.IsUnknown() {
-				destLoc.StorageClass = loc.StorageClass.ValueString()
-			}
-			stream.Destination.Locations = append(stream.Destination.Locations, destLoc)
-		}
-	}
-
-	return stream
-}
-
-func apiReplicationToModel(stream *client.ReplicationStream, model *WorkflowReplicationResourceModel) {
-	if stream.StreamID != "" {
-		model.WorkflowID = types.StringValue(stream.StreamID)
-	}
-	model.Name = types.StringValue(stream.Name)
-	model.Version = types.Int64Value(stream.Version)
-	model.Enabled = types.BoolValue(stream.Enabled)
-
-	if stream.Source != nil {
-		model.Source = &WorkflowReplicationSourceModel{
-			BucketName: types.StringValue(stream.Source.BucketName),
-			Prefix:     types.StringValue(stream.Source.Prefix),
-		}
-		if stream.Source.Location != "" {
-			model.Source.Location = types.StringValue(stream.Source.Location)
-		} else {
-			model.Source.Location = types.StringNull()
-		}
-	}
-
-	if stream.Destination != nil {
-		model.Destination = &WorkflowReplicationDestModel{}
-		if stream.Destination.BucketName != "" {
-			model.Destination.BucketName = types.StringValue(stream.Destination.BucketName)
-		} else {
-			model.Destination.BucketName = types.StringNull()
-		}
-		if stream.Destination.Location != "" {
-			model.Destination.Location = types.StringValue(stream.Destination.Location)
-		} else {
-			model.Destination.Location = types.StringNull()
-		}
-		if stream.Destination.PreferredReadLocation != "" {
-			model.Destination.PreferredReadLocation = types.StringValue(stream.Destination.PreferredReadLocation)
-		} else {
-			model.Destination.PreferredReadLocation = types.StringNull()
-		}
-		if stream.Destination.Role != "" {
-			model.Destination.Role = types.StringValue(stream.Destination.Role)
-		} else {
-			model.Destination.Role = types.StringNull()
-		}
-		if len(stream.Destination.Locations) > 0 {
-			model.Destination.Locations = make([]WorkflowReplicationDestLocModel, len(stream.Destination.Locations))
-			for i, loc := range stream.Destination.Locations {
-				model.Destination.Locations[i] = WorkflowReplicationDestLocModel{
-					Name: types.StringValue(loc.Name),
-				}
-				if loc.StorageClass != "" {
-					model.Destination.Locations[i].StorageClass = types.StringValue(loc.StorageClass)
-				} else {
-					model.Destination.Locations[i].StorageClass = types.StringNull()
-				}
-			}
-		}
+	case rule.Prefix != "":
+		// Surface a server-side prefix even when the config has no filter
+		// block, so a prefix added outside Terraform shows up as drift.
+		model.Filter = &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue(rule.Prefix)}
 	}
 }

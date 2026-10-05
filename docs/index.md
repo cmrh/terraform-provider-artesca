@@ -82,7 +82,7 @@ The OIDC scope requested at login defaults to `openid` and can be changed with `
 |----------|-------------|
 | [artesca_bucket_workflow_expiration](resources/bucket_workflow_expiration.md) | Object expiration lifecycle workflow |
 | [artesca_bucket_workflow_transition](resources/bucket_workflow_transition.md) | Object transition lifecycle workflow |
-| [artesca_bucket_workflow_replication](resources/bucket_workflow_replication.md) | Bucket-scoped replication workflow |
+| [artesca_bucket_workflow_replication](resources/bucket_workflow_replication.md) | Bucket replication rule (S3 replication configuration) |
 
 ## Data Sources
 

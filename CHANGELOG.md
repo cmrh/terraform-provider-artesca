@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Accounts reported as deleted right after creation.** `artesca_account`, `data.artesca_account`, and `data.artesca_accounts` looked accounts up in the management overlay view, which does not list them. They now use IAM `GetRolesForWebIdentity` with the provider's OIDC token (#35). `artesca_account.arn` is now the account root ARN (`arn:aws:iam::<id>:root`).
 
+### Changed (breaking)
+
+- **`artesca_bucket_workflow_replication` manages an S3 replication rule (#2).** It reads and writes the bucket's S3 replication configuration (`Get/Put/DeleteBucketReplication`), merging its rule with others on the same bucket, like the expiration and transition resources do with lifecycle. The management API never stored a replication workflow's `name` or `version`, so they could not be read back. New shape: `account_name`, `bucket_name`, `destination_bucket_name`, `enabled`, optional `filter { object_key_prefix }`, computed `rule_id`; import ID `<account_name>/<bucket_name>/<rule_id>`. Removed `instance_id`, `account_id`, `name`, `version`, `workflow_id`, and the `source` / `destination` blocks.
+
 ### Removed
 
 - **`email` and `access_key` from `data.artesca_account`, and `email` from `data.artesca_accounts`.** The account listing does not return them (#35).

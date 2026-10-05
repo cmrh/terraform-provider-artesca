@@ -16,7 +16,7 @@ var accountScopedResources = []string{
 	"artesca_group", "artesca_group_membership", "artesca_group_policy", "artesca_group_policy_attachment",
 	"artesca_policy", "artesca_role", "artesca_role_policy_attachment",
 	"artesca_user", "artesca_user_access_key", "artesca_user_policy", "artesca_user_policy_attachment",
-	"artesca_bucket_workflow_expiration", "artesca_bucket_workflow_transition",
+	"artesca_bucket_workflow_expiration", "artesca_bucket_workflow_transition", "artesca_bucket_workflow_replication",
 }
 
 var accountScopedDataSources = []string{

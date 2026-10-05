@@ -72,7 +72,7 @@ internal/
     │   group_policy_attachment/,
     │   policy/, role/, role_policy_attachment/            # IAM API
     └── workflow_expiration/, workflow_transition/,
-        workflow_replication/                               # S3 lifecycle + Mgmt search
+        workflow_replication/                               # S3 replication configuration
 ```
 
 Each resource is a package with:
@@ -84,9 +84,9 @@ Each resource is a package with:
 
 | Client | Auth | Wire Format | Used By |
 |--------|------|-------------|---------|
-| `ManagementClient` | OIDC bearer (`X-Authentication-Token` header) | JSON/REST | account create/delete/key generation, locations, endpoints, replication, workflow_replication |
+| `ManagementClient` | OIDC bearer (`X-Authentication-Token` header) | JSON/REST | account create/delete/key generation, locations, endpoints, replication, bucket_workflows data source |
 | `IAMClient` | SigV4 (service `iam`); unsigned with `WebIdentityToken` for account lookup | XML / form-encoded; JSON for `GetRolesForWebIdentity` | account read + account data sources, users, user_access_key, user_policy, user_policy_attachment, group, group_membership, group_policy, group_policy_attachment, policy, role, role_policy_attachment |
-| `S3Client` | SigV4 (service `s3`) | XML / REST | bucket, bucket_encryption, bucket_policy, bucket_tagging, workflow_expiration, workflow_transition |
+| `S3Client` | SigV4 (service `s3`) | XML / REST | bucket, bucket_encryption, bucket_policy, bucket_tagging, workflow_expiration, workflow_transition, workflow_replication |
 | `STSClient` | SigV4 (service `sts`); unsigned with `WebIdentityToken` for `AssumeRoleWithWebIdentity` | XML | per-account credentials for every account-scoped resource (via `AccountCredentialSource`), caller_identity data source, assumed_role_credentials ephemeral |
 
 The provider bundles all four in `ProviderClients` (`provider_clients.go`). Each resource extracts the client it needs in its `Configure` method.
@@ -133,9 +133,9 @@ Implication: the management client batches (and where appropriate caches) that o
 
 ## Workflow resource reads
 
-`artesca_bucket_workflow_expiration` and `_transition` round-trip through the S3 lifecycle API (`GetBucketLifecycle`). `_replication` round-trips through `POST /workflow/search`. All three have functional `Read()` paths that detect deletion and out-of-band changes.
+All three bucket workflow resources are S3 bucket configuration under the hood: `artesca_bucket_workflow_expiration` and `_transition` manage lifecycle rules (`Get/PutBucketLifecycle`), and `_replication` manages replication rules (`Get/Put/DeleteBucketReplication`). Each resource owns one rule; Create/Update/Delete read the bucket's configuration, merge the change, and write it back under a per-client lock (`LockLifecycle` / `LockReplication`). Read finds the rule by ID, so deletion and out-of-band changes are detected.
 
-One caveat: workflow_search returns `name` and `version` as `null` for replication entries, so `workflow_replication.Read()` preserves those two fields from prior state (upstream bug, tracked in the repo issue tracker).
+The management API's workflow endpoints show the same rules (a replication rule's ID is its workflow `streamId`), but they don't return anything the S3 configuration lacks, and the `name`/`version` a workflow is created with are not stored.
 
 ## Input Validation
 

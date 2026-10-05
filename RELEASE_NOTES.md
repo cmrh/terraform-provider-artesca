@@ -12,6 +12,7 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 - **Import IDs** for account-scoped resources start with the account name: `tofu import artesca_user.alice my-app/alice`.
 - **`data.artesca_account`** no longer exports `email` or `access_key`; **`data.artesca_accounts`** no longer exports `email`.
 - **`artesca_account.arn`** is the account root ARN (`arn:aws:iam::<id>:root`).
+- **`artesca_bucket_workflow_replication`** manages an S3 replication rule and uses the same shape as the other bucket workflow resources: `account_name`, `bucket_name`, `destination_bucket_name`, `enabled`, optional `filter { object_key_prefix }`, and computed `rule_id`. Removed: `instance_id`, `account_id`, `name`, `version`, `workflow_id`, and the `source` / `destination` blocks. Import IDs are `<account_name>/<bucket_name>/<rule_id>`.
 
 ## Recent additions since v0.3.0
 
@@ -40,7 +41,7 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 
 ## Fixed
 
-- **`workflow_replication` drift detection.** `Read()` now uses workflow search to detect deletion, `enabled` flips, and source/destination changes. `name` and `version` are preserved from state — the workflow-search endpoint returns them as `null` for replication entries (tracked upstream).
+- **`artesca_bucket_workflow_replication` drift detection.** The resource manages its rule in the bucket's S3 replication configuration, so `Read()` detects deletion and changes to `enabled`, the destination bucket, and the prefix.
 
 ## CI / tooling
 

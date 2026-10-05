@@ -119,14 +119,11 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 	}
 
 	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	bucket := plan.BucketName.ValueString()
 
 	ruleID := plan.RuleID.ValueString()
@@ -168,14 +165,11 @@ func (r *WorkflowTransitionResource) Read(ctx context.Context, req resource.Read
 	}
 
 	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
@@ -210,14 +204,11 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 	}
 
 	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	bucket := plan.BucketName.ValueString()
 	ruleID := plan.RuleID.ValueString()
 
@@ -258,14 +249,11 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 	}
 
 	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
-
 	if err != nil {
-
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
-
 		return
-
 	}
+
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
