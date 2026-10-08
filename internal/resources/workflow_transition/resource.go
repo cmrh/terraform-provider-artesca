@@ -328,8 +328,16 @@ func lifecycleRuleToModel(rule *client.LifecycleRule, model *WorkflowTransitionR
 	model.Enabled = types.BoolValue(rule.Status == "Enabled")
 	model.TriggerDelayDays = types.Int64Value(int64(rule.TransitionDays))
 	model.LocationName = types.StringValue(rule.TransitionLocation)
-	if model.Filter != nil {
-		model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
+	switch {
+	case model.Filter != nil:
+		// An unset prefix is stored as ""; keep it null so it doesn't diff.
+		if !model.Filter.ObjectKeyPrefix.IsNull() || rule.Prefix != "" {
+			model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
+		}
+	case rule.Prefix != "":
+		// No filter block in state (e.g. after import): surface the server's
+		// prefix so it round-trips and out-of-band changes show as drift.
+		model.Filter = &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue(rule.Prefix)}
 	}
 }
 

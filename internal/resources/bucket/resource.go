@@ -160,15 +160,16 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	if !state.LocationConstraint.IsNull() {
-		loc, err := r.s3Client.GetBucketLocation(ctx, acctCreds, bucketName)
-		if err != nil {
-			resp.Diagnostics.AddError("Error reading bucket location", err.Error())
-			return
-		}
-		if loc != "" {
-			state.LocationConstraint = types.StringValue(loc)
-		}
+	// Always read the location so it round-trips after import and an
+	// out-of-band change shows as drift. Buckets in the default location
+	// report "", which leaves the attribute as configured.
+	loc, err := r.s3Client.GetBucketLocation(ctx, acctCreds, bucketName)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading bucket location", err.Error())
+		return
+	}
+	if loc != "" {
+		state.LocationConstraint = types.StringValue(loc)
 	}
 
 	versioning, err := r.s3Client.GetBucketVersioning(ctx, acctCreds, bucketName)
