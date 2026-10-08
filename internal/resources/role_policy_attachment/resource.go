@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &RolePolicyAttachmentResource{}
-	_ resource.ResourceWithImportState = &RolePolicyAttachmentResource{}
+	_ resource.Resource                 = &RolePolicyAttachmentResource{}
+	_ resource.ResourceWithImportState  = &RolePolicyAttachmentResource{}
+	_ resource.ResourceWithUpgradeState = &RolePolicyAttachmentResource{}
 )
 
 type RolePolicyAttachmentResource struct {
@@ -38,6 +39,7 @@ func (r *RolePolicyAttachmentResource) Metadata(_ context.Context, req resource.
 
 func (r *RolePolicyAttachmentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Attaches a managed IAM policy to a role within an ARTESCA account. " +
 			"This is the only way to grant permissions to a role — ARTESCA does not implement " +
 			"inline role policies.",
@@ -180,4 +182,10 @@ func (r *RolePolicyAttachmentResource) ImportState(ctx context.Context, req reso
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("role_name"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_arn"), parts[1])...)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *RolePolicyAttachmentResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

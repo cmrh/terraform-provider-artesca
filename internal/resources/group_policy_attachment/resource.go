@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &GroupPolicyAttachmentResource{}
-	_ resource.ResourceWithImportState = &GroupPolicyAttachmentResource{}
+	_ resource.Resource                 = &GroupPolicyAttachmentResource{}
+	_ resource.ResourceWithImportState  = &GroupPolicyAttachmentResource{}
+	_ resource.ResourceWithUpgradeState = &GroupPolicyAttachmentResource{}
 )
 
 type GroupPolicyAttachmentResource struct {
@@ -38,6 +39,7 @@ func (r *GroupPolicyAttachmentResource) Metadata(_ context.Context, req resource
 
 func (r *GroupPolicyAttachmentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Attaches a managed IAM policy to a group within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -178,4 +180,10 @@ func (r *GroupPolicyAttachmentResource) ImportState(ctx context.Context, req res
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_name"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("policy_arn"), parts[1])...)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *GroupPolicyAttachmentResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

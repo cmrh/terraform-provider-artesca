@@ -199,6 +199,10 @@ make test
 
 # Acceptance tests (requires a running ARTESCA instance)
 make testacc
+
+# State upgrade test: create resources with an older build, plan with the
+# working tree, expect no changes (requires RING_S3_* / DEST_RING_S3_* in the env file)
+tests/upgrade/run.sh [BASE_REF]
 ```
 
 ### Lint and format

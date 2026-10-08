@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &UserResource{}
-	_ resource.ResourceWithImportState = &UserResource{}
+	_ resource.Resource                 = &UserResource{}
+	_ resource.ResourceWithImportState  = &UserResource{}
+	_ resource.ResourceWithUpgradeState = &UserResource{}
 )
 
 type UserResource struct {
@@ -36,6 +37,7 @@ func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages an IAM user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -184,4 +186,10 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "username", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *UserResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

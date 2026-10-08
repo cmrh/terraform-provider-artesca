@@ -227,3 +227,44 @@ func TestSessionTokenSigning(t *testing.T) {
 		}
 	})
 }
+
+func TestAccountCredentialSourceNameLookups(t *testing.T) {
+	iamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(oneAccountJSON))
+	}))
+	defer iamServer.Close()
+	stsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parsing form: %v", err)
+			return
+		}
+		if r.PostForm.Get("Action") != "GetCallerIdentity" {
+			t.Errorf("Action = %q, want GetCallerIdentity", r.PostForm.Get("Action"))
+		}
+		if !strings.Contains(r.Header.Get("Authorization"), "Credential=old-ak/") {
+			t.Errorf("request not signed with the old access key: %s", r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`<GetCallerIdentityResponse><GetCallerIdentityResult><UserId>111111111111</UserId><Account>111111111111</Account><Arn>arn:aws:iam::111111111111:root</Arn></GetCallerIdentityResult></GetCallerIdentityResponse>`))
+	}))
+	defer stsServer.Close()
+	oidcServer := newMockOIDCServer(t)
+	defer oidcServer.Close()
+
+	src := NewAccountCredentialSource(
+		NewIAMClient(iamServer.URL, "us-east-1", false),
+		NewSTSClient(stsServer.URL, "us-east-1", false),
+		NewOIDCTokenSource(oidcServer.URL, "realm", "client", "openid", "user", "pass", false),
+	)
+
+	name, err := src.NameForAccountID(context.Background(), "111111111111")
+	if err != nil || name != "app" {
+		t.Errorf("NameForAccountID = (%q, %v), want (app, nil)", name, err)
+	}
+	if _, err := src.NameForAccountID(context.Background(), "999999999999"); err == nil {
+		t.Error("expected error for unknown account ID")
+	}
+	name, err = src.NameForAccessKey(context.Background(), "old-ak", "old-sk")
+	if err != nil || name != "app" {
+		t.Errorf("NameForAccessKey = (%q, %v), want (app, nil)", name, err)
+	}
+}

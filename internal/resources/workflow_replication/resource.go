@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &WorkflowReplicationResource{}
-	_ resource.ResourceWithImportState = &WorkflowReplicationResource{}
+	_ resource.Resource                 = &WorkflowReplicationResource{}
+	_ resource.ResourceWithImportState  = &WorkflowReplicationResource{}
+	_ resource.ResourceWithUpgradeState = &WorkflowReplicationResource{}
 )
 
 type WorkflowReplicationResource struct {
@@ -39,6 +40,7 @@ func (r *WorkflowReplicationResource) Metadata(_ context.Context, req resource.M
 
 func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages a bucket replication rule in ARTESCA via the S3 API. Replicates objects from bucket_name to destination_bucket_name.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -346,4 +348,48 @@ func replicationRuleToModel(rule *client.ReplicationRule, model *WorkflowReplica
 		// block, so a prefix added outside Terraform shows up as drift.
 		model.Filter = &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue(rule.Prefix)}
 	}
+}
+
+// UpgradeState migrates v0 state, written when the resource managed a
+// replication workflow through the management API (account_id, workflow_id,
+// source/destination blocks), to the S3 replication rule shape.
+func (r *WorkflowReplicationResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+			old, err := creds.DecodeRawState(req)
+			if err != nil {
+				creds.UpgradeError(resp, err)
+				return
+			}
+
+			accountID, _ := old["account_id"].(string)
+			accountName, err := creds.ResolveAccountNameByID(ctx, func() *client.AccountCredentialSource { return r.accounts }, accountID)
+			if err != nil {
+				creds.UpgradeError(resp, err)
+				return
+			}
+
+			values := upgradeReplicationV0(old)
+			values[creds.AttrAccountName] = accountName
+			creds.WriteUpgradedState(ctx, r, values, resp)
+		}},
+	}
+}
+
+// upgradeReplicationV0 maps v0 attributes to v1, except account_name.
+func upgradeReplicationV0(old map[string]any) map[string]any {
+	values := map[string]any{
+		"bucket_name": old["bucket_name"],
+		"rule_id":     old["workflow_id"],
+		"enabled":     old["enabled"],
+	}
+	if dst, ok := old["destination"].(map[string]any); ok {
+		values["destination_bucket_name"] = dst["bucket_name"]
+	}
+	if src, ok := old["source"].(map[string]any); ok {
+		if prefix, _ := src["prefix"].(string); prefix != "" {
+			values["filter"] = map[string]any{"object_key_prefix": prefix}
+		}
+	}
+	return values
 }

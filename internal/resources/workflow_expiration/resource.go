@@ -21,8 +21,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &WorkflowExpirationResource{}
-	_ resource.ResourceWithImportState = &WorkflowExpirationResource{}
+	_ resource.Resource                 = &WorkflowExpirationResource{}
+	_ resource.ResourceWithImportState  = &WorkflowExpirationResource{}
+	_ resource.ResourceWithUpgradeState = &WorkflowExpirationResource{}
 )
 
 type WorkflowExpirationResource struct {
@@ -40,6 +41,7 @@ func (r *WorkflowExpirationResource) Metadata(_ context.Context, req resource.Me
 
 func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages a bucket expiration lifecycle rule in ARTESCA via the S3 API.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -324,4 +326,10 @@ func lifecycleRuleToModel(rule *client.LifecycleRule, model *WorkflowExpirationR
 	if model.Filter != nil {
 		model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
 	}
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *WorkflowExpirationResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

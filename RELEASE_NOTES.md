@@ -6,6 +6,10 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 
 22 resources, 12 data sources, and 1 ephemeral resource covering three ARTESCA API surfaces (Management, IAM, S3), plus STS for the ephemeral role-credential resource. See [README.md](README.md) for the full inventory.
 
+## Upgrading from v0.3.x
+
+Update your configuration (replace `account_access_key` / `account_secret_key` with `account_name = artesca_account.<name>.name`; see the breaking changes below), then run `tofu plan`. Existing state is migrated automatically: the provider identifies each resource's account from the access key still in state, so the plan shows no changes. If those keys no longer work (account deleted or keys rotated), the plan fails with instructions to `tofu state rm` and `tofu import` the affected resource instead.
+
 ## Breaking changes since v0.3.0
 
 - **`account_name` replaces `account_access_key` / `account_secret_key`** on all account-scoped resources (buckets and sub-resources, IAM users/groups/roles/policies and attachments, user access keys, expiration/transition workflows) and on `data.artesca_group`, `data.artesca_policy`, `data.artesca_role`, `data.artesca_user`. The provider obtains temporary credentials for the account from its OIDC login; account keys are no longer configured or stored.

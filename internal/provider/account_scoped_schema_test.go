@@ -60,6 +60,12 @@ func TestAccountScopedResourceSchemas(t *testing.T) {
 			if len(attr.PlanModifiers) == 0 {
 				t.Error("account_name must force replacement")
 			}
+			if s.Schema.Version != 1 {
+				t.Errorf("schema version = %d, want 1 (v0 state held account keys)", s.Schema.Version)
+			}
+			if _, ok := r.(resource.ResourceWithUpgradeState); !ok {
+				t.Error("must implement UpgradeState to migrate v0 state")
+			}
 		})
 	}
 }

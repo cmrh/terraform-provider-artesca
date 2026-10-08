@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &BucketResource{}
-	_ resource.ResourceWithImportState = &BucketResource{}
+	_ resource.Resource                 = &BucketResource{}
+	_ resource.ResourceWithImportState  = &BucketResource{}
+	_ resource.ResourceWithUpgradeState = &BucketResource{}
 )
 
 type BucketResource struct {
@@ -38,6 +39,7 @@ func (r *BucketResource) Metadata(_ context.Context, req resource.MetadataReques
 
 func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages an S3 bucket on the ARTESCA S3 endpoint.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -232,4 +234,10 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 func (r *BucketResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "name", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *BucketResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

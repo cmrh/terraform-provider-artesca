@@ -89,3 +89,31 @@ func TestReplicationRuleToModelFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestUpgradeReplicationV0(t *testing.T) {
+	old := map[string]any{
+		"instance_id": "inst", "account_id": "111111111111", "bucket_name": "src",
+		"workflow_id": "0b3c4a37", "name": "nightly", "version": float64(1), "enabled": true,
+		"source":      map[string]any{"bucket_name": "src", "prefix": "logs/", "location": nil},
+		"destination": map[string]any{"bucket_name": "dst", "location": nil, "locations": []any{}},
+	}
+	got := upgradeReplicationV0(old)
+	want := map[string]any{
+		"bucket_name": "src", "rule_id": "0b3c4a37", "enabled": true,
+		"destination_bucket_name": "dst",
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %v, want %v", k, got[k], v)
+		}
+	}
+	filter, ok := got["filter"].(map[string]any)
+	if !ok || filter["object_key_prefix"] != "logs/" {
+		t.Errorf("filter = %v, want object_key_prefix logs/", got["filter"])
+	}
+
+	old["source"] = map[string]any{"bucket_name": "src", "prefix": ""}
+	if f, ok := upgradeReplicationV0(old)["filter"]; ok {
+		t.Errorf("empty prefix should leave filter unset, got %v", f)
+	}
+}

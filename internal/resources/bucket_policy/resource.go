@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &BucketPolicyResource{}
-	_ resource.ResourceWithImportState = &BucketPolicyResource{}
+	_ resource.Resource                 = &BucketPolicyResource{}
+	_ resource.ResourceWithImportState  = &BucketPolicyResource{}
+	_ resource.ResourceWithUpgradeState = &BucketPolicyResource{}
 )
 
 type BucketPolicyResource struct {
@@ -38,6 +39,7 @@ func (r *BucketPolicyResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *BucketPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Attaches an S3 bucket policy to an ARTESCA bucket. ARTESCA validates the policy server-side; Resource ARNs that don't match the bucket are rejected with MalformedPolicy.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -205,4 +207,10 @@ func jsonEquivalent(a, b string) bool {
 		return false
 	}
 	return reflect.DeepEqual(av, bv)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *BucketPolicyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }
