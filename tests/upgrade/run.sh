@@ -85,6 +85,21 @@ TF_CLI_CONFIG_FILE="$WORK/old.tofurc" tofu apply -auto-approve -no-color >"$WORK
   || { tail -30 "$WORK/apply.log"; echo "FAIL: v0 apply failed"; exit 1; }
 grep -E "Apply complete" "$WORK/apply.log"
 
+# Builds without per-bucket write serialization (#46) can lose bucket configs
+# written in parallel. Re-apply with the base build until its own plan is
+# clean, so the upgrade starts from consistent v0 state.
+for attempt in 1 2 3; do
+  set +e
+  TF_CLI_CONFIG_FILE="$WORK/old.tofurc" tofu plan -detailed-exitcode -no-color >"$WORK/plan-old.log" 2>&1
+  oc=$?
+  set -e
+  [ $oc -eq 0 ] && break
+  [ $oc -eq 2 ] || { tail -30 "$WORK/plan-old.log"; echo "FAIL: base-build plan errored"; exit 1; }
+  echo "    base build lost configs during apply; re-applying (attempt $attempt)"
+  TF_CLI_CONFIG_FILE="$WORK/old.tofurc" tofu apply -auto-approve -no-color >"$WORK/apply.log" 2>&1 \
+    || { tail -30 "$WORK/apply.log"; echo "FAIL: v0 re-apply failed"; exit 1; }
+done
+[ $oc -eq 0 ] || { echo "FAIL: base-build state did not converge"; exit 1; }
 
 echo "==> Planning v1 configuration with the current provider..."
 cp v1.tf.src main.tf

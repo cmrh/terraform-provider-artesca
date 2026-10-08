@@ -134,8 +134,8 @@ func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.C
 		ruleID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 	}
 
-	r.s3.LockReplication()
-	defer r.s3.UnlockReplication()
+	unlock := r.s3.LockBucket(bucket)
+	defer unlock()
 
 	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
 	if err != nil {
@@ -221,8 +221,8 @@ func (r *WorkflowReplicationResource) Update(ctx context.Context, req resource.U
 	bucket := plan.BucketName.ValueString()
 	ruleID := plan.RuleID.ValueString()
 
-	r.s3.LockReplication()
-	defer r.s3.UnlockReplication()
+	unlock := r.s3.LockBucket(bucket)
+	defer unlock()
 
 	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
 	if err != nil {
@@ -270,8 +270,8 @@ func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.D
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
-	r.s3.LockReplication()
-	defer r.s3.UnlockReplication()
+	unlock := r.s3.LockBucket(bucket)
+	defer unlock()
 
 	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
 	if err != nil {

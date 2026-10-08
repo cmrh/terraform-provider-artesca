@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Accounts reported as deleted right after creation.** `artesca_account`, `data.artesca_account`, and `data.artesca_accounts` looked accounts up in the management overlay view, which does not list them. They now use IAM `GetRolesForWebIdentity` with the provider's OIDC token (#35). `artesca_account.arn` is now the account root ARN (`arn:aws:iam::<id>:root`).
+- **Bucket configs lost when several were applied at once (#46).** ARTESCA can silently drop some of several config writes made concurrently to the same bucket, and OpenTofu creates bucket sub-resources in parallel. All bucket-config writes (tagging, encryption, policy, versioning, lifecycle, replication) and bucket deletion are now serialized per bucket inside the provider.
 - **State from before `account_name` failed to refresh (#45).** Account-scoped resources are now at schema version 1 with a state upgrader: `account_name` is resolved from the access key pair in v0 state (STS `GetCallerIdentity`, then the account list), and `artesca_bucket_workflow_replication` v0 state is mapped to the S3 rule shape (`workflow_id` → `rule_id`, `destination.bucket_name` → `destination_bucket_name`, `source.prefix` → `filter.object_key_prefix`, `account_id` → `account_name`). If the keys no longer work, the error explains how to `tofu state rm` and re-import. `tests/upgrade/run.sh` creates resources with an older build and checks that planning with the current one shows no changes.
 
 ### Changed (breaking)

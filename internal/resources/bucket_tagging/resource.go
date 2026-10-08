@@ -99,6 +99,9 @@ func (r *BucketTaggingResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketTagging(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -167,6 +170,9 @@ func (r *BucketTaggingResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketTagging(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -193,6 +199,9 @@ func (r *BucketTaggingResource) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
+
+	unlock := r.s3Client.LockBucket(state.BucketName.ValueString())
+	defer unlock()
 
 	if err := r.s3Client.DeleteBucketTagging(ctx,
 		acctCreds,

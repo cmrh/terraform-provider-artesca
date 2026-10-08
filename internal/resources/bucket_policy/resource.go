@@ -98,6 +98,9 @@ func (r *BucketPolicyResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketPolicy(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -157,6 +160,9 @@ func (r *BucketPolicyResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketPolicy(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -183,6 +189,9 @@ func (r *BucketPolicyResource) Delete(ctx context.Context, req resource.DeleteRe
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
+
+	unlock := r.s3Client.LockBucket(state.BucketName.ValueString())
+	defer unlock()
 
 	if err := r.s3Client.DeleteBucketPolicy(ctx,
 		acctCreds,

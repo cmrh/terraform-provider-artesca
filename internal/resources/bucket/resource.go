@@ -125,6 +125,8 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	if plan.VersioningEnabled.ValueBool() {
+		unlock := r.s3Client.LockBucket(bucketName)
+		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, true); err != nil {
 			resp.Diagnostics.AddError("Error enabling bucket versioning", err.Error())
 			return
@@ -200,6 +202,8 @@ func (r *BucketResource) Update(ctx context.Context, req resource.UpdateRequest,
 			return
 		}
 
+		unlock := r.s3Client.LockBucket(bucketName)
+		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, plan.VersioningEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Error updating bucket versioning", err.Error())
 			return
@@ -225,6 +229,8 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	tflog.Debug(ctx, "Deleting bucket", map[string]any{"bucket": bucketName})
 
+	unlock := r.s3Client.LockBucket(bucketName)
+	defer unlock()
 	err = r.s3Client.DeleteBucket(ctx, acctCreds, bucketName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket", err.Error())

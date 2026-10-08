@@ -137,8 +137,8 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 
 	newRule := modelToLifecycleRule(&plan, ruleID)
 
-	r.s3.LockLifecycle()
-	defer r.s3.UnlockLifecycle()
+	unlock := r.s3.LockBucket(bucket)
+	defer unlock()
 
 	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
@@ -214,8 +214,8 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 	bucket := plan.BucketName.ValueString()
 	ruleID := plan.RuleID.ValueString()
 
-	r.s3.LockLifecycle()
-	defer r.s3.UnlockLifecycle()
+	unlock := r.s3.LockBucket(bucket)
+	defer unlock()
 
 	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
@@ -259,8 +259,8 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 	bucket := state.BucketName.ValueString()
 	ruleID := state.RuleID.ValueString()
 
-	r.s3.LockLifecycle()
-	defer r.s3.UnlockLifecycle()
+	unlock := r.s3.LockBucket(bucket)
+	defer unlock()
 
 	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
