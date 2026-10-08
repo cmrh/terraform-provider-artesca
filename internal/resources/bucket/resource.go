@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &BucketResource{}
-	_ resource.ResourceWithImportState = &BucketResource{}
+	_ resource.Resource                 = &BucketResource{}
+	_ resource.ResourceWithImportState  = &BucketResource{}
+	_ resource.ResourceWithUpgradeState = &BucketResource{}
 )
 
 type BucketResource struct {
@@ -38,6 +39,7 @@ func (r *BucketResource) Metadata(_ context.Context, req resource.MetadataReques
 
 func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages an S3 bucket on the ARTESCA S3 endpoint.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -123,6 +125,8 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	if plan.VersioningEnabled.ValueBool() {
+		unlock := r.s3Client.LockBucket(bucketName)
+		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, true); err != nil {
 			resp.Diagnostics.AddError("Error enabling bucket versioning", err.Error())
 			return
@@ -198,6 +202,8 @@ func (r *BucketResource) Update(ctx context.Context, req resource.UpdateRequest,
 			return
 		}
 
+		unlock := r.s3Client.LockBucket(bucketName)
+		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, plan.VersioningEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Error updating bucket versioning", err.Error())
 			return
@@ -223,6 +229,8 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	tflog.Debug(ctx, "Deleting bucket", map[string]any{"bucket": bucketName})
 
+	unlock := r.s3Client.LockBucket(bucketName)
+	defer unlock()
 	err = r.s3Client.DeleteBucket(ctx, acctCreds, bucketName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket", err.Error())
@@ -232,4 +240,10 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 func (r *BucketResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "name", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *BucketResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

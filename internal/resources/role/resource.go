@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &RoleResource{}
-	_ resource.ResourceWithImportState = &RoleResource{}
+	_ resource.Resource                 = &RoleResource{}
+	_ resource.ResourceWithImportState  = &RoleResource{}
+	_ resource.ResourceWithUpgradeState = &RoleResource{}
 )
 
 type RoleResource struct {
@@ -36,6 +37,7 @@ func (r *RoleResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages an IAM role within an ARTESCA account. The role's trust policy " +
 			"(assume_role_policy_document) cannot be updated in place — changing it forces replacement.",
 		Attributes: map[string]schema.Attribute{
@@ -214,4 +216,10 @@ func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 func (r *RoleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "name", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *RoleResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

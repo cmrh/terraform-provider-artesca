@@ -122,6 +122,10 @@ resource "artesca_user_access_key" "operator_key" {
 }
 ```
 
+## Upgrading From Account Keys
+
+Earlier versions configured account-scoped resources with `account_access_key` / `account_secret_key`. After replacing them with `account_name` in your configuration, run `tofu plan`: existing state is migrated automatically using the keys still recorded in it, and the plan shows no changes. If those keys no longer work, the plan fails with instructions to `tofu state rm` the resource and import it again (see below).
+
 ## Importing Account-Scoped Resources
 
 Import IDs for account-scoped resources start with the account name:

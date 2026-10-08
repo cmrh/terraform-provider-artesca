@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &PolicyResource{}
-	_ resource.ResourceWithImportState = &PolicyResource{}
+	_ resource.Resource                 = &PolicyResource{}
+	_ resource.ResourceWithImportState  = &PolicyResource{}
+	_ resource.ResourceWithUpgradeState = &PolicyResource{}
 )
 
 type PolicyResource struct {
@@ -36,6 +37,7 @@ func (r *PolicyResource) Metadata(_ context.Context, req resource.MetadataReques
 
 func (r *PolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 1,
 		Description: "Manages an IAM managed policy within an ARTESCA account. " +
 			"Managed policies can be attached to users, groups, and roles via the " +
 			"*_policy_attachment resources.",
@@ -228,4 +230,10 @@ func (r *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 func (r *PolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "arn", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *PolicyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

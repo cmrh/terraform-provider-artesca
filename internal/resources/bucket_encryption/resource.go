@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &BucketEncryptionResource{}
-	_ resource.ResourceWithImportState = &BucketEncryptionResource{}
+	_ resource.Resource                 = &BucketEncryptionResource{}
+	_ resource.ResourceWithImportState  = &BucketEncryptionResource{}
+	_ resource.ResourceWithUpgradeState = &BucketEncryptionResource{}
 )
 
 type BucketEncryptionResource struct {
@@ -37,6 +38,7 @@ func (r *BucketEncryptionResource) Metadata(_ context.Context, req resource.Meta
 
 func (r *BucketEncryptionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages the server-side encryption configuration of an ARTESCA bucket.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -104,6 +106,9 @@ func (r *BucketEncryptionResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketEncryption(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -167,6 +172,9 @@ func (r *BucketEncryptionResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketEncryption(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -195,6 +203,9 @@ func (r *BucketEncryptionResource) Delete(ctx context.Context, req resource.Dele
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(state.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.DeleteBucketEncryption(ctx,
 		acctCreds,
 		state.BucketName.ValueString(),
@@ -205,4 +216,10 @@ func (r *BucketEncryptionResource) Delete(ctx context.Context, req resource.Dele
 
 func (r *BucketEncryptionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "bucket_name", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *BucketEncryptionResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

@@ -102,3 +102,31 @@ func (s *AccountCredentialSource) Forget(accountName string) {
 	delete(s.ids, accountName)
 	delete(s.cache, accountName)
 }
+
+// NameForAccountID returns the name of the account with the given ID.
+func (s *AccountCredentialSource) NameForAccountID(ctx context.Context, accountID string) (string, error) {
+	token, err := s.tokens.Token(ctx)
+	if err != nil {
+		return "", fmt.Errorf("getting auth token: %w", err)
+	}
+	accounts, err := s.iam.ListAccounts(ctx, token)
+	if err != nil {
+		return "", fmt.Errorf("listing accounts: %w", err)
+	}
+	for _, a := range accounts {
+		if a.ID == accountID {
+			return a.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no account with ID %q", accountID)
+}
+
+// NameForAccessKey returns the name of the account that owns an access key,
+// via STS GetCallerIdentity.
+func (s *AccountCredentialSource) NameForAccessKey(ctx context.Context, accessKey, secretKey string) (string, error) {
+	identity, err := s.sts.GetCallerIdentity(ctx, accessKey, secretKey, "")
+	if err != nil {
+		return "", fmt.Errorf("identifying account for access key: %w", err)
+	}
+	return s.NameForAccountID(ctx, identity.Account)
+}

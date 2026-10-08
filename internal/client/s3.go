@@ -27,18 +27,31 @@ type S3Client struct {
 	endpoint                 string
 	region                   string
 	httpClient               *http.Client
-	lifecycleMu              sync.Mutex
-	replicationMu            sync.Mutex
+	bucketLocksMu            sync.Mutex
+	bucketLocks              map[string]*sync.Mutex
 	transientBackoffOverride time.Duration
 }
 
-func (c *S3Client) LockLifecycle()   { c.lifecycleMu.Lock() }
-func (c *S3Client) UnlockLifecycle() { c.lifecycleMu.Unlock() }
+// LockBucket serializes bucket-config writes (tagging, encryption, policy,
+// versioning, lifecycle, replication) to one bucket and returns the unlock
+// function. ARTESCA can silently drop some of several config writes made
+// concurrently to the same bucket, and lifecycle/replication writes are
+// read-merge-write, so every such write must hold this lock.
+func (c *S3Client) LockBucket(bucket string) (unlock func()) {
+	c.bucketLocksMu.Lock()
+	if c.bucketLocks == nil {
+		c.bucketLocks = map[string]*sync.Mutex{}
+	}
+	mu, ok := c.bucketLocks[bucket]
+	if !ok {
+		mu = &sync.Mutex{}
+		c.bucketLocks[bucket] = mu
+	}
+	c.bucketLocksMu.Unlock()
 
-// LockReplication serializes read-merge-write of a bucket's replication
-// configuration, which PutBucketReplication replaces as a whole.
-func (c *S3Client) LockReplication()   { c.replicationMu.Lock() }
-func (c *S3Client) UnlockReplication() { c.replicationMu.Unlock() }
+	mu.Lock()
+	return mu.Unlock
+}
 
 func (c *S3Client) transientBackoff() time.Duration {
 	if c.transientBackoffOverride > 0 {

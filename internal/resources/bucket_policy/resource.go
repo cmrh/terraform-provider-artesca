@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &BucketPolicyResource{}
-	_ resource.ResourceWithImportState = &BucketPolicyResource{}
+	_ resource.Resource                 = &BucketPolicyResource{}
+	_ resource.ResourceWithImportState  = &BucketPolicyResource{}
+	_ resource.ResourceWithUpgradeState = &BucketPolicyResource{}
 )
 
 type BucketPolicyResource struct {
@@ -38,6 +39,7 @@ func (r *BucketPolicyResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *BucketPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Attaches an S3 bucket policy to an ARTESCA bucket. ARTESCA validates the policy server-side; Resource ARNs that don't match the bucket are rejected with MalformedPolicy.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -95,6 +97,9 @@ func (r *BucketPolicyResource) Create(ctx context.Context, req resource.CreateRe
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
+
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
 
 	if err := r.s3Client.PutBucketPolicy(ctx,
 		acctCreds,
@@ -155,6 +160,9 @@ func (r *BucketPolicyResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketPolicy(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -182,6 +190,9 @@ func (r *BucketPolicyResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(state.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.DeleteBucketPolicy(ctx,
 		acctCreds,
 		state.BucketName.ValueString(),
@@ -205,4 +216,10 @@ func jsonEquivalent(a, b string) bool {
 		return false
 	}
 	return reflect.DeepEqual(av, bv)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *BucketPolicyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

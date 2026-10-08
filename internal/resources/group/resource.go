@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &GroupResource{}
-	_ resource.ResourceWithImportState = &GroupResource{}
+	_ resource.Resource                 = &GroupResource{}
+	_ resource.ResourceWithImportState  = &GroupResource{}
+	_ resource.ResourceWithUpgradeState = &GroupResource{}
 )
 
 type GroupResource struct {
@@ -36,6 +37,7 @@ func (r *GroupResource) Metadata(_ context.Context, req resource.MetadataRequest
 
 func (r *GroupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages an IAM group within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -185,4 +187,10 @@ func (r *GroupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 func (r *GroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "name", req, resp)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *GroupResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }

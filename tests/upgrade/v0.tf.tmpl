@@ -1,0 +1,204 @@
+terraform {
+  required_providers {
+    artesca = { source = "cmrh/artesca" }
+  }
+}
+provider "artesca" {}
+
+variable "ring" { type = map(string) }
+variable "dest_ring" { type = map(string) }
+
+resource "artesca_account" "app" {
+  name  = "upg-SUFFIX"
+  email = "upg-SUFFIX@probe.invalid"
+}
+
+resource "artesca_location" "src" {
+  name          = "upg-src-SUFFIX"
+  location_type = "location-scality-ring-s3-v1"
+  details {
+    endpoint               = var.ring.endpoint
+    access_key             = var.ring.access_key
+    secret_key             = var.ring.secret_key
+    bucket_name            = var.ring.bucket_name
+    bucket_match           = false
+    server_side_encryption = true
+  }
+}
+
+resource "artesca_location" "dst" {
+  name          = "upg-dst-SUFFIX"
+  location_type = "location-scality-ring-s3-v1"
+  details {
+    endpoint               = var.dest_ring.endpoint
+    access_key             = var.dest_ring.access_key
+    secret_key             = var.dest_ring.secret_key
+    bucket_name            = var.dest_ring.bucket_name
+    bucket_match           = false
+    server_side_encryption = true
+  }
+}
+
+resource "artesca_bucket" "src" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  name                = "upg-src-SUFFIX"
+  location_constraint = artesca_location.src.name
+  versioning_enabled  = true
+}
+
+resource "artesca_bucket" "dst" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  name                = "upg-dst-SUFFIX"
+  location_constraint = artesca_location.dst.name
+  versioning_enabled  = true
+}
+
+resource "artesca_bucket_encryption" "src" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  bucket_name        = artesca_bucket.src.name
+  sse_algorithm      = "AES256"
+  bucket_key_enabled = false
+}
+
+resource "artesca_bucket_tagging" "src" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  bucket_name = artesca_bucket.src.name
+  tags        = { env = "upgrade-test" }
+}
+
+resource "artesca_bucket_policy" "src" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  bucket_name = artesca_bucket.src.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "S"
+      Effect    = "Allow"
+      Principal = { AWS = "arn:aws:iam::${artesca_account.app.id}:root" }
+      Action    = ["s3:GetObject"]
+      Resource  = "arn:aws:s3:::${artesca_bucket.src.name}/*"
+    }]
+  })
+}
+
+resource "artesca_user" "alice" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  username = "alice"
+}
+
+resource "artesca_user_access_key" "alice" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  username = artesca_user.alice.username
+}
+
+resource "artesca_user_policy" "alice" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  username        = artesca_user.alice.username
+  policy_name     = "inline-read"
+  policy_document = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["s3:GetObject"], Resource = "*" }] })
+}
+
+resource "artesca_policy" "read" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  name            = "upg-read"
+  policy_document = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "s3:GetObject", Resource = "*" }] })
+}
+
+resource "artesca_user_policy_attachment" "alice" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  username   = artesca_user.alice.username
+  policy_arn = artesca_policy.read.arn
+}
+
+resource "artesca_group" "eng" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  name = "eng"
+}
+
+resource "artesca_group_membership" "alice" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  group_name = artesca_group.eng.name
+  username   = artesca_user.alice.username
+}
+
+resource "artesca_group_policy" "eng" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  group_name      = artesca_group.eng.name
+  policy_name     = "group-inline"
+  policy_document = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["s3:GetObject"], Resource = "arn:aws:s3:::*" }] })
+}
+
+resource "artesca_group_policy_attachment" "eng" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  group_name = artesca_group.eng.name
+  policy_arn = artesca_policy.read.arn
+}
+
+resource "artesca_role" "deployer" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  name = "deployer"
+  assume_role_policy_document = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Principal = { AWS = "arn:aws:iam::${artesca_account.app.id}:root" }, Action = "sts:AssumeRole" }]
+  })
+}
+
+resource "artesca_role_policy_attachment" "deployer" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  role_name  = artesca_role.deployer.name
+  policy_arn = artesca_policy.read.arn
+}
+
+resource "artesca_bucket_workflow_expiration" "src" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  bucket_name                        = artesca_bucket.src.name
+  enabled                            = true
+  current_version_trigger_delay_days = 90
+  filter {
+    object_key_prefix = "logs/"
+  }
+}
+
+resource "artesca_bucket_workflow_transition" "src" {
+  account_access_key = artesca_account.app.access_key
+  account_secret_key = artesca_account.app.secret_key
+  bucket_name        = artesca_bucket.src.name
+  enabled            = true
+  location_name      = artesca_location.dst.name
+  trigger_delay_days = 30
+  filter {
+    object_key_prefix = "data/"
+  }
+}
+
+resource "artesca_bucket_workflow_replication" "src" {
+  account_id  = artesca_account.app.id
+  bucket_name = artesca_bucket.src.name
+  name        = "upgrade-repl"
+  version     = 1
+  enabled     = true
+  source {
+    bucket_name = artesca_bucket.src.name
+    prefix      = "repl/"
+  }
+  destination {
+    bucket_name = artesca_bucket.dst.name
+  }
+}

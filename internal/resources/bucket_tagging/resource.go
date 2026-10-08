@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &BucketTaggingResource{}
-	_ resource.ResourceWithImportState = &BucketTaggingResource{}
+	_ resource.Resource                 = &BucketTaggingResource{}
+	_ resource.ResourceWithImportState  = &BucketTaggingResource{}
+	_ resource.ResourceWithUpgradeState = &BucketTaggingResource{}
 )
 
 type BucketTaggingResource struct {
@@ -38,6 +39,7 @@ func (r *BucketTaggingResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *BucketTaggingResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages the tag set on an ARTESCA bucket. Replaces the entire tag set on each apply.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -96,6 +98,9 @@ func (r *BucketTaggingResource) Create(ctx context.Context, req resource.CreateR
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
+
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
 
 	if err := r.s3Client.PutBucketTagging(ctx,
 		acctCreds,
@@ -165,6 +170,9 @@ func (r *BucketTaggingResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
+	unlock := r.s3Client.LockBucket(plan.BucketName.ValueString())
+	defer unlock()
+
 	if err := r.s3Client.PutBucketTagging(ctx,
 		acctCreds,
 		plan.BucketName.ValueString(),
@@ -191,6 +199,9 @@ func (r *BucketTaggingResource) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
 		return
 	}
+
+	unlock := r.s3Client.LockBucket(state.BucketName.ValueString())
+	defer unlock()
 
 	if err := r.s3Client.DeleteBucketTagging(ctx,
 		acctCreds,
@@ -234,4 +245,10 @@ func mapFromTags(ctx context.Context, tags []client.BucketTag) (types.Map, diag.
 		elements[t.Key] = t.Value
 	}
 	return types.MapValueFrom(ctx, types.StringType, elements)
+}
+
+// UpgradeState migrates v0 state, which held the account's access key pair,
+// to account_name.
+func (r *BucketTaggingResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
 }
