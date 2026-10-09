@@ -12,11 +12,16 @@ import (
 const DefaultReplicationRole = "arn:aws:iam::root:role/s3-replication-role"
 
 // ReplicationRule is one rule of a bucket's S3 replication configuration.
+// Rules returned by GetBucketReplication are written back by
+// PutBucketReplication exactly as read; to change a rule, replace it with a
+// new ReplicationRule.
 type ReplicationRule struct {
 	ID                string
 	Status            string // "Enabled" or "Disabled"
 	Prefix            string
 	DestinationBucket string // bucket name, not ARN
+
+	raw string // inner XML as read from the server
 }
 
 // BucketReplication is a bucket's S3 replication configuration.
@@ -39,6 +44,18 @@ type replicationRuleX struct {
 	Destination struct {
 		Bucket string `xml:"Bucket"`
 	} `xml:"Destination"`
+	Inner string `xml:",innerxml"` // set on read only
+}
+
+// MarshalXML writes a rule read from the server back unchanged, keeping
+// elements the provider doesn't model (destination StorageClass, ...). Rules
+// built by the provider are encoded from their fields.
+func (r replicationRuleX) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if r.Inner != "" {
+		return e.EncodeElement(rawXML{Inner: r.Inner}, start)
+	}
+	type plain replicationRuleX
+	return e.EncodeElement(plain(r), start)
 }
 
 const s3BucketARNPrefix = "arn:aws:s3:::"
@@ -69,6 +86,7 @@ func (c *S3Client) GetBucketReplication(ctx context.Context, creds Credentials, 
 			Status:            r.Status,
 			Prefix:            r.Prefix,
 			DestinationBucket: strings.TrimPrefix(r.Destination.Bucket, s3BucketARNPrefix),
+			raw:               r.Inner,
 		})
 	}
 	return out, nil
@@ -78,7 +96,7 @@ func (c *S3Client) GetBucketReplication(ctx context.Context, creds Credentials, 
 func (c *S3Client) PutBucketReplication(ctx context.Context, creds Credentials, bucket string, cfg BucketReplication) error {
 	config := replicationConfiguration{Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/", Role: cfg.Role}
 	for _, r := range cfg.Rules {
-		x := replicationRuleX{ID: r.ID, Prefix: r.Prefix, Status: r.Status}
+		x := replicationRuleX{ID: r.ID, Prefix: r.Prefix, Status: r.Status, Inner: r.raw}
 		x.Destination.Bucket = s3BucketARNPrefix + r.DestinationBucket
 		config.Rules = append(config.Rules, x)
 	}

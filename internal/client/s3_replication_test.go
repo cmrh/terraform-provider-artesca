@@ -35,8 +35,48 @@ func TestGetBucketReplication(t *testing.T) {
 		{ID: "r2", Status: "Disabled", Prefix: "logs/", DestinationBucket: "dst2"},
 	}
 	for i := range want {
-		if cfg.Rules[i] != want[i] {
-			t.Errorf("rule %d = %+v, want %+v", i, cfg.Rules[i], want[i])
+		got := cfg.Rules[i]
+		if got.raw == "" {
+			t.Errorf("rule %d: raw XML not kept", i)
+		}
+		got.raw = ""
+		if got != want[i] {
+			t.Errorf("rule %d = %+v, want %+v", i, got, want[i])
+		}
+	}
+}
+
+// Rules read from the server are written back unchanged, including elements
+// the provider doesn't model; new rules are encoded from their fields.
+func TestPutBucketReplicationKeepsUnmodelledElements(t *testing.T) {
+	const uiRule = `<ID>ui</ID><Prefix>ui/</Prefix><Status>Enabled</Status><Destination><Bucket>arn:aws:s3:::dst</Bucket><StorageClass>cold-loc</StorageClass></Destination>`
+	var put string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`<ReplicationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule>` + uiRule +
+				`</Rule><Role>arn:aws:iam::root:role/s3-replication-role</Role></ReplicationConfiguration>`))
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		put = string(body)
+	}))
+	defer server.Close()
+
+	c := NewS3Client(server.URL, "us-east-1", false)
+	cfg, err := c.GetBucketReplication(context.Background(), testCreds, "src")
+	if err != nil {
+		t.Fatalf("GetBucketReplication returned error: %v", err)
+	}
+	cfg.Rules = append(cfg.Rules, ReplicationRule{ID: "tf", Status: "Enabled", Prefix: "tf/", DestinationBucket: "dst"})
+	if err := c.PutBucketReplication(context.Background(), testCreds, "src", *cfg); err != nil {
+		t.Fatalf("PutBucketReplication returned error: %v", err)
+	}
+	for _, want := range []string{
+		"<Rule>" + uiRule + "</Rule>",
+		`<Rule><ID>tf</ID><Prefix>tf/</Prefix><Status>Enabled</Status><Destination><Bucket>arn:aws:s3:::dst</Bucket></Destination></Rule>`,
+	} {
+		if !strings.Contains(put, want) {
+			t.Errorf("body missing %s:\n%s", want, put)
 		}
 	}
 }
