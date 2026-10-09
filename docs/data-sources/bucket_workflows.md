@@ -9,14 +9,14 @@ description: |-
 
 Lists the workflows configured on an ARTESCA bucket. Returns three lists — `replications`, `expirations`, and `transitions` — each summarizing one workflow.
 
-Backed by the management API endpoint `POST /instance/{instanceId}/account/{accountId}/workflow/search` with the request body `{"bucketList": ["<bucket>"]}`.
+The provider resolves `account_name` to the account ID and searches the bucket's workflows through the management API.
 
 ## Example
 
 ```hcl
 data "artesca_bucket_workflows" "audit" {
-  account_id  = artesca_account.example.id
-  bucket_name = "production-data"
+  account_name = artesca_account.example.name
+  bucket_name  = "production-data"
 }
 
 output "replication_count" {
@@ -32,8 +32,7 @@ output "expiration_workflow_ids" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `instance_id` | String | Optional | Instance ID. Defaults to the provider's `instance_id` if omitted. |
-| `account_id` | String | Yes | The account ID that owns the bucket. |
+| `account_name` | String | Yes | The account that owns the bucket. |
 | `bucket_name` | String | Yes | The bucket whose workflows should be listed. |
 
 ## Attributes Exported

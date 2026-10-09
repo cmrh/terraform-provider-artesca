@@ -20,9 +20,9 @@ func TestAccDataSourceBucketWorkflows_basic(t *testing.T) {
 			{
 				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "") + `
 data "artesca_bucket_workflows" "lookup" {
-  account_id  = artesca_account.test.id
-  bucket_name = artesca_bucket.source.name
-  depends_on  = [artesca_bucket_workflow_replication.test]
+  account_name = artesca_account.test.name
+  bucket_name  = artesca_bucket.source.name
+  depends_on   = [artesca_bucket_workflow_replication.test]
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -31,7 +31,6 @@ data "artesca_bucket_workflows" "lookup" {
 					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.source_bucket_name", rSrcBkt),
 					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.destination_bucket_name", rDstBkt),
 					resource.TestCheckResourceAttrSet("data.artesca_bucket_workflows.lookup", "replications.0.workflow_id"),
-					resource.TestCheckResourceAttrSet("data.artesca_bucket_workflows.lookup", "instance_id"),
 				),
 			},
 		},
@@ -52,9 +51,9 @@ func TestAccDataSourceBucketWorkflows_empty(t *testing.T) {
 					testAccLocationSourceConfig(rLoc) +
 					testAccBucketConfig("test", rBkt, "artesca_location.source.name", false) + `
 data "artesca_bucket_workflows" "lookup" {
-  account_id  = artesca_account.test.id
-  bucket_name = artesca_bucket.test.name
-  depends_on  = [artesca_bucket.test]
+  account_name = artesca_account.test.name
+  bucket_name  = artesca_bucket.test.name
+  depends_on   = [artesca_bucket.test]
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(

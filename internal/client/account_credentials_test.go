@@ -268,3 +268,22 @@ func TestAccountCredentialSourceNameLookups(t *testing.T) {
 		t.Errorf("NameForAccessKey = (%q, %v), want (app, nil)", name, err)
 	}
 }
+
+func TestAccountCredentialSourceAccountID(t *testing.T) {
+	var calls int32
+	src := newTestAccountCredentialSource(t, oneAccountJSON, &calls, time.Now)
+
+	id, err := src.AccountID(context.Background(), "app")
+	if err != nil || id != "111111111111" {
+		t.Fatalf("AccountID = (%q, %v), want 111111111111", id, err)
+	}
+	if _, err := src.AccountID(context.Background(), "missing"); err == nil || !strings.Contains(err.Error(), `account "missing" not found`) {
+		t.Errorf("err = %v, want not-found error", err)
+	}
+	if _, err := src.AccountID(context.Background(), ""); err == nil {
+		t.Error("expected error for empty account name")
+	}
+	if calls != 0 {
+		t.Errorf("STS calls = %d, want 0 (AccountID needs no credentials)", calls)
+	}
+}

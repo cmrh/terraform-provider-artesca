@@ -20,7 +20,7 @@ var accountScopedResources = []string{
 }
 
 var accountScopedDataSources = []string{
-	"artesca_group", "artesca_policy", "artesca_role", "artesca_user",
+	"artesca_group", "artesca_policy", "artesca_role", "artesca_user", "artesca_bucket_workflows",
 }
 
 func TestAccountScopedResourceSchemas(t *testing.T) {

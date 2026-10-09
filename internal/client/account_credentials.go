@@ -66,17 +66,9 @@ func (s *AccountCredentialSource) For(ctx context.Context, accountName string) (
 		return Credentials{}, fmt.Errorf("getting auth token: %w", err)
 	}
 
-	accountID, ok := s.ids[accountName]
-	if !ok {
-		acct, err := s.iam.GetAccountByName(ctx, token, accountName)
-		if err != nil {
-			return Credentials{}, fmt.Errorf("looking up account %q: %w", accountName, err)
-		}
-		if acct == nil || acct.ID == "" {
-			return Credentials{}, fmt.Errorf("account %q not found", accountName)
-		}
-		accountID = acct.ID
-		s.ids[accountName] = accountID
+	accountID, err := s.lookupID(ctx, token, accountName)
+	if err != nil {
+		return Credentials{}, err
 	}
 
 	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, accountRoleName)
@@ -92,6 +84,38 @@ func (s *AccountCredentialSource) For(ctx context.Context, accountName string) (
 	}
 	s.cache[accountName] = cachedAccountCredentials{creds: creds, expires: assumed.Expiration}
 	return creds, nil
+}
+
+// AccountID returns the ID of the named account.
+func (s *AccountCredentialSource) AccountID(ctx context.Context, accountName string) (string, error) {
+	if accountName == "" {
+		return "", fmt.Errorf("account_name is empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	token, err := s.tokens.Token(ctx)
+	if err != nil {
+		return "", fmt.Errorf("getting auth token: %w", err)
+	}
+	return s.lookupID(ctx, token, accountName)
+}
+
+// lookupID returns the account's ID from the cache or IAM. s.mu must be held.
+func (s *AccountCredentialSource) lookupID(ctx context.Context, token, accountName string) (string, error) {
+	if id, ok := s.ids[accountName]; ok {
+		return id, nil
+	}
+	acct, err := s.iam.GetAccountByName(ctx, token, accountName)
+	if err != nil {
+		return "", fmt.Errorf("looking up account %q: %w", accountName, err)
+	}
+	if acct == nil || acct.ID == "" {
+		return "", fmt.Errorf("account %q not found", accountName)
+	}
+	s.ids[accountName] = acct.ID
+	return acct.ID, nil
 }
 
 // Forget drops cached credentials and the cached account ID for accountName,

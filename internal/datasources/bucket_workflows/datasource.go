@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -13,7 +14,8 @@ import (
 var _ datasource.DataSource = &BucketWorkflowsDataSource{}
 
 type BucketWorkflowsDataSource struct {
-	client *client.ManagementClient
+	client   *client.ManagementClient
+	accounts *client.AccountCredentialSource
 }
 
 func NewBucketWorkflowsDataSource() datasource.DataSource {
@@ -28,15 +30,7 @@ func (d *BucketWorkflowsDataSource) Schema(_ context.Context, _ datasource.Schem
 	resp.Schema = schema.Schema{
 		Description: "Lists the workflows (replication, lifecycle expiration, transition) configured on an ARTESCA bucket. Useful for asserting on or iterating over the workflow set without managing each one individually.",
 		Attributes: map[string]schema.Attribute{
-			"instance_id": schema.StringAttribute{
-				Description: "The instance ID. Defaults to the provider's instance_id if omitted.",
-				Optional:    true,
-				Computed:    true,
-			},
-			"account_id": schema.StringAttribute{
-				Description: "The account ID that owns the bucket.",
-				Required:    true,
-			},
+			creds.AttrAccountName: creds.DataSourceAttribute(),
 			"bucket_name": schema.StringAttribute{
 				Description: "The bucket whose workflows should be listed.",
 				Required:    true,
@@ -103,6 +97,7 @@ func (d *BucketWorkflowsDataSource) Configure(_ context.Context, req datasource.
 		return
 	}
 	d.client = providerData.Management
+	d.accounts = providerData.Accounts
 }
 
 func (d *BucketWorkflowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
@@ -112,22 +107,21 @@ func (d *BucketWorkflowsDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	instanceID := data.InstanceID.ValueString()
-	if instanceID == "" {
-		instanceID = d.client.InstanceID
+	accountID, err := d.accounts.AccountID(ctx, data.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error listing bucket workflows", err.Error())
+		return
 	}
-	accountID := data.AccountID.ValueString()
 	bucketName := data.BucketName.ValueString()
 
-	results, err := d.client.SearchWorkflows(ctx, instanceID, accountID, []string{bucketName})
+	results, err := d.client.SearchWorkflows(ctx, d.client.InstanceID, accountID, []string{bucketName})
 	if err != nil {
 		resp.Diagnostics.AddError("Error listing bucket workflows", err.Error())
 		return
 	}
 
 	out := BucketWorkflowsDataSourceModel{
-		InstanceID:   types.StringValue(instanceID),
-		AccountID:    data.AccountID,
+		AccountName:  data.AccountName,
 		BucketName:   data.BucketName,
 		Replications: make([]ReplicationSummary, 0),
 		Expirations:  make([]ExpirationSummary, 0),
