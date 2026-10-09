@@ -56,3 +56,7 @@ tofu import artesca_role.deployer <account_name>/<name>
 ```
 
 The import ID starts with the name of the account that owns the resource.
+
+## Notes
+
+- Names are unique within the account regardless of case: `Alice` and `alice` can't both exist.

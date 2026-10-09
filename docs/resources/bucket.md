@@ -54,5 +54,6 @@ The import ID starts with the name of the account that owns the resource.
 
 - `name` and `location_constraint` force replacement -- buckets cannot be renamed or relocated.
 - `versioning_enabled` can be toggled in-place.
+- A bucket must be empty to be deleted, including every object version when versioning is enabled.
 - Enable versioning before configuring replication workflows on a bucket.
 - Uses per-account S3 credentials, not provider-level OIDC credentials.

@@ -130,3 +130,9 @@ After import, sensitive fields (`secret_key`, `password`) will be unknown in sta
 - `name` and `location_type` force replacement -- locations cannot be renamed or change type.
 - The `details` block attributes are backend-specific. Only include fields relevant to your `location_type`.
 - Sensitive fields (`secret_key`, `password`) are preserved from state and not re-read from the API.
+- ARTESCA supports at most 10 storage locations.
+- For Amazon S3 and RING S3 locations, the target bucket must have versioning enabled.
+- For RING S3, ARTESCA S3, and CRR locations, the remote server's CA certificate must be in the ARTESCA truststore for a TLS connection.
+- A location can't be deleted while it holds buckets or objects.
+- CRR locations (`location-scality-crr-v1`) are for replication only: they can't back a bucket or be a transition target.
+- `us-east-1` is ARTESCA's default location; don't change it.
