@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`email` and `access_key` from `data.artesca_account`, and `email` from `data.artesca_accounts`.** The account listing does not return them (#35).
 - **`account_access_key` / `account_secret_key`** from the 17 account-scoped resources and `data.artesca_group`, `data.artesca_policy`, `data.artesca_role`, `data.artesca_user`. Use `account_name` (#36).
+- **`policy` from `ephemeral.artesca_assumed_role_credentials`.** ARTESCA accepts STS session policies but does not enforce them (#64).
 
 ### Added
 
