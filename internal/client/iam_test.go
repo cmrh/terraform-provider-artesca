@@ -1332,3 +1332,42 @@ func TestListAttachedRolePolicies(t *testing.T) {
 		t.Errorf("unexpected arns: %v", arns)
 	}
 }
+
+func TestCreatePolicyVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm: %v", err)
+			return
+		}
+		if r.Form.Get("Action") != "CreatePolicyVersion" || r.Form.Get("PolicyArn") != "arn" ||
+			r.Form.Get("PolicyDocument") != "{}" || r.Form.Get("SetAsDefault") != "true" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.CreatePolicyVersion(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn", "{}"); err != nil {
+		t.Fatalf("CreatePolicyVersion: %v", err)
+	}
+}
+
+func TestDeletePolicyVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm: %v", err)
+			return
+		}
+		if r.Form.Get("Action") != "DeletePolicyVersion" || r.Form.Get("PolicyArn") != "arn" || r.Form.Get("VersionId") != "v1" {
+			t.Errorf("unexpected form: %v", r.Form)
+		}
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	client := NewIAMClient(server.URL, "us-east-1", false)
+	if err := client.DeletePolicyVersion(context.Background(), Credentials{AccessKey: "ak", SecretKey: "sk"}, "arn", "v1"); err != nil {
+		t.Fatalf("DeletePolicyVersion: %v", err)
+	}
+}

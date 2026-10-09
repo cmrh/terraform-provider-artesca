@@ -6,6 +6,7 @@ import (
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
+	"github.com/cmrh/terraform-provider-artesca/internal/policydoc"
 	"github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -57,6 +58,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					"so changing this forces the role to be replaced.",
 				Required: true,
 				PlanModifiers: []planmodifier.String{
+					policydoc.EquivalenceModifier(),
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
@@ -173,11 +175,8 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.RoleID = types.StringValue(role.RoleId)
 	state.ARN = types.StringValue(role.Arn)
 	state.Path = types.StringValue(role.Path)
-	// On import, the trust policy and description are empty — populate from
-	// the API. Otherwise preserve state to avoid spurious JSON-whitespace drift.
-	if state.AssumeRolePolicyDocument.IsNull() || state.AssumeRolePolicyDocument.ValueString() == "" {
-		state.AssumeRolePolicyDocument = types.StringValue(role.AssumeRolePolicyDocument)
-	}
+	state.AssumeRolePolicyDocument = policydoc.Refresh(state.AssumeRolePolicyDocument, role.AssumeRolePolicyDocument)
+	// On import, the description is empty — populate it from the API.
 	if state.Description.IsNull() && role.Description != "" {
 		state.Description = types.StringValue(role.Description)
 	}

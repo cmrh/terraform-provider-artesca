@@ -6,6 +6,7 @@ import (
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
+	"github.com/cmrh/terraform-provider-artesca/internal/policydoc"
 	"github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -57,6 +58,7 @@ func (r *PolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "The JSON policy document.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
+					policydoc.EquivalenceModifier(),
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
@@ -178,23 +180,19 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.PolicyID = types.StringValue(pol.PolicyId)
 	state.Path = types.StringValue(pol.Path)
 	state.DefaultVersionID = types.StringValue(pol.DefaultVersionId)
-	// On import, name/description/policy_document are empty — populate them
-	// from the API. Otherwise preserve state to avoid spurious JSON-whitespace
-	// drift on policy_document.
+	// On import, name and description are empty — populate them from the API.
 	if state.Name.IsNull() || state.Name.ValueString() == "" {
 		state.Name = types.StringValue(pol.PolicyName)
 	}
 	if state.Description.IsNull() && pol.Description != "" {
 		state.Description = types.StringValue(pol.Description)
 	}
-	if state.PolicyDocument.IsNull() || state.PolicyDocument.ValueString() == "" {
-		doc, err := r.iamClient.GetPolicyDocument(ctx, acctCreds, state.ARN.ValueString(), pol.DefaultVersionId)
-		if err != nil {
-			resp.Diagnostics.AddError("Error reading managed policy document", err.Error())
-			return
-		}
-		state.PolicyDocument = types.StringValue(doc)
+	doc, err := r.iamClient.GetPolicyDocument(ctx, acctCreds, state.ARN.ValueString(), pol.DefaultVersionId)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading managed policy document", err.Error())
+		return
 	}
+	state.PolicyDocument = policydoc.Refresh(state.PolicyDocument, doc)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

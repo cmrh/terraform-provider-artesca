@@ -7,6 +7,7 @@ import (
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
+	"github.com/cmrh/terraform-provider-artesca/internal/policydoc"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -14,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -66,6 +66,9 @@ func (r *UserPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"policy_document": schema.StringAttribute{
 				Description: "The JSON policy document. Can be provided via file(), jsonencode(), or as a raw JSON string.",
 				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					policydoc.EquivalenceModifier(),
+				},
 				Validators: []validator.String{
 					validators.JSONDocument{},
 				},
@@ -150,12 +153,7 @@ func (r *UserPolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// On import, state.PolicyDocument is empty — populate from the API so
-	// the resource isn't half-constructed. Otherwise keep state as canonical
-	// to avoid JSON-formatting drift.
-	if state.PolicyDocument.IsNull() || state.PolicyDocument.ValueString() == "" {
-		state.PolicyDocument = types.StringValue(policyDoc)
-	}
+	state.PolicyDocument = policydoc.Refresh(state.PolicyDocument, policyDoc)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

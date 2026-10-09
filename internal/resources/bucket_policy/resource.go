@@ -2,19 +2,17 @@ package bucketpolicy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
+	"github.com/cmrh/terraform-provider-artesca/internal/policydoc"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -60,7 +58,7 @@ func (r *BucketPolicyResource) Schema(_ context.Context, _ resource.SchemaReques
 					validators.JSONDocument{},
 				},
 				PlanModifiers: []planmodifier.String{
-					policyEquivalenceModifier{},
+					policydoc.EquivalenceModifier(),
 				},
 			},
 		},
@@ -139,9 +137,7 @@ func (r *BucketPolicyResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	if !jsonEquivalent(state.Policy.ValueString(), remote) {
-		state.Policy = types.StringValue(remote)
-	}
+	state.Policy = policydoc.Refresh(state.Policy, remote)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -203,19 +199,6 @@ func (r *BucketPolicyResource) Delete(ctx context.Context, req resource.DeleteRe
 
 func (r *BucketPolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	creds.ImportByID(ctx, "bucket_name", req, resp)
-}
-
-// jsonEquivalent reports whether two JSON documents represent the same value,
-// ignoring whitespace and key ordering. Returns false on parse error.
-func jsonEquivalent(a, b string) bool {
-	var av, bv any
-	if err := json.Unmarshal([]byte(a), &av); err != nil {
-		return false
-	}
-	if err := json.Unmarshal([]byte(b), &bv); err != nil {
-		return false
-	}
-	return reflect.DeepEqual(av, bv)
 }
 
 // UpgradeState migrates v0 state, which held the account's access key pair,

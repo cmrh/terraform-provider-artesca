@@ -708,6 +708,34 @@ func (c *IAMClient) GetPolicyDocument(ctx context.Context, creds Credentials, po
 	return decoded, nil
 }
 
+// CreatePolicyVersion adds a version to a managed policy and makes it the
+// default. Acceptance tests use it to change a policy outside Terraform.
+func (c *IAMClient) CreatePolicyVersion(ctx context.Context, creds Credentials, policyArn, policyDocument string) error {
+	params := url.Values{
+		"Action":         {"CreatePolicyVersion"},
+		"PolicyArn":      {policyArn},
+		"PolicyDocument": {policyDocument},
+		"SetAsDefault":   {"true"},
+	}
+	if _, err := c.doSignedRequest(ctx, creds, params); err != nil {
+		return fmt.Errorf("create policy version: %w", err)
+	}
+	return nil
+}
+
+// DeletePolicyVersion deletes a non-default version of a managed policy.
+func (c *IAMClient) DeletePolicyVersion(ctx context.Context, creds Credentials, policyArn, versionId string) error {
+	params := url.Values{
+		"Action":    {"DeletePolicyVersion"},
+		"PolicyArn": {policyArn},
+		"VersionId": {versionId},
+	}
+	if _, err := c.doSignedRequest(ctx, creds, params); err != nil {
+		return fmt.Errorf("delete policy version: %w", err)
+	}
+	return nil
+}
+
 func (c *IAMClient) DeletePolicy(ctx context.Context, creds Credentials, policyArn string) error {
 	params := url.Values{
 		"Action":    {"DeletePolicy"},
