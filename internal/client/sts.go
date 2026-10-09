@@ -127,7 +127,6 @@ type getCallerIdentityResponse struct {
 type AssumeRoleOptions struct {
 	DurationSeconds int64
 	ExternalID      string
-	Policy          string
 }
 
 // AssumeRole calls sts:AssumeRole and returns temporary credentials.
@@ -142,9 +141,6 @@ func (c *STSClient) AssumeRole(ctx context.Context, accessKey, secretKey, roleAr
 	}
 	if opts.ExternalID != "" {
 		params.Set("ExternalId", opts.ExternalID)
-	}
-	if opts.Policy != "" {
-		params.Set("Policy", opts.Policy)
 	}
 
 	body, err := c.doSignedRequest(ctx, accessKey, secretKey, "", params)

@@ -14,7 +14,6 @@ type AssumedRoleCredentialsModel struct {
 	RoleSessionName types.String `tfsdk:"role_session_name"`
 	DurationSeconds types.Int64  `tfsdk:"duration_seconds"`
 	ExternalID      types.String `tfsdk:"external_id"`
-	Policy          types.String `tfsdk:"policy"`
 
 	// Returned credentials.
 	AccessKeyID     types.String `tfsdk:"access_key_id"`

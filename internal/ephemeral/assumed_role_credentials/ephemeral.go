@@ -56,10 +56,6 @@ func (r *AssumedRoleCredentialsEphemeralResource) Schema(_ context.Context, _ ep
 				Description: "Optional external ID required by the role's trust policy.",
 				Optional:    true,
 			},
-			"policy": schema.StringAttribute{
-				Description: "Optional inline session policy (JSON). Further restricts the assumed permissions.",
-				Optional:    true,
-			},
 			"access_key_id": schema.StringAttribute{
 				Description: "Returned temporary access key ID.",
 				Computed:    true,
@@ -128,7 +124,6 @@ func (r *AssumedRoleCredentialsEphemeralResource) Open(ctx context.Context, req 
 	opts := client.AssumeRoleOptions{
 		DurationSeconds: data.DurationSeconds.ValueInt64(),
 		ExternalID:      data.ExternalID.ValueString(),
-		Policy:          data.Policy.ValueString(),
 	}
 
 	creds, err := r.stsClient.AssumeRole(ctx,

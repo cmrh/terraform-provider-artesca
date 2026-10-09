@@ -141,8 +141,8 @@ func TestAssumeRoleWithOptions(t *testing.T) {
 		if r.Form.Get("ExternalId") != "ext-1" {
 			t.Errorf("ExternalId = %q", r.Form.Get("ExternalId"))
 		}
-		if r.Form.Get("Policy") != "{}" {
-			t.Errorf("Policy = %q", r.Form.Get("Policy"))
+		if _, ok := r.Form["Policy"]; ok {
+			t.Errorf("Policy sent: %q", r.Form.Get("Policy"))
 		}
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte(assumeRoleSuccessXML))
@@ -151,7 +151,7 @@ func TestAssumeRoleWithOptions(t *testing.T) {
 
 	client := NewSTSClient(server.URL, "us-east-1", false)
 	_, err := client.AssumeRole(context.Background(), "ak", "sk", "arn:aws:iam::123:role/myrole", "test-session",
-		AssumeRoleOptions{DurationSeconds: 7200, ExternalID: "ext-1", Policy: "{}"})
+		AssumeRoleOptions{DurationSeconds: 7200, ExternalID: "ext-1"})
 	if err != nil {
 		t.Fatalf("AssumeRole: %v", err)
 	}

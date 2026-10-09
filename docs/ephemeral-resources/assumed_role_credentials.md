@@ -65,7 +65,8 @@ check "assume_role_succeeded" {
 | `role_session_name` | String | Yes | Session name. Recorded in the assumed-role ARN; useful for audit log correlation. |
 | `duration_seconds` | Int64 | No  | Session lifetime. Defaults to STS's default (3600s / 1 hour) when omitted. |
 | `external_id` | String | No  | External ID, if the role's trust policy requires one. |
-| `policy` | String | No  | Inline session policy (JSON). Further restricts the assumed-role permissions. |
+
+~> **Note:** ARTESCA does not enforce STS session policies, so this resource has no `policy` argument. Restrict access through the role's attached policies instead.
 
 ## Attributes Exported
 
