@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &ReplicationResource{}
-	_ resource.ResourceWithImportState = &ReplicationResource{}
+	_ resource.Resource                   = &ReplicationResource{}
+	_ resource.ResourceWithImportState    = &ReplicationResource{}
+	_ resource.ResourceWithValidateConfig = &ReplicationResource{}
 )
 
 type ReplicationResource struct {
@@ -123,6 +124,22 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				},
 			},
 		},
+	}
+}
+
+// ValidateConfig requires the source and destination blocks; a block left out
+// is null, so the attributes required inside it aren't checked otherwise.
+func (r *ReplicationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config ReplicationResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if config.Source == nil {
+		resp.Diagnostics.AddAttributeError(path.Root("source"), "Missing source block", "A source block is required.")
+	}
+	if config.Destination == nil {
+		resp.Diagnostics.AddAttributeError(path.Root("destination"), "Missing destination block", "A destination block is required.")
 	}
 }
 

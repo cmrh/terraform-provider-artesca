@@ -39,7 +39,7 @@ func UpgradeFromAccountKeys(res resource.Resource, accounts func() *client.Accou
 					return src.NameForAccessKey(ctx, accessKey, secretKey)
 				})
 				if err != nil {
-					resp.Diagnostics.AddError("Cannot upgrade state", upgradeErrorDetail(err))
+					UpgradeError(resp, res, err)
 					return
 				}
 				values[AttrAccountName] = name
@@ -69,16 +69,21 @@ func resolveAccountName(accounts func() *client.AccountCredentialSource, lookup 
 	return lookup(src)
 }
 
-// upgradeErrorDetail explains a failed upgrade and how to migrate manually.
-func upgradeErrorDetail(err error) string {
-	return fmt.Sprintf("Could not determine account_name for this resource: %s.\n\n"+
-		"To migrate it manually, remove it from state with `tofu state rm <address>` and "+
-		"import it with `tofu import <address> <account_name>/<id>` (see the resource's Import documentation).", err)
+// upgradeErrorDetail explains a failed upgrade and how to migrate manually:
+// re-import when the resource supports it, otherwise recreate it.
+func upgradeErrorDetail(res resource.Resource, err error) string {
+	detail := fmt.Sprintf("Could not determine account_name for this resource: %s.\n\n", err)
+	if _, ok := res.(resource.ResourceWithImportState); ok {
+		return detail + "To migrate it manually, remove it from state with `tofu state rm <address>` and " +
+			"import it with `tofu import <address> <account_name>/<id>` (see the resource's Import documentation)."
+	}
+	return detail + "This resource can't be imported. Remove it from state with `tofu state rm <address>` " +
+		"and apply again to create it anew."
 }
 
-// UpgradeError adds the standard failed-upgrade diagnostic.
-func UpgradeError(resp *resource.UpgradeStateResponse, err error) {
-	resp.Diagnostics.AddError("Cannot upgrade state", upgradeErrorDetail(err))
+// UpgradeError adds the standard failed-upgrade diagnostic for res.
+func UpgradeError(resp *resource.UpgradeStateResponse, res resource.Resource, err error) {
+	resp.Diagnostics.AddError("Cannot upgrade state", upgradeErrorDetail(res, err))
 }
 
 // DecodeRawState decodes the prior state's JSON attributes.
