@@ -64,6 +64,7 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 | `bucket_name` | String | Target bucket on the backend. |
 | `bucket_match` | Boolean | Whether to use bucket matching. |
 | `endpoint` | String | Custom endpoint URL (for S3-compatible backends). |
+| `sts_endpoint` | String | STS endpoint of the destination site. Required for `location-scality-crr-v1`. |
 | `region` | String | AWS region or equivalent. |
 | `server_side_encryption` | Boolean | Ask Amazon S3 to encrypt stored objects (SSE-S3). Only valid for `location-aws-s3-v1`. |
 | `storage_class` | String | Storage class (e.g., `STANDARD`, `GLACIER`). |
@@ -106,7 +107,7 @@ The provider validates these requirements at `plan` time. Types not listed below
 | `location-nfs-mount-v1` | `endpoint` |
 | `location-dmf-v1` | `endpoint`, `username`, `password`, `repo_id`, `ns_id` |
 | `location-miria-v1` | `endpoint`, `username`, `password`, `repo_id` |
-| `location-scality-crr-v1` | `endpoint`, `access_key`, `secret_key` |
+| `location-scality-crr-v1` | `endpoint`, `sts_endpoint`, `access_key`, `secret_key` |
 
 ## Attributes Exported
 

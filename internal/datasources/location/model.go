@@ -24,6 +24,7 @@ type LocationDetailsDataModel struct {
 	BucketName           types.String `tfsdk:"bucket_name"`
 	BucketMatch          types.Bool   `tfsdk:"bucket_match"`
 	Endpoint             types.String `tfsdk:"endpoint"`
+	StsEndpoint          types.String `tfsdk:"sts_endpoint"`
 	Region               types.String `tfsdk:"region"`
 	ServerSideEncryption types.Bool   `tfsdk:"server_side_encryption"`
 	StorageClass         types.String `tfsdk:"storage_class"`

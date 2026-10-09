@@ -31,6 +31,44 @@ func TestAccLocation_basic(t *testing.T) {
 	})
 }
 
+// The destination RING S3 Connector is an S3C site, which serves STS on its S3 endpoint.
+func TestAccLocation_crr(t *testing.T) {
+	rName := randomName("tf-acc-crr")
+	endpoint := os.Getenv("TF_VAR_dest_ring_s3_endpoint")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckLocationDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+resource "artesca_location" "crr" {
+  name          = %q
+  location_type = "location-scality-crr-v1"
+
+  details {
+    endpoint     = %q
+    sts_endpoint = %q
+    access_key   = %q
+    secret_key   = %q
+  }
+}
+
+data "artesca_location" "crr" {
+  name = artesca_location.crr.name
+}
+`, rName, endpoint, endpoint, os.Getenv("TF_VAR_dest_ring_s3_access_key"), os.Getenv("TF_VAR_dest_ring_s3_secret_key")),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("artesca_location.crr", "details.sts_endpoint", endpoint),
+					resource.TestCheckNoResourceAttr("artesca_location.crr", "details.region"),
+					resource.TestCheckResourceAttr("data.artesca_location.crr", "details.sts_endpoint", endpoint),
+				),
+			},
+		},
+	})
+}
+
 func TestAccLocation_update(t *testing.T) {
 	rName := randomName("tf-acc-loc")
 
@@ -95,6 +133,30 @@ resource "artesca_location" "test" {
 }
 `,
 				ExpectError: regexp.MustCompile(`(?s)details\.chord_cos is required.*location-scality-sproxyd-v1`),
+			},
+		},
+	})
+}
+
+func TestAccLocation_validateConfigCRRMissingSTSEndpoint(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_location" "test" {
+  name          = "tf-acc-loc-crr"
+  location_type = "location-scality-crr-v1"
+
+  details {
+    endpoint   = "https://s3.dst.example.com"
+    access_key = "ak"
+    secret_key = "sk"
+  }
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)details\.sts_endpoint is required.*location-scality-crr-v1`),
 			},
 		},
 	})

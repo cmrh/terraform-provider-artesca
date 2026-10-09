@@ -27,6 +27,7 @@ type LocationDetails struct {
 	BucketName           string   `json:"bucketName,omitempty"`
 	BucketMatch          *bool    `json:"bucketMatch,omitempty"`
 	Endpoint             string   `json:"endpoint,omitempty"`
+	StsEndpoint          string   `json:"stsEndpoint,omitempty"`
 	Region               string   `json:"region,omitempty"`
 	ServerSideEncryption *bool    `json:"serverSideEncryption,omitempty"`
 	StorageClass         string   `json:"storageClass,omitempty"`
