@@ -66,7 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **data.artesca_user**, **data.artesca_group**, **data.artesca_role**, **data.artesca_policy**: Look up existing IAM objects without managing them.
 - **data.artesca_caller_identity**: Resolve the identity (`account`, `user_id`, `arn`) associated with an access key via STS `GetCallerIdentity`.
 - **data.artesca_bucket_workflows**: List the workflows (replication / expiration / transition) configured on a bucket via management-API workflow search.
-- **data.artesca_instance**: Connected ARTESCA instance metadata + health status.
 
 #### Ephemeral resources
 - **ephemeral.artesca_assumed_role_credentials**: Mint short-lived role credentials via STS `AssumeRole`. Session tokens are not persisted to state.
