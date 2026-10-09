@@ -5,8 +5,7 @@ import (
 )
 
 type BucketWorkflowsDataSourceModel struct {
-	InstanceID   types.String         `tfsdk:"instance_id"`
-	AccountID    types.String         `tfsdk:"account_id"`
+	AccountName  types.String         `tfsdk:"account_name"`
 	BucketName   types.String         `tfsdk:"bucket_name"`
 	Replications []ReplicationSummary `tfsdk:"replications"`
 	Expirations  []ExpirationSummary  `tfsdk:"expirations"`

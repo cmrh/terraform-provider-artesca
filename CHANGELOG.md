@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`data.artesca_bucket_workflows` takes `account_name` (#58),** like every other account-scoped data source. `account_id` and `instance_id` are removed; the provider resolves the account ID from the name.
 - **Release pipeline** moved from a self-hosted runner to `ubuntu-latest`. Build artifacts are handed to the signing job via immutable within-run workflow artifacts, and every checksum is re-verified before signing.
 - **Release binary naming**: the binary inside each zip now uses the `v`-prefixed version (`terraform-provider-artesca_v0.4.0`) — the archive filename remains unprefixed (`terraform-provider-artesca_0.4.0_linux_amd64.zip`). This matches the OpenTofu / Terraform Registry conventions.
 
