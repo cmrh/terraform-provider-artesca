@@ -47,11 +47,10 @@ resource "artesca_bucket_tagging" "src" {
 }
 
 resource "artesca_bucket_encryption" "src" {
-  count              = 3
-  account_name       = artesca_account.test.name
-  bucket_name        = artesca_bucket.src[count.index].name
-  sse_algorithm      = "AES256"
-  bucket_key_enabled = false
+  count         = 3
+  account_name  = artesca_account.test.name
+  bucket_name   = artesca_bucket.src[count.index].name
+  sse_algorithm = "AES256"
 }
 
 resource "artesca_bucket_policy" "src" {

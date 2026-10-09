@@ -9,7 +9,6 @@ import (
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -53,18 +52,10 @@ func (r *BucketEncryptionResource) Schema(_ context.Context, _ resource.SchemaRe
 				},
 			},
 			"sse_algorithm": schema.StringAttribute{
-				Description: "The server-side encryption algorithm. Currently only \"AES256\" (SSE-S3) is supported by ARTESCA.",
+				Description: "The server-side encryption algorithm. This provider supports only \"AES256\".",
 				Required:    true,
 				Validators: []validator.String{
 					validators.SSEAlgorithm{},
-				},
-			},
-			"bucket_key_enabled": schema.BoolAttribute{
-				Description: "Whether to use an S3 Bucket Key. Defaults to false. Computed from the server when not set.",
-				Optional:    true,
-				Computed:    true,
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 		},
@@ -95,8 +86,7 @@ func (r *BucketEncryptionResource) Create(ctx context.Context, req resource.Crea
 	}
 
 	cfg := client.BucketEncryptionConfig{
-		SSEAlgorithm:     plan.SSEAlgorithm.ValueString(),
-		BucketKeyEnabled: plan.BucketKeyEnabled.ValueBool(),
+		SSEAlgorithm: plan.SSEAlgorithm.ValueString(),
 	}
 	tflog.Debug(ctx, "Putting bucket encryption", map[string]any{"bucket": plan.BucketName.ValueString(), "sse": cfg.SSEAlgorithm})
 
@@ -118,7 +108,6 @@ func (r *BucketEncryptionResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	plan.BucketKeyEnabled = types.BoolValue(cfg.BucketKeyEnabled)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -149,7 +138,6 @@ func (r *BucketEncryptionResource) Read(ctx context.Context, req resource.ReadRe
 	}
 
 	state.SSEAlgorithm = types.StringValue(cfg.SSEAlgorithm)
-	state.BucketKeyEnabled = types.BoolValue(cfg.BucketKeyEnabled)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -161,8 +149,7 @@ func (r *BucketEncryptionResource) Update(ctx context.Context, req resource.Upda
 	}
 
 	cfg := client.BucketEncryptionConfig{
-		SSEAlgorithm:     plan.SSEAlgorithm.ValueString(),
-		BucketKeyEnabled: plan.BucketKeyEnabled.ValueBool(),
+		SSEAlgorithm: plan.SSEAlgorithm.ValueString(),
 	}
 	tflog.Debug(ctx, "Updating bucket encryption", map[string]any{"bucket": plan.BucketName.ValueString(), "sse": cfg.SSEAlgorithm})
 
@@ -184,7 +171,6 @@ func (r *BucketEncryptionResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
-	plan.BucketKeyEnabled = types.BoolValue(cfg.BucketKeyEnabled)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
