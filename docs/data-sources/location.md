@@ -9,7 +9,7 @@ description: |-
 
 Looks up an existing ARTESCA storage location by name. Useful for referencing a built-in or out-of-band-managed location without redefining it.
 
-Sensitive `details` (`secret_key`, `password`) are **not** returned -- the overlay view masks them.
+ARTESCA doesn't return `secret_key` or `password`, so they are empty.
 
 ## Example
 
@@ -41,4 +41,4 @@ resource "artesca_bucket" "example" {
 | `legacy_aws_behavior` | Whether legacy AWS behavior is enabled. |
 | `size_limit_gb` | Storage size limit in gigabytes. |
 | `object_id` | Internal object identifier. |
-| `details` | Backend-specific configuration block. Field set varies by `location_type`. Sensitive fields (`secret_key`, `password`) are blank. |
+| `details` | Backend-specific configuration, with the same fields as the [`artesca_location` details block](../resources/location.md#details-block); which are set depends on `location_type`. `access_key` is sensitive; `secret_key` and `password` are empty. |

@@ -9,7 +9,7 @@ description: |-
 
 Looks up an existing IAM role within an ARTESCA account, including its trust policy. Useful for referencing a role that exists outside Terraform without re-creating it.
 
-IAM operations are account-scoped, so you must supply the account's `access_key` and `secret_key` to authenticate the lookup.
+IAM operations are account-scoped: the provider gets temporary credentials for `account_name` from its OIDC login.
 
 ## Example
 
@@ -19,7 +19,19 @@ data "artesca_role" "writer" {
   name         = "object-writer"
 }
 
+variable "ci_access_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "ci_secret_key" {
+  type      = string
+  sensitive = true
+}
+
 ephemeral "artesca_assumed_role_credentials" "writer" {
+  access_key        = var.ci_access_key
+  secret_key        = var.ci_secret_key
   role_arn          = data.artesca_role.writer.arn
   role_session_name = "tf-session"
 }

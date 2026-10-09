@@ -1,6 +1,6 @@
 ---
 page_title: "artesca_locations Data Source - artesca"
-subcategory: "Storage"
+subcategory: "Infrastructure"
 description: |-
   Lists all ARTESCA storage locations on the cluster.
 ---
@@ -45,4 +45,4 @@ No arguments.
 |------|-------------|
 | `locations` | List of location summaries. Each element has: `name`, `location_type`, `is_builtin`, `is_transient`, `legacy_aws_behavior`, `size_limit_gb`, `object_id`. |
 
-Use `data.artesca_location` with a specific `name` to fetch the nested `details` block (endpoint, credentials are masked, bucket settings, etc.).
+Use `data.artesca_location` with a specific `name` to fetch its `details` block (endpoint, bucket settings, and so on; secrets are not returned).

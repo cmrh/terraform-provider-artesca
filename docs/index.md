@@ -10,9 +10,9 @@ description: |-
 Terraform/OpenTofu provider for managing ARTESCA storage infrastructure. Supports account management, storage locations, endpoints, IAM (users, groups, roles, policies, access keys), STS, S3 buckets and bucket sub-resources (policy, tagging, encryption), and bucket lifecycle workflows.
 
 The provider authenticates via three API surfaces:
-- **Management API** -- OIDC bearer token for infrastructure operations (account creation and deletion, locations, endpoints, replication, workflows).
+- **Management API** -- OIDC bearer token for infrastructure operations (account creation and deletion, locations, endpoints, `artesca_replication` streams, and the `artesca_bucket_workflows` search).
 - **IAM API** -- AWS Signature V4 with per-account credentials (users, groups, roles, policies, access keys). Account lookups use the provider's OIDC token.
-- **S3 / STS API** -- AWS Signature V4 with per-account credentials (buckets and sub-resources; assume-role and caller-identity).
+- **S3 / STS API** -- AWS Signature V4 with per-account credentials (buckets, bucket sub-resources and workflow rules; assume-role and caller-identity). STS also exchanges the provider's OIDC token for those per-account credentials.
 
 Per-account credentials are temporary: for each `account_name`, the provider exchanges its OIDC token for credentials on the account's storage-manager role (STS `AssumeRoleWithWebIdentity`) and refreshes them before they expire. No account keys are configured or stored. Only ARTESCA users with the `StorageManager` admin role can assume that role, so the configured `username` needs it.
 
@@ -31,12 +31,12 @@ provider "artesca" {
   # iam_region defaults to "us-east-1"
   # iam_region = "us-east-1"                                      # or ARTESCA_IAM_REGION
 
-  # Required for bucket resources and STS
+  # Required for bucket resources
   # s3_endpoint = "https://s3.artesca.example.com"                # or ARTESCA_S3_ENDPOINT
 }
 ```
 
-`management_endpoint`, `oidc_url`, `username`, and `password` are required. All other attributes have defaults.
+`management_endpoint`, `oidc_url`, `username`, and `password` are required. The others are optional.
 
 ## Resources
 

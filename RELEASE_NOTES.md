@@ -4,15 +4,16 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 
 ## Provider surface
 
-22 resources, 11 data sources, and 1 ephemeral resource covering three ARTESCA API surfaces (Management, IAM, S3), plus STS for the ephemeral role-credential resource. See [README.md](README.md) for the full inventory.
+22 resources, 11 data sources, and 1 ephemeral resource covering the ARTESCA management, IAM, S3 and STS APIs. STS supplies the temporary per-account credentials every account-scoped resource uses, and backs `data.artesca_caller_identity` and the role-credential ephemeral resource. See [README.md](README.md) for the full inventory.
 
 ## Upgrading from v0.3.x
 
-Update your configuration (replace `account_access_key` / `account_secret_key` with `account_name = artesca_account.<name>.name`; see the breaking changes below), then run `tofu plan`. Existing state is migrated automatically: the provider identifies each resource's account from the access key still in state, so the plan shows no changes. If those keys no longer work (account deleted or keys rotated), the plan fails with instructions to `tofu state rm` and `tofu import` the affected resource instead.
+Update your configuration (replace `account_access_key` / `account_secret_key` with `account_name = artesca_account.<name>.name`; see the breaking changes below), then run `tofu plan`. Existing state is migrated automatically: the provider identifies each resource's account from the access key still in state, so the plan shows no changes. If those keys no longer work (account deleted or keys rotated), the plan fails with instructions to `tofu state rm` and `tofu import` the affected resource instead (access keys can't be imported, so they are recreated).
 
 ## Breaking changes since v0.3.0
 
 - **`artesca_location`**: `details.server_side_encryption` is only accepted for `location-aws-s3-v1`; remove it from other location types.
+- **Location names** (`artesca_location.name`, `artesca_endpoint.location_name`) must be lowercase letters, numbers and hyphens, starting with a letter; names with periods or a leading digit are rejected at plan time.
 - **`account_name` replaces `account_access_key` / `account_secret_key`** on all account-scoped resources (buckets and sub-resources, IAM users/groups/roles/policies and attachments, user access keys, expiration/transition workflows) and on `data.artesca_group`, `data.artesca_policy`, `data.artesca_role`, `data.artesca_user`. The provider obtains temporary credentials for the account from its OIDC login; account keys are no longer configured or stored.
 - **Import IDs** for account-scoped resources start with the account name: `tofu import artesca_user.alice my-app/alice`.
 - **`data.artesca_account`** no longer exports `email` or `access_key`; **`data.artesca_accounts`** no longer exports `email`.
@@ -50,6 +51,6 @@ Update your configuration (replace `account_access_key` / `account_secret_key` w
 ## CI / tooling
 
 - Release pipeline builds on `ubuntu-latest`, hands artifacts to the signing job via immutable within-run artifacts, and re-verifies every checksum before signing.
-- CodeQL, gitleaks, and gosec security scanners run on every push and pull request.
+- CodeQL, gitleaks, and gosec security scanners run on pushes to `main` and on pull requests.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history.

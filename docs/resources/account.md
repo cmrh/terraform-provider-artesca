@@ -30,7 +30,7 @@ output "team_a_credentials" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | String | Yes | Account name. Forces replacement. |
+| `name` | String | Yes | Account name: 1–128 characters, ASCII letters, numbers, and hyphens. Forces replacement. |
 | `email` | String | No | Account email address. Changing it forces replacement. Not readable from the API. |
 
 ## Attributes Exported
@@ -55,6 +55,6 @@ After import, `access_key`, `secret_key`, and `email` are null — none of them 
 
 - Uses OIDC credentials from the provider configuration.
 - The `name` attribute forces replacement -- accounts cannot be renamed.
-- ARTESCA creates three default IAM roles in every new account.
+- ARTESCA creates four default IAM roles in every new account: `StorageManager`, `StorageAccountOwner`, `DataConsumer`, and `StorageUsageConsumer`.
 - An account can only be deleted after its locations, users, policies, and buckets are deleted.
 - `access_key` and `secret_key` are generated once at creation and preserved in state. They are not refreshed on subsequent reads.

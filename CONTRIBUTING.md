@@ -26,7 +26,8 @@ make install VERSION=0.4.1-dev
 ```
 
 This drops the binary at
-`~/.terraform.d/plugins/registry.terraform.io/cmrh/artesca/<VERSION>/<OS>_<ARCH>/`.
+`~/.terraform.d/plugins/registry.opentofu.org/scality/artesca/<VERSION>/<OS>_<ARCH>/`;
+configurations that use it set `source = "scality/artesca"`.
 
 For interactive development, configure dev_overrides in `~/.terraformrc`:
 
@@ -59,6 +60,9 @@ export ARTESCA_OIDC_URL=...
 export ARTESCA_USERNAME=...
 export ARTESCA_PASSWORD=...
 export ARTESCA_S3_ENDPOINT=...
+# RING S3 backends for location, replication and workflow tests
+export TF_VAR_ring_s3_endpoint=... TF_VAR_ring_s3_access_key=... TF_VAR_ring_s3_secret_key=... TF_VAR_ring_s3_bucket_name=...
+export TF_VAR_dest_ring_s3_endpoint=... TF_VAR_dest_ring_s3_access_key=... TF_VAR_dest_ring_s3_secret_key=... TF_VAR_dest_ring_s3_bucket_name=...
 make testacc
 ```
 
@@ -80,7 +84,7 @@ Always add or extend acceptance tests when adding a resource or behavior.
 
 ## Architectural conventions
 
-The provider talks to three distinct API surfaces (Management, IAM, S3) — see
+The provider talks to four API surfaces (Management, IAM, S3, STS) — see
 [ARCHITECTURE.md](ARCHITECTURE.md). Bucket sub-features (encryption, policy,
 tagging) and workflows (expiration, transition, replication) are separate
 resources, following the AWS-provider modular pattern. Don't propose folding

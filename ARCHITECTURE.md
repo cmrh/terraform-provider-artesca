@@ -23,7 +23,7 @@ OpenTofu / Terraform
 │  └────────────────────────────────────┘ │
 │                                         │
 │  ┌────────────────────────────────────┐ │
-│  │      Resources (22)  +  Data (12)  │ │
+│  │      Resources (22)  +  Data (11)  │ │
 │  │        +  Ephemeral (1)            │ │
 │  │  Each: model.go + resource.go      │ │
 │  └────────────────────────────────────┘ │
@@ -42,7 +42,7 @@ internal/
 │   ├── oidc.go                  # OIDC token source, caches + refreshes
 │   ├── sigv4.go                 # SigV4 primitives shared by IAM/S3/STS
 │   ├── management.go            # ManagementClient: OIDC bearer, JSON/REST
-│   ├── management_workflow.go   # /instance/{id}/account/{acct}/bucket/{name}/workflow/*
+│   ├── management_workflow.go   # /instance/{id}/account/{acct}/workflow/search
 │   ├── management_replication.go # /config/{id}/replication overlay stream
 │   ├── iam.go                   # IAMClient: SigV4 (service "iam"), form-encoded
 │   ├── s3.go                    # S3Client: SigV4 (service "s3"), retry logic
@@ -50,7 +50,8 @@ internal/
 │   ├── sts.go                   # STSClient: AssumeRole, GetCallerIdentity
 │   └── ...
 ├── creds/
-│   └── resolve.go               # Env-var fallback for per-account ak/sk on import
+│   ├── account.go               # account_name attribute, <account_name>/<id> import IDs
+│   └── upgrade.go               # v0 -> v1 state upgrade from account keys
 ├── policydoc/
 │   └── policydoc.go             # Compare JSON policy documents by meaning
 ├── provider/
@@ -80,7 +81,7 @@ internal/
 Each resource is a package with:
 - `model.go` — struct with `tfsdk` tags
 - `resource.go` — schema, Configure, CRUD, import
-- `schema_test.go` — schema validation test (unit)
+- `schema_test.go` — schema validation test (unit), in most resource packages
 
 ## Four Clients, Four Auth Models
 
@@ -131,7 +132,7 @@ The `internal/creds` package holds the shared `account_name` attribute and the `
 
 Almost all *infrastructure* reads — locations, endpoints, replication streams — go through a **single** management API call: `GET /config/overlay/view/{instanceId}`. Resources don't each have their own GET-by-id endpoint. When a resource's `Read()` runs, it fetches the whole overlay view and finds itself by name/id within the response.
 
-Implication: the management client batches (and where appropriate caches) that overlay fetch. Don't add a "GET this one resource" call expecting an endpoint to exist — it usually doesn't on the management side.
+Each `Read()` fetches the overlay fresh; nothing is cached. Don't add a "GET this one resource" call expecting an endpoint to exist — it usually doesn't on the management side.
 
 ## Workflow resource reads
 
@@ -148,7 +149,7 @@ The `internal/validators` package provides reusable schema validators:
 | `AccountName()` | 1-128 chars, alphanumeric + hyphens | account name |
 | `BucketName()` | 3-63 chars, lowercase + numbers + hyphens + periods | bucket_name across all bucket resources |
 | `Email()` | Standard email syntax | account email |
-| `Hostname()` | RFC-1123 hostname | endpoint hostname |
+| `Hostname()` | RFC-1123 hostname or IP address | endpoint hostname |
 | `IAMName(maxLen)` | 1-maxLen chars, alphanumeric + `_+=,.@-` | user, group, role, policy names |
 | `IAMUsername()` | Same rules as IAMName, maxLen 64 | username |
 | `IAMPolicyName()` | Same rules as IAMName, maxLen 128 | policy_name on user_policy, group_policy |
@@ -189,4 +190,4 @@ Bucket features (policy, encryption, tagging) are separate resources rather than
 
 ## Retry behavior
 
-`S3Client.doSignedRequest` retries 502/503/504 with exponential backoff (500 ms → 8 s, 4 attempts). 500 is **not** retried — treated as a real server error. `CreateBucket` has a separate longer (5 min) retry loop for `InvalidLocationConstraint` to handle location propagation across the cluster. Both loops co-exist.
+`S3Client.doSignedRequest` retries 502/503/504 up to 4 attempts, waiting 500 ms and doubling between them. 500 is **not** retried — treated as a real server error. `CreateBucket` has a separate longer (5 min) retry loop for `InvalidLocationConstraint` to handle location propagation across the cluster. Both loops co-exist.

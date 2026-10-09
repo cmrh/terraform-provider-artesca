@@ -9,7 +9,7 @@ description: |-
 
 Calls STS `GetCallerIdentity` to resolve the identity associated with a given access key / secret key pair. Useful for asserting "these credentials belong to the expected account/user" inside a Terraform configuration.
 
-The STS endpoint is derived from the configured S3 endpoint (`s3.` → `sts.`) — no additional provider configuration is needed.
+No additional provider configuration is needed: the STS endpoint is derived from `s3_endpoint` (`s3.` → `sts.`), or from `management_endpoint` (`management.` → `sts.`) when `s3_endpoint` is not set.
 
 Supports both **static credentials** (an account's or IAM user's access key + secret key) and **temporary credentials** (those minted by `sts:AssumeRole`), which require an additional `session_token`.
 
@@ -35,10 +35,25 @@ output "ops_arn" {
 Temporary credentials (e.g. round-tripping a freshly assumed role to confirm the identity it resolves to):
 
 ```hcl
+variable "session_access_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "session_secret_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "session_token" {
+  type      = string
+  sensitive = true
+}
+
 data "artesca_caller_identity" "as_writer" {
-  access_key    = local.session_access_key
-  secret_key    = local.session_secret_key
-  session_token = local.session_token
+  access_key    = var.session_access_key
+  secret_key    = var.session_secret_key
+  session_token = var.session_token
 }
 ```
 
