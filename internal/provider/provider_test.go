@@ -158,7 +158,7 @@ func testAccManagementClient() (*client.ManagementClient, error) {
 	if scope == "" {
 		scope = "openid"
 	}
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+	insecure := testAccInsecure()
 
 	tokenSource := client.NewOIDCTokenSource(oidcURL, realm, clientID, scope, username, password, insecure)
 	mgmtClient := client.NewManagementClient(endpoint, "", tokenSource, insecure)
@@ -178,6 +178,17 @@ func testAccManagementClient() (*client.ManagementClient, error) {
 	return mgmtClient, nil
 }
 
+// testAccInsecure reports whether TLS verification is disabled for the test cluster.
+func testAccInsecure() bool {
+	v := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY")
+	return v == "true" || v == "1"
+}
+
+// testAccS3Client returns an S3 client for ARTESCA_S3_ENDPOINT.
+func testAccS3Client() *client.S3Client {
+	return client.NewS3Client(os.Getenv("ARTESCA_S3_ENDPOINT"), "us-east-1", testAccInsecure())
+}
+
 // testAccIAMClient returns an IAM client for the endpoint the provider derives
 // from ARTESCA_MANAGEMENT_ENDPOINT.
 func testAccIAMClient() (*client.IAMClient, error) {
@@ -189,7 +200,7 @@ func testAccIAMClient() (*client.IAMClient, error) {
 	if region == "" {
 		region = "us-east-1"
 	}
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+	insecure := testAccInsecure()
 	return client.NewIAMClient(iamEndpoint, region, insecure), nil
 }
 
@@ -225,7 +236,7 @@ func testAccAccountCredentials(rs *terraform.ResourceState) (client.Credentials,
 			testAccAccountsErr = err
 			return
 		}
-		insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
+		insecure := testAccInsecure()
 		testAccAccounts = client.NewAccountCredentialSource(iamClient, client.NewSTSClient(stsEndpoint, "us-east-1", insecure), mgmtClient.TokenSource)
 	})
 	if testAccAccountsErr != nil {
@@ -334,8 +345,7 @@ func testAccCheckBucketDestroy(s *terraform.State) error {
 	if s3Endpoint == "" {
 		return nil
 	}
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	s3Client := client.NewS3Client(s3Endpoint, "us-east-1", insecure)
+	s3Client := testAccS3Client()
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "artesca_bucket" {
@@ -359,13 +369,10 @@ func testAccCheckBucketDestroy(s *terraform.State) error {
 }
 
 func testAccCheckUserDestroy(s *terraform.State) error {
-	endpoint := os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT")
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	iamEndpoint, err := client.DeriveIAMEndpoint(endpoint)
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
-	iamClient := client.NewIAMClient(iamEndpoint, "us-east-1", insecure)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "artesca_user" {
@@ -389,13 +396,10 @@ func testAccCheckUserDestroy(s *terraform.State) error {
 }
 
 func testAccCheckUserAccessKeyDestroy(s *terraform.State) error {
-	endpoint := os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT")
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	iamEndpoint, err := client.DeriveIAMEndpoint(endpoint)
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
-	iamClient := client.NewIAMClient(iamEndpoint, "us-east-1", insecure)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "artesca_user_access_key" {
@@ -422,13 +426,10 @@ func testAccCheckUserAccessKeyDestroy(s *terraform.State) error {
 }
 
 func testAccCheckUserPolicyDestroy(s *terraform.State) error {
-	endpoint := os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT")
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	iamEndpoint, err := client.DeriveIAMEndpoint(endpoint)
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
-	iamClient := client.NewIAMClient(iamEndpoint, "us-east-1", insecure)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "artesca_user_policy" {
@@ -452,18 +453,8 @@ func testAccCheckUserPolicyDestroy(s *terraform.State) error {
 	return nil
 }
 
-func testAccIAMClientFromEnv() (*client.IAMClient, error) {
-	endpoint := os.Getenv("ARTESCA_MANAGEMENT_ENDPOINT")
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	iamEndpoint, err := client.DeriveIAMEndpoint(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	return client.NewIAMClient(iamEndpoint, "us-east-1", insecure), nil
-}
-
 func testAccCheckGroupDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -489,7 +480,7 @@ func testAccCheckGroupDestroy(s *terraform.State) error {
 }
 
 func testAccCheckGroupMembershipDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -516,7 +507,7 @@ func testAccCheckGroupMembershipDestroy(s *terraform.State) error {
 }
 
 func testAccCheckGroupPolicyDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -543,7 +534,7 @@ func testAccCheckGroupPolicyDestroy(s *terraform.State) error {
 }
 
 func testAccCheckRoleDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -569,7 +560,7 @@ func testAccCheckRoleDestroy(s *terraform.State) error {
 }
 
 func testAccCheckPolicyDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -595,7 +586,7 @@ func testAccCheckPolicyDestroy(s *terraform.State) error {
 }
 
 func testAccCheckUserPolicyAttachmentDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -622,7 +613,7 @@ func testAccCheckUserPolicyAttachmentDestroy(s *terraform.State) error {
 }
 
 func testAccCheckGroupPolicyAttachmentDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}
@@ -649,7 +640,7 @@ func testAccCheckGroupPolicyAttachmentDestroy(s *terraform.State) error {
 }
 
 func testAccCheckRolePolicyAttachmentDestroy(s *terraform.State) error {
-	iamClient, err := testAccIAMClientFromEnv()
+	iamClient, err := testAccIAMClient()
 	if err != nil {
 		return err
 	}

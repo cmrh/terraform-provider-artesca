@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -563,5 +564,16 @@ func TestDoSignedRequestGivesUpAfterMaxAttempts(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(&attempts); got != transientGatewayMaxAttempts {
 		t.Errorf("attempts = %d, want %d", got, transientGatewayMaxAttempts)
+	}
+}
+
+func TestNewRuleID(t *testing.T) {
+	re := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	a, b := NewRuleID(), NewRuleID()
+	if !re.MatchString(a) {
+		t.Errorf("NewRuleID() = %q, want UUID format", a)
+	}
+	if a == b {
+		t.Errorf("two calls returned the same ID %q", a)
 	}
 }
