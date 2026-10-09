@@ -2,9 +2,11 @@ package validators
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -373,6 +375,9 @@ func TestDescriptions(t *testing.T) {
 		Email{},
 		Hostname{},
 		JSONDocument{},
+		RuleID{},
+		LocationName{},
+		RoleSessionName{},
 	}
 
 	for _, v := range validators {
@@ -387,8 +392,8 @@ func TestDescriptions(t *testing.T) {
 	}
 }
 
-func TestLifecycleRuleID(t *testing.T) {
-	v := LifecycleRuleID{}
+func TestRuleID(t *testing.T) {
+	v := RuleID{}
 	ctx := context.Background()
 	cases := map[string]bool{
 		"r1":                     true,
@@ -432,6 +437,97 @@ func TestInt64AtLeast(t *testing.T) {
 	for _, cv := range []types.Int64{types.Int64Null(), types.Int64Unknown()} {
 		resp := &validator.Int64Response{}
 		Int64AtLeast{Min: 1}.ValidateInt64(ctx, validator.Int64Request{Path: path.Root("test"), ConfigValue: cv}, resp)
+		if resp.Diagnostics.HasError() {
+			t.Error("expected no error for null/unknown value")
+		}
+	}
+}
+
+// testStringCases checks each value's validity and that null/unknown pass.
+func testStringCases(t *testing.T, v validator.String, cases map[string]bool) {
+	t.Helper()
+	ctx := context.Background()
+	for val, ok := range cases {
+		resp := &validator.StringResponse{}
+		v.ValidateString(ctx, testStringRequest(val), resp)
+		if resp.Diagnostics.HasError() == ok {
+			t.Errorf("%q: error = %v, want %v", val, resp.Diagnostics.HasError(), !ok)
+		}
+	}
+	for _, req := range []validator.StringRequest{testNullRequest(), testUnknownRequest()} {
+		resp := &validator.StringResponse{}
+		v.ValidateString(ctx, req, resp)
+		if resp.Diagnostics.HasError() {
+			t.Error("expected no error for null/unknown value")
+		}
+	}
+}
+
+func TestLocationName(t *testing.T) {
+	testStringCases(t, LocationName{}, map[string]bool{
+		"us-east-1":    true,
+		"ring-loc":     true,
+		"abc":          true,
+		"ab":           false,
+		"1loc":         false,
+		"-loc":         false,
+		"my.loc":       false,
+		"My-loc":       false,
+		"loc_name":     false,
+		"tf-acc-x9z8y": true,
+	})
+}
+
+func TestRoleSessionName(t *testing.T) {
+	testStringCases(t, RoleSessionName{}, map[string]bool{
+		"session-example":    true,
+		"tf_acc.user@corp,x": true,
+		"a=b":                true,
+		"has space":          false,
+		"plus+sign":          false,
+		"slash/name":         false,
+		"":                   false,
+	})
+}
+
+func TestMapSizeAtMost(t *testing.T) {
+	ctx := context.Background()
+	mapOf := func(n int) types.Map {
+		elems := map[string]attr.Value{}
+		for i := range n {
+			elems[strconv.Itoa(i)] = types.StringValue("v")
+		}
+		return types.MapValueMust(types.StringType, elems)
+	}
+	for n, ok := range map[int]bool{0: true, 50: true, 51: false} {
+		resp := &validator.MapResponse{}
+		MapSizeAtMost{Max: 50}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: mapOf(n)}, resp)
+		if resp.Diagnostics.HasError() == ok {
+			t.Errorf("%d elements: error = %v, want %v", n, resp.Diagnostics.HasError(), !ok)
+		}
+	}
+	for _, cv := range []types.Map{types.MapNull(types.StringType), types.MapUnknown(types.StringType)} {
+		resp := &validator.MapResponse{}
+		MapSizeAtMost{Max: 50}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: cv}, resp)
+		if resp.Diagnostics.HasError() {
+			t.Error("expected no error for null/unknown value")
+		}
+	}
+}
+
+func TestInt64Between(t *testing.T) {
+	ctx := context.Background()
+	v := Int64Between{Min: 900, Max: 43200}
+	for val, ok := range map[int64]bool{900: true, 3600: true, 43200: true, 899: false, 43201: false} {
+		resp := &validator.Int64Response{}
+		v.ValidateInt64(ctx, validator.Int64Request{Path: path.Root("test"), ConfigValue: types.Int64Value(val)}, resp)
+		if resp.Diagnostics.HasError() == ok {
+			t.Errorf("%d: error = %v, want %v", val, resp.Diagnostics.HasError(), !ok)
+		}
+	}
+	for _, cv := range []types.Int64{types.Int64Null(), types.Int64Unknown()} {
+		resp := &validator.Int64Response{}
+		v.ValidateInt64(ctx, validator.Int64Request{Path: path.Root("test"), ConfigValue: cv}, resp)
 		if resp.Diagnostics.HasError() {
 			t.Error("expected no error for null/unknown value")
 		}

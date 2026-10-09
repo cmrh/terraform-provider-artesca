@@ -49,7 +49,7 @@ output "team_a_credentials" {
 tofu import artesca_account.team_a team-a
 ```
 
-After import, `access_key`, `secret_key`, and `email` are null — none of them can be read back from the API. If your configuration sets `email`, the next apply adopts it into state without replacing the account. Use `artesca_user_access_key` to generate new credentials if needed.
+After import, `access_key`, `secret_key`, and `email` are null — none of them can be read back from the API. If your configuration sets `email`, the next apply adopts it into state without replacing the account. To get new account keys, create them in the ARTESCA UI; `artesca_user_access_key` creates keys for IAM users, not for the account.
 
 ## Notes
 

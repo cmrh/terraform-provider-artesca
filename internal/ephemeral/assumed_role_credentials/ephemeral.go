@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -45,12 +47,18 @@ func (r *AssumedRoleCredentialsEphemeralResource) Schema(_ context.Context, _ ep
 				Required:    true,
 			},
 			"role_session_name": schema.StringAttribute{
-				Description: "Session name (recorded in the assumed-role ARN; useful for audit).",
+				Description: "Session name (recorded in the assumed-role ARN; useful for audit). Letters, numbers, and _=,.@- only.",
 				Required:    true,
+				Validators: []validator.String{
+					validators.RoleSessionName{},
+				},
 			},
 			"duration_seconds": schema.Int64Attribute{
-				Description: "How long the returned credentials are valid. STS defaults to 3600 (1 hour) when omitted.",
+				Description: "How long the returned credentials are valid, 900–43200 seconds and at most the role's maximum session duration. STS defaults to 3600 (1 hour) when omitted.",
 				Optional:    true,
+				Validators: []validator.Int64{
+					validators.Int64Between{Min: 900, Max: 43200},
+				},
 			},
 			"external_id": schema.StringAttribute{
 				Description: "Optional external ID required by the role's trust policy.",

@@ -15,13 +15,13 @@ func TestSchema_Validators(t *testing.T) {
 	resp := resource.SchemaResponse{}
 	r.Schema(ctx, resource.SchemaRequest{}, &resp)
 
-	t.Run("name has BucketName validator", func(t *testing.T) {
+	t.Run("name has LocationName validator", func(t *testing.T) {
 		attr := resp.Schema.Attributes["name"].(schema.StringAttribute)
 		if len(attr.Validators) != 1 {
 			t.Fatalf("expected 1 validator, got %d", len(attr.Validators))
 		}
-		if _, ok := attr.Validators[0].(validators.BucketName); !ok {
-			t.Errorf("expected BucketName validator, got %T", attr.Validators[0])
+		if _, ok := attr.Validators[0].(validators.LocationName); !ok {
+			t.Errorf("expected LocationName validator, got %T", attr.Validators[0])
 		}
 	})
 

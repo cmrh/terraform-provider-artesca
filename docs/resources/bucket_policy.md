@@ -22,10 +22,7 @@ resource "artesca_bucket_policy" "example" {
       {
         Sid    = "AllowAccountRead"
         Effect = "Allow"
-        # Use the account-root principal form, not `artesca_account.example.arn`.
-        # The management API currently returns a malformed ARN (path-style suffix)
-        # that the S3 policy validator rejects as MalformedPolicy.
-        Principal = { AWS = "arn:aws:iam::${artesca_account.example.id}:root" }
+        Principal = { AWS = artesca_account.example.arn }
         Action    = ["s3:GetObject", "s3:ListBucket"]
         Resource = [
           "arn:aws:s3:::${artesca_bucket.example.name}",

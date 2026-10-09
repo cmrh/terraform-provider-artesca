@@ -54,9 +54,12 @@ func (r *BucketTaggingResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"tags": schema.MapAttribute{
-				Description: "Map of tag key/value pairs. Replacing this map replaces the bucket's entire tag set.",
+				Description: "Map of tag key/value pairs, at most 50. Replacing this map replaces the bucket's entire tag set.",
 				Required:    true,
 				ElementType: types.StringType,
+				Validators: []validator.Map{
+					validators.MapSizeAtMost{Max: 50},
+				},
 			},
 		},
 	}

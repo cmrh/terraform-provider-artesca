@@ -18,6 +18,8 @@ var (
 	bucketNameRegexp   = regexp.MustCompile(`^[a-z0-9][a-z0-9.\-]*[a-z0-9]$`)
 	iamNameRegexp      = regexp.MustCompile(`^[\w+=,.@-]+$`)
 	hostnamePartRegexp = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$`)
+	locationNameRegexp = regexp.MustCompile(`^[a-z][a-z0-9-]+$`)
+	sessionNameRegexp  = regexp.MustCompile(`^[\w=,.@-]+$`)
 )
 
 // AccountName validates ARTESCA account names: 1–128 ASCII alphanumeric characters and hyphens.
@@ -231,18 +233,18 @@ func (v SSEAlgorithm) ValidateString(_ context.Context, req validator.StringRequ
 	}
 }
 
-// LifecycleRuleID validates S3 lifecycle rule IDs: 1–255 characters.
-type LifecycleRuleID struct{}
+// RuleID validates S3 lifecycle and replication rule IDs: 1–255 characters.
+type RuleID struct{}
 
-func (v LifecycleRuleID) Description(_ context.Context) string {
+func (v RuleID) Description(_ context.Context) string {
 	return "must be 1–255 characters"
 }
 
-func (v LifecycleRuleID) MarkdownDescription(ctx context.Context) string {
+func (v RuleID) MarkdownDescription(ctx context.Context) string {
 	return v.Description(ctx)
 }
 
-func (v LifecycleRuleID) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v RuleID) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
@@ -250,6 +252,101 @@ func (v LifecycleRuleID) ValidateString(_ context.Context, req validator.StringR
 	if n < 1 || n > 255 {
 		resp.Diagnostics.AddAttributeError(req.Path, "Invalid rule ID",
 			fmt.Sprintf("Must be 1–255 characters, got %d.", n))
+	}
+}
+
+// LocationName validates ARTESCA location names: at least 3 characters,
+// lowercase letters, numbers, and hyphens, starting with a letter.
+type LocationName struct{}
+
+func (v LocationName) Description(_ context.Context) string {
+	return "must be at least 3 characters: lowercase letters, numbers, and hyphens, starting with a letter"
+}
+
+func (v LocationName) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v LocationName) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	val := req.ConfigValue.ValueString()
+	if len(val) < 3 {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid location name",
+			fmt.Sprintf("Must be at least 3 characters, got %d.", len(val)))
+		return
+	}
+	if !locationNameRegexp.MatchString(val) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid location name",
+			"Must contain only lowercase letters, numbers, and hyphens, and must start with a letter.")
+	}
+}
+
+// RoleSessionName validates STS role session names: letters, numbers, and _=,.@-.
+type RoleSessionName struct{}
+
+func (v RoleSessionName) Description(_ context.Context) string {
+	return "must contain only letters, numbers, and the characters _=,.@-"
+}
+
+func (v RoleSessionName) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v RoleSessionName) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if !sessionNameRegexp.MatchString(req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid role session name",
+			"Must contain only letters, numbers, and the characters _=,.@- (no spaces).")
+	}
+}
+
+// MapSizeAtMost validates that a map has at most Max elements.
+type MapSizeAtMost struct {
+	Max int
+}
+
+func (v MapSizeAtMost) Description(_ context.Context) string {
+	return fmt.Sprintf("must have at most %d elements", v.Max)
+}
+
+func (v MapSizeAtMost) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v MapSizeAtMost) ValidateMap(_ context.Context, req validator.MapRequest, resp *validator.MapResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if n := len(req.ConfigValue.Elements()); n > v.Max {
+		resp.Diagnostics.AddAttributeError(req.Path, "Too many elements",
+			fmt.Sprintf("Must have at most %d elements, got %d.", v.Max, n))
+	}
+}
+
+// Int64Between validates that an integer is between Min and Max, inclusive.
+type Int64Between struct {
+	Min, Max int64
+}
+
+func (v Int64Between) Description(_ context.Context) string {
+	return fmt.Sprintf("must be between %d and %d", v.Min, v.Max)
+}
+
+func (v Int64Between) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v Int64Between) ValidateInt64(_ context.Context, req validator.Int64Request, resp *validator.Int64Response) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if val := req.ConfigValue.ValueInt64(); val < v.Min || val > v.Max {
+		resp.Diagnostics.AddAttributeError(req.Path, "Value out of range",
+			fmt.Sprintf("Must be between %d and %d, got %d.", v.Min, v.Max, val))
 	}
 }
 

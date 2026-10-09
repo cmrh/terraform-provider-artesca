@@ -23,7 +23,7 @@ resource "artesca_endpoint" "data" {
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `hostname` | String | Yes | Endpoint hostname. Forces replacement. |
-| `location_name` | String | Yes | Name of the storage location this endpoint serves. Forces replacement. |
+| `location_name` | String | Yes | Name of the storage location this endpoint serves (same rules as `artesca_location.name`). Forces replacement. |
 
 ## Attributes Exported
 

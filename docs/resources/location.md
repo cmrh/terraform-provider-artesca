@@ -46,7 +46,7 @@ resource "artesca_location" "ring_s3" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | String | Yes | Location name. Lowercase alphanumeric and hyphens only. Forces replacement. |
+| `name` | String | Yes | Location name: at least 3 characters, lowercase letters, numbers, and hyphens, starting with a letter. Forces replacement. |
 | `location_type` | String | Yes | Backend type (e.g., `location-aws-s3-v1`, `location-azure-v1`, `location-gcp-v1`, `location-scality-ring-s3-v1`). Forces replacement. |
 | `is_transient` | Boolean | No | Whether the location is transient. Default: `false`. |
 | `legacy_aws_behavior` | Boolean | No | Enable legacy AWS behavior. Default: `false`. |
@@ -90,7 +90,7 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 
 ### Required fields by location type
 
-The provider validates these requirements at `plan` time. Types not listed below (e.g. `location-mem-v1`, `location-file-v1`) impose no required `details` fields.
+The provider validates these requirements at `plan` time for the location types ARTESCA documents. Other types are passed to ARTESCA unchecked.
 
 | `location_type` | Required `details.*` fields |
 |---|---|
@@ -100,15 +100,14 @@ The provider validates these requirements at `plan` time. Types not listed below
 | `location-azure-v1` | `endpoint`, `bucket_name` |
 | `location-azure-archive-v1` | `endpoint`, `bucket_name` |
 | `location-wasabi-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
-| `location-do-spaces-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
 | `location-scality-ring-s3-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
 | `location-scality-artesca-s3-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
-| `location-ceph-radosgw-s3-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
 | `location-scality-sproxyd-v1` | `bootstrap_list`, `chord_cos`, `proxy_path` |
-| `location-scality-hdclient-v2` | `bootstrap_list` |
-| `location-nfs-mount-v1` | `endpoint` |
 | `location-dmf-v1` | `endpoint`, `username`, `password`, `repo_id`, `ns_id` |
 | `location-miria-v1` | `endpoint`, `username`, `password`, `repo_id` |
+| `location-scaleway-glacier-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-ovh-cold-archive-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
+| `location-versity-tape-archive-v1` | `endpoint`, `access_key`, `secret_key`, `bucket_name` |
 | `location-scality-crr-v1` | `endpoint`, `sts_endpoint`, `access_key`, `secret_key` |
 
 ## Attributes Exported
