@@ -12,7 +12,6 @@ import (
 	calleridentityds "github.com/cmrh/terraform-provider-artesca/internal/datasources/caller_identity"
 	endpointsds "github.com/cmrh/terraform-provider-artesca/internal/datasources/endpoints"
 	groupds "github.com/cmrh/terraform-provider-artesca/internal/datasources/group"
-	instanceds "github.com/cmrh/terraform-provider-artesca/internal/datasources/instance"
 	locationds "github.com/cmrh/terraform-provider-artesca/internal/datasources/location"
 	locationsds "github.com/cmrh/terraform-provider-artesca/internal/datasources/locations"
 	policyds "github.com/cmrh/terraform-provider-artesca/internal/datasources/policy"
@@ -324,7 +323,6 @@ func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.Dat
 		calleridentityds.NewCallerIdentityDataSource,
 		endpointsds.NewEndpointsDataSource,
 		groupds.NewGroupDataSource,
-		instanceds.NewInstanceDataSource,
 		locationds.NewLocationDataSource,
 		locationsds.NewLocationsDataSource,
 		policyds.NewPolicyDataSource,

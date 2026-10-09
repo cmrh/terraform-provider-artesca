@@ -59,7 +59,7 @@ internal/
 ├── validators/
 │   └── validators.go            # BucketName, IAMName, JSONDocument, ...
 ├── datasources/
-│   └── <name>/datasource.go     # 12 data sources
+│   └── <name>/datasource.go     # 11 data sources
 ├── ephemeral/
 │   └── assumed_role_credentials/ # 1 ephemeral resource (STS session tokens)
 └── resources/

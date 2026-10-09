@@ -4,7 +4,7 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 
 ## Provider surface
 
-22 resources, 12 data sources, and 1 ephemeral resource covering three ARTESCA API surfaces (Management, IAM, S3), plus STS for the ephemeral role-credential resource. See [README.md](README.md) for the full inventory.
+22 resources, 11 data sources, and 1 ephemeral resource covering three ARTESCA API surfaces (Management, IAM, S3), plus STS for the ephemeral role-credential resource. See [README.md](README.md) for the full inventory.
 
 ## Upgrading from v0.3.x
 
@@ -33,7 +33,6 @@ Update your configuration (replace `account_access_key` / `account_secret_key` w
 
 ### Data sources
 - **data.artesca_caller_identity** — resolve identity for an access key via STS `GetCallerIdentity`.
-- **data.artesca_instance** — connected instance metadata + status.
 - **data.artesca_bucket_workflows** — list workflows configured on a bucket.
 - Look-up data sources for **account**, **accounts**, **location**, **locations**, **endpoints**, **user**, **group**, **role**, **policy**.
 
