@@ -29,7 +29,7 @@ type lifecycleExpiration struct {
 }
 
 type lifecycleTransition struct {
-	Days         int    `xml:"Days,omitempty"`
+	Days         int    `xml:"Days"` // 0 is valid; ARTESCA rejects a Transition without Days
 	StorageClass string `xml:"StorageClass"`
 }
 

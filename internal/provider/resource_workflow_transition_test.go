@@ -32,6 +32,24 @@ func TestAccWorkflowTransition_basic(t *testing.T) {
 	})
 }
 
+func TestAccWorkflowTransition_zeroDays(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rSrcLoc := randomName("tf-acc-sloc")
+	rDstLoc := randomName("tf-acc-dloc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccWorkflowTransitionConfig(rAcct, rSrcLoc, rDstLoc, rBucket, 0, true),
+				Check:  resource.TestCheckResourceAttr("artesca_bucket_workflow_transition.test", "trigger_delay_days", "0"),
+			},
+		},
+	})
+}
+
 func TestAccWorkflowTransition_update(t *testing.T) {
 	rAcct := randomName("tf-acc")
 	rSrcLoc := randomName("tf-acc-sloc")
