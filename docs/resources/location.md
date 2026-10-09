@@ -62,7 +62,7 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 | `access_key` | String | Access key for the backend. Sensitive. |
 | `secret_key` | String | Secret key for the backend. Sensitive. |
 | `bucket_name` | String | Target bucket on the backend. |
-| `bucket_match` | Boolean | Whether to use bucket matching. |
+| `bucket_match` | Boolean | Whether to use bucket matching. Defaults to `false`. |
 | `endpoint` | String | Custom endpoint URL (for S3-compatible backends). |
 | `sts_endpoint` | String | STS endpoint of the destination site. Required for `location-scality-crr-v1`. |
 | `region` | String | AWS region or equivalent. |

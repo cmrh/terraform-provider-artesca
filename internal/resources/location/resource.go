@@ -141,8 +141,10 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						},
 					},
 					"bucket_match": schema.BoolAttribute{
-						Description: "Whether the bucket name must match exactly.",
+						Description: "Whether the bucket name must match exactly. Defaults to false.",
 						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
 						PlanModifiers: []planmodifier.Bool{
 							boolplanmodifier.RequiresReplace(),
 						},
@@ -391,7 +393,7 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	apiLocationToModel(ctx, created, &plan)
+	apiLocationToModel(ctx, created, &plan, false)
 
 	if plan.Details != nil {
 		if !planSecretKey.IsNull() && !planSecretKey.IsUnknown() {
@@ -428,7 +430,12 @@ func (r *LocationResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	apiLocationToModel(ctx, loc, &state)
+	imported, diags := req.Private.GetKey(ctx, privateKeyImported)
+	resp.Diagnostics.Append(diags...)
+	apiLocationToModel(ctx, loc, &state, imported != nil)
+	if imported != nil {
+		resp.Diagnostics.Append(resp.Private.SetKey(ctx, privateKeyImported, nil)...)
+	}
 
 	if state.Details != nil {
 		if !stateSecretKey.IsNull() && !stateSecretKey.IsUnknown() {
@@ -459,7 +466,7 @@ func (r *LocationResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	apiLocationToModel(ctx, updated, &plan)
+	apiLocationToModel(ctx, updated, &plan, false)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -479,8 +486,13 @@ func (r *LocationResource) Delete(ctx context.Context, req resource.DeleteReques
 	}
 }
 
+// privateKeyImported marks state that was just imported, so the next Read
+// fills details from the API instead of only the fields already in state.
+const privateKeyImported = "imported"
+
 func (r *LocationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+	resp.Diagnostics.Append(resp.Private.SetKey(ctx, privateKeyImported, []byte("true"))...)
 }
 
 // --- Conversion helpers ---
@@ -605,7 +617,7 @@ func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) *client.Loc
 	return details
 }
 
-func apiLocationToModel(ctx context.Context, loc *client.Location, model *LocationResourceModel) {
+func apiLocationToModel(ctx context.Context, loc *client.Location, model *LocationResourceModel, imported bool) {
 	model.Name = types.StringValue(loc.Name)
 	model.LocationType = types.StringValue(loc.LocationType)
 	model.IsTransient = types.BoolValue(loc.IsTransient)
@@ -624,16 +636,16 @@ func apiLocationToModel(ctx context.Context, loc *client.Location, model *Locati
 		if model.Details == nil {
 			model.Details = &LocationDetailsModel{}
 		}
-		apiDetailsToModel(ctx, loc.Details, model.Details)
+		apiDetailsToModel(ctx, loc.Details, model.Details, imported)
 	}
 }
 
-func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *LocationDetailsModel) {
-	// Only update a field from the API if the user configured it (non-null in state)
-	// or the value is non-empty from the API. This avoids null→value drift for
-	// API-defaulted fields the user never set.
+func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *LocationDetailsModel, imported bool) {
+	// Update a field from the API only if it is set in state, so API-defaulted
+	// fields the user never set don't show as drift. Right after import, state
+	// has no details yet, so take every value the API returns.
 	setIfConfigured := func(target *types.String, value string) {
-		if value != "" && !target.IsNull() {
+		if value != "" && (imported || !target.IsNull()) {
 			*target = types.StringValue(value)
 		}
 	}
@@ -641,9 +653,8 @@ func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *Lo
 	setIfConfigured(&model.AccessKey, d.AccessKey)
 	// Sensitive fields: preserve state value, API may return redacted data
 	setIfConfigured(&model.BucketName, d.BucketName)
-	if d.BucketMatch != nil {
-		model.BucketMatch = types.BoolValue(*d.BucketMatch)
-	}
+	// ARTESCA omits bucketMatch when it is false.
+	model.BucketMatch = types.BoolValue(d.BucketMatch != nil && *d.BucketMatch)
 	setIfConfigured(&model.Endpoint, d.Endpoint)
 	setIfConfigured(&model.StsEndpoint, d.StsEndpoint)
 	setIfConfigured(&model.Region, d.Region)
