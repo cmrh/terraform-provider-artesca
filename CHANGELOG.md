@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CRR locations could not be fully configured (#60).** ARTESCA requires an STS endpoint for `location-scality-crr-v1`; `artesca_location` and `data.artesca_location` now have `details.sts_endpoint`, required at plan time for CRR. Creating a location type with no region (such as CRR) also failed with "Provider returned invalid result object after apply"; `details.region` is now null when ARTESCA returns none.
 - **Workflow resources rewrote other rules on the same bucket (#59).** When adding, changing, or removing their rule, `artesca_bucket_workflow_expiration`, `_transition`, and `_replication` wrote the bucket's other rules back with only the fields the provider models, dropping tag filters, dates, noncurrent-version actions, and replication `StorageClass`. A tag-filtered expiration rule became a rule for the whole bucket. Other rules are now written back exactly as read.
 - **Transitions with `trigger_delay_days = 0` were rejected (#63).** The provider left `Days` out of the lifecycle XML when it was 0, and ARTESCA returned `MalformedXML`. `Days` is now always sent.
 - **Accounts reported as deleted right after creation.** `artesca_account`, `data.artesca_account`, and `data.artesca_accounts` looked accounts up in the management overlay view, which does not list them. They now use IAM `GetRolesForWebIdentity` with the provider's OIDC token (#35). `artesca_account.arn` is now the account root ARN (`arn:aws:iam::<id>:root`).

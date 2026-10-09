@@ -49,7 +49,7 @@ var requiredDetailsByType = map[string][]string{
 	"location-nfs-mount-v1":          {"endpoint"},
 	"location-dmf-v1":                {"endpoint", "username", "password", "repo_id", "ns_id"},
 	"location-miria-v1":              {"endpoint", "username", "password", "repo_id"},
-	"location-scality-crr-v1":        {"endpoint", "access_key", "secret_key"},
+	"location-scality-crr-v1":        {"endpoint", "sts_endpoint", "access_key", "secret_key"},
 }
 
 type LocationResource struct {
@@ -149,6 +149,10 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					},
 					"endpoint": schema.StringAttribute{
 						Description: "Custom endpoint URL for the storage service.",
+						Optional:    true,
+					},
+					"sts_endpoint": schema.StringAttribute{
+						Description: "STS endpoint of the destination site. Required for location-scality-crr-v1.",
 						Optional:    true,
 					},
 					"region": schema.StringAttribute{
@@ -344,6 +348,8 @@ func isLocationDetailsFieldEmpty(d *LocationDetailsModel, field string) bool {
 		return emptyString(d.BucketName)
 	case "endpoint":
 		return emptyString(d.Endpoint)
+	case "sts_endpoint":
+		return emptyString(d.StsEndpoint)
 	case "username":
 		return emptyString(d.Username)
 	case "password":
@@ -521,6 +527,9 @@ func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) *client.Loc
 	if !d.Endpoint.IsNull() && !d.Endpoint.IsUnknown() {
 		details.Endpoint = d.Endpoint.ValueString()
 	}
+	if !d.StsEndpoint.IsNull() && !d.StsEndpoint.IsUnknown() {
+		details.StsEndpoint = d.StsEndpoint.ValueString()
+	}
 	if !d.Region.IsNull() && !d.Region.IsUnknown() {
 		details.Region = d.Region.ValueString()
 	}
@@ -636,7 +645,12 @@ func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *Lo
 		model.BucketMatch = types.BoolValue(*d.BucketMatch)
 	}
 	setIfConfigured(&model.Endpoint, d.Endpoint)
+	setIfConfigured(&model.StsEndpoint, d.StsEndpoint)
 	setIfConfigured(&model.Region, d.Region)
+	// region is computed, but some location types (e.g. CRR) have none.
+	if model.Region.IsUnknown() && d.Region == "" {
+		model.Region = types.StringNull()
+	}
 	// Unset and false are equivalent; keep null so an unset attribute doesn't diff.
 	if d.ServerSideEncryption != nil && (*d.ServerSideEncryption || !model.ServerSideEncryption.IsNull()) {
 		model.ServerSideEncryption = types.BoolValue(*d.ServerSideEncryption)
