@@ -9,7 +9,7 @@ description: |-
 
 Looks up an existing IAM group within an ARTESCA account. Useful for referencing a group that exists outside Terraform without re-creating it.
 
-IAM operations are account-scoped, so you must supply the account's `access_key` and `secret_key` to authenticate the lookup.
+IAM operations are account-scoped: the provider gets temporary credentials for `account_name` from its OIDC login.
 
 ## Example
 

@@ -81,6 +81,6 @@ check "assume_role_succeeded" {
 
 ## Notes
 
-- The provider's `s3_endpoint` must be configured (the STS endpoint is derived from it by replacing the leading `s3.` with `sts.`).
+- No extra provider configuration is needed: the STS endpoint is derived from `s3_endpoint` (`s3.` → `sts.`), or from `management_endpoint` (`management.` → `sts.`) when `s3_endpoint` is not set.
 - Credentials are re-fetched on every Terraform operation that references the ephemeral block — there's no caching across runs.
 - Ephemeral values cannot be assigned to root-module `output` blocks. Use them directly in other provider configurations or in `check` assertions.

@@ -62,7 +62,7 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 | `access_key` | String | Access key for the backend. Sensitive. |
 | `secret_key` | String | Secret key for the backend. Sensitive. |
 | `bucket_name` | String | Target bucket on the backend. |
-| `bucket_match` | Boolean | If `true`, objects are written at the root of the target bucket; if `false`, under a prefix named after the source bucket. Defaults to `false`. See the warning below. |
+| `bucket_match` | Boolean | If `true`, objects are written at the root of the target bucket; if `false`, under a prefix named after the source bucket. Defaults to `false`. Forces replacement. See the warning below. |
 | `endpoint` | String | Custom endpoint URL (for S3-compatible backends). |
 | `sts_endpoint` | String | STS endpoint of the destination site. Required for `location-scality-crr-v1`. |
 | `region` | String | AWS region or equivalent. |
@@ -123,7 +123,7 @@ The provider validates these requirements at `plan` time for the location types 
 tofu import artesca_location.aws_s3 my-aws-location
 ```
 
-After import, sensitive fields (`secret_key`, `password`) will be unknown in state.
+After import, sensitive fields (`secret_key`, `password`) are empty in state; ARTESCA never returns them.
 
 ## Notes
 

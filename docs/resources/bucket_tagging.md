@@ -43,5 +43,5 @@ The import ID starts with the name of the account that owns the resource.
 ## Notes
 
 - The S3 PUT bucket-tagging API replaces the full tag set on every call. If another client adds a tag out-of-band, it will be removed on the next Terraform apply.
-- Reading is straightforward: drift between configured `tags` and the actual bucket tag set will appear in `terraform plan` and be reconciled.
+- Drift between the configured `tags` and the bucket's tag set appears in `tofu plan`. If every tag is removed outside Terraform, the resource leaves state and is recreated on the next apply.
 - Deleting the resource removes all tags from the bucket.

@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Docs review (#80).** Corrected inaccurate and outdated statements across the resource, data source and project docs; fixed three examples that didn't validate; documented missing constraints (account and bucket name rules, endpoint hostnames, `bucket_match` replacement, four default IAM roles, user deletion with attached policies).
 - **Docs: ARTESCA constraints (#62).** The provider needs a user with the `StorageManager` role; buckets must be empty to delete; locations: at most 10, versioned target bucket for Amazon S3 and RING S3, truststore CA for TLS, no delete while holding data, CRR is replication-only, don't change `us-east-1`; accounts: deletion prerequisites and the three default roles; IAM names are case-insensitive.
 - **`data.artesca_bucket_workflows` takes `account_name` (#58),** like every other account-scoped data source. `account_id` and `instance_id` are removed; the provider resolves the account ID from the name.
 - **Release pipeline** moved from a self-hosted runner to `ubuntu-latest`. Build artifacts are handed to the signing job via immutable within-run workflow artifacts, and every checksum is re-verified before signing.
@@ -47,9 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (CI / security)
 
-- **CodeQL** analysis on push, pull-request, and a weekly schedule.
-- **gitleaks** secret-detection scan on push and pull-request.
-- **gosec** Go security scan on push and pull-request.
+- **CodeQL** analysis on push to `main`, pull requests, and a weekly schedule.
+- **gitleaks** secret-detection scan on push to `main` and pull requests.
+- **gosec** Go security scan on push to `main` and pull requests.
 - **`-race`** detector added to unit test runs.
 
 ## [0.4.0] - unreleased

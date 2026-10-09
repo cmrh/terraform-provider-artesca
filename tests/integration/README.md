@@ -6,16 +6,17 @@ Full create-plan-destroy lifecycle test for all provider resources against a rea
 
 | Resource | Description |
 |----------|-------------|
-| `artesca_account` | Storage account with auto-generated credentials |
-| `artesca_user` | IAM user within the account |
-| `artesca_user_access_key` | Access key pair for the IAM user |
-| `artesca_user_policy` | Inline policy attached to the IAM user |
+| `artesca_account` | Storage account |
+| `artesca_user`, `artesca_user_access_key`, `artesca_user_policy` | IAM user with an access key and an inline policy |
+| `artesca_group`, `artesca_group_policy`, `artesca_group_membership` | IAM group with an inline policy and the user as a member |
+| `artesca_policy` and its user, group and role attachments | Managed policy attached three ways |
+| `artesca_role` | IAM role |
 | `artesca_location` (x2) | RING S3 storage locations (source + destination) |
 | `artesca_bucket` (x2) | S3 buckets on each location |
-| `artesca_endpoint` | DNS endpoint for the source bucket |
-| `artesca_bucket_workflow_expiration` | Object expiration lifecycle rule |
-| `artesca_bucket_workflow_transition` | Object transition lifecycle rule |
-| `artesca_replication` | Cross-location replication stream |
+| `artesca_bucket_policy`, `artesca_bucket_tagging` | Policy and tags on the source bucket |
+| `artesca_endpoint` | Endpoint for the source location |
+| `artesca_bucket_workflow_expiration`, `artesca_bucket_workflow_transition` | Lifecycle rules on the source bucket |
+| `artesca_bucket_workflow_replication` | Replication rule from the source to the destination bucket |
 
 ## Prerequisites
 
@@ -49,7 +50,7 @@ cp tests/integration/integration.tfvars.example tests/integration/integration.tf
 The `ARTESCA_OIDC_URL` must produce tokens whose `iss` claim matches the issuer configured in the storage-manager-role trust policy. On the ARTESCA device:
 
 ```bash
-salt-call pillar.get artesca:oidc:url
+salt-call metalk8s_network.get_control_plane_ingress_endpoint --out=json
 ```
 
 Use the URL returned by that command.
@@ -70,12 +71,11 @@ ENV_FILE=/path/to/env TFVARS_FILE=/path/to/vars tests/integration/run.sh
 
 ## Running in CI
 
-The GitHub Actions workflow (`.github/workflows/integration.yml`) runs on `self-hosted` runners. It reads credentials from GitHub repository secrets:
+The GitHub Actions workflow (`.github/workflows/integration.yml`) runs on `self-hosted` runners. It reads credentials from GitHub repository secrets (`ARTESCA_INSECURE_SKIP_VERIFY` is hardcoded to `"true"`):
 
 | Secret | Maps to |
 |--------|---------|
 | `ARTESCA_MANAGEMENT_ENDPOINT` | Provider management API URL |
-| `ARTESCA_INSECURE_SKIP_VERIFY` | Skip TLS verification |
 | `ARTESCA_OIDC_URL` | OIDC token endpoint |
 | `ARTESCA_USERNAME` | OIDC username |
 | `ARTESCA_PASSWORD` | OIDC password |

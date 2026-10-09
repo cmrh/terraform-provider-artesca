@@ -1,13 +1,13 @@
 ---
 page_title: "artesca_endpoints Data Source - artesca"
-subcategory: "Storage"
+subcategory: "Infrastructure"
 description: |-
-  Lists all ARTESCA bucket endpoints on the cluster.
+  Lists all ARTESCA S3 endpoints on the cluster.
 ---
 
 # Data Source: artesca_endpoints
 
-Lists every bucket endpoint (per-bucket DNS hostname) on the management overlay. Includes built-in cluster endpoints (e.g. `s3.<cluster>`) alongside user-created ones.
+Lists every S3 endpoint (a hostname mapped to a location) on the cluster. Includes built-in cluster endpoints (e.g. `s3.<cluster>`) alongside user-created ones.
 
 ## Example — List all non-builtin endpoints
 

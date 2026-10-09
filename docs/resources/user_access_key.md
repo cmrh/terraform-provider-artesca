@@ -43,7 +43,7 @@ output "operator_credentials" {
 
 ## Import
 
-Not supported. The `secret_key` is only returned when the key is created and cannot be read back.
+Not supported. The `secret_access_key` is only returned when the key is created and cannot be read back.
 
 ## Notes
 

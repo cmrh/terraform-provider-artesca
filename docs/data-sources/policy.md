@@ -9,7 +9,7 @@ description: |-
 
 Looks up an existing IAM managed policy within an ARTESCA account by ARN, including its current default-version document. Useful for referencing a managed policy that exists outside Terraform without re-creating it.
 
-IAM operations are account-scoped, so you must supply the account's `access_key` and `secret_key` to authenticate the lookup. Policies are looked up by ARN rather than by name to match the IAM API.
+IAM operations are account-scoped: the provider gets temporary credentials for `account_name` from its OIDC login. Policies are looked up by ARN rather than by name to match the IAM API.
 
 ## Example
 

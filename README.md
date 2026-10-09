@@ -31,7 +31,7 @@ provider "artesca" {
 }
 ```
 
-All attributes can also be set via environment variables:
+The attributes above can also be set via environment variables:
 
 | Attribute | Environment Variable |
 |---|---|
@@ -118,7 +118,8 @@ resource "artesca_account" "example" {
 }
 
 output "access_key" {
-  value = artesca_account.example.access_key
+  value     = artesca_account.example.access_key
+  sensitive = true
 }
 
 output "secret_key" {

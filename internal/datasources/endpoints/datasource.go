@@ -26,7 +26,7 @@ func (d *EndpointsDataSource) Metadata(_ context.Context, req datasource.Metadat
 
 func (d *EndpointsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Lists all ARTESCA bucket endpoints (per-bucket DNS hostnames). Includes built-in endpoints (`s3.<cluster>`) alongside user-created ones.",
+		Description: "Lists all ARTESCA S3 endpoints (hostnames mapped to locations). Includes built-in endpoints (`s3.<cluster>`) alongside user-created ones.",
 		Attributes: map[string]schema.Attribute{
 			"endpoints": schema.ListNestedAttribute{
 				Description: "All endpoints on the management overlay.",

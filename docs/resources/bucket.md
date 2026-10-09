@@ -1,6 +1,6 @@
 ---
 page_title: "artesca_bucket Resource - artesca"
-subcategory: "S3"
+subcategory: "Storage"
 description: |-
   Manages an S3 bucket on the ARTESCA S3 endpoint with optional versioning and location constraint.
 ---
@@ -33,7 +33,7 @@ resource "artesca_bucket" "logs" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | String | Yes | Bucket name. Must be 3-63 characters, lowercase letters, numbers, hyphens, and periods. Forces replacement. |
+| `name` | String | Yes | Bucket name: 3–63 characters, lowercase letters, numbers, hyphens, and periods, starting and ending with a letter or number. Forces replacement. |
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `location_constraint` | String | No | ARTESCA location name to use as the storage backend. Forces replacement. |
 | `versioning_enabled` | Boolean | No | Whether versioning is enabled. Default: `false`. Required for replication workflows. |
@@ -56,4 +56,4 @@ The import ID starts with the name of the account that owns the resource.
 - `versioning_enabled` can be toggled in-place.
 - A bucket must be empty to be deleted, including every object version when versioning is enabled.
 - Enable versioning before configuring replication workflows on a bucket.
-- Uses per-account S3 credentials, not provider-level OIDC credentials.
+- Runs as the owning account, with temporary credentials the provider obtains from its OIDC login.

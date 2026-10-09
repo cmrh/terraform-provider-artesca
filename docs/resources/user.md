@@ -48,6 +48,6 @@ The import ID starts with the name of the account that owns the resource.
 ## Notes
 
 - All arguments force replacement -- users cannot be renamed or moved between accounts.
-- Delete the user's access keys and policies before deleting the user.
+- ARTESCA refuses to delete a user that still has attached managed policies. Terraform detaches them first when they are managed with `artesca_user_policy_attachment`.
 - Names are unique within the account regardless of case: `Alice` and `alice` can't both exist.
 - Uses AWS SigV4 signing against the IAM API (endpoint derived from management endpoint).

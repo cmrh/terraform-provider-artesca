@@ -128,67 +128,46 @@ When rotating the GPG key:
 
 ## Test Environment
 
-Acceptance tests run on the self-hosted runner against a real ARTESCA cluster. The runner must have a `~/.artesca-test.env` file that the acceptance workflow sources before running tests.
+The acceptance workflow (`.github/workflows/acceptance.yml`, run manually or on `v*` tags) runs on the self-hosted runner `cm-tf-provider-artesca` against a real ARTESCA cluster. It reads repository secrets and hardcodes `ARTESCA_INSECURE_SKIP_VERIFY="true"` and `TF_ACC_TERRAFORM_PATH=/usr/bin/tofu`.
 
-### `~/.artesca-test.env`
+### Repository secrets
+
+| Secret | Exported as | Purpose |
+|--------|-------------|---------|
+| `ARTESCA_MANAGEMENT_ENDPOINT` | same name | Management API endpoint (OIDC-authenticated) |
+| `ARTESCA_OIDC_URL` | same name | Control-plane ingress URL. Must produce tokens whose issuer matches the internal trust policies — retrieve via `salt-call metalk8s_network.get_control_plane_ingress_endpoint --out=json` |
+| `ARTESCA_USERNAME` / `ARTESCA_PASSWORD` | same names | OIDC credentials for the management API |
+| `ARTESCA_S3_ENDPOINT` | same name | Data-service endpoint for S3 operations |
+| `RING_S3_*` | `TF_VAR_ring_s3_*` | RING backend for location, replication and workflow tests (source) |
+| `DEST_RING_S3_*` | `TF_VAR_dest_ring_s3_*` | RING backend used as the replication destination |
+
+### Running locally
+
+Export the same variables (an env file sourced with `set -a` works), plus:
 
 ```bash
-# Use local tofu binary instead of downloading terraform
-export TF_ACC_TERRAFORM_PATH="/usr/bin/tofu"
-export TF_ACC_PROVIDER_NAMESPACE="cmrh"
-
-# ARTESCA cluster (management + IAM + S3)
-export ARTESCA_MANAGEMENT_ENDPOINT="https://management.<cluster-fqdn>"
-export ARTESCA_INSECURE_SKIP_VERIFY="true"
-export ARTESCA_OIDC_URL="https://<control-plane-ingress>:8443"
-export ARTESCA_USERNAME="<admin-username>"
-export ARTESCA_PASSWORD="<admin-password>"
-export ARTESCA_S3_ENDPOINT="https://s3.<cluster-fqdn>"
-
-# RING S3 backend for location + replication tests (source)
-export TF_VAR_ring_s3_endpoint="http://<ring1-fqdn>:8080"
-export TF_VAR_ring_s3_access_key="<access-key>"
-export TF_VAR_ring_s3_secret_key="<secret-key>"
-export TF_VAR_ring_s3_bucket_name="<bucket>"
-
-# RING S3 backend for replication destination
-export TF_VAR_dest_ring_s3_endpoint="http://<ring2-fqdn>:8080"
-export TF_VAR_dest_ring_s3_access_key="<access-key>"
-export TF_VAR_dest_ring_s3_secret_key="<secret-key>"
-export TF_VAR_dest_ring_s3_bucket_name="<bucket>"
+export TF_ACC_TERRAFORM_PATH="$(which tofu)"
+export TF_ACC_PROVIDER_NAMESPACE="scality"
+make testacc
 ```
-
-### Variable reference
-
-| Variable | Used by | Purpose |
-|----------|---------|---------|
-| `TF_ACC_TERRAFORM_PATH` | test framework | Path to tofu/terraform binary — prevents the test harness from downloading one |
-| `TF_ACC_PROVIDER_NAMESPACE` | test framework | Provider namespace for reattach config — must be `cmrh` for OpenTofu compatibility |
-| `ARTESCA_MANAGEMENT_ENDPOINT` | all tests | Management API endpoint (OIDC-authenticated) |
-| `ARTESCA_OIDC_URL` | all tests | Control-plane ingress URL. Must produce tokens whose issuer matches the internal trust policies — retrieve via `salt-call metalk8s_network.get_control_plane_ingress_endpoint --out=json` |
-| `ARTESCA_USERNAME` / `ARTESCA_PASSWORD` | all tests | OIDC credentials for the management API |
-| `ARTESCA_S3_ENDPOINT` | bucket + workflow tests | Data-service endpoint for S3 operations |
-| `TF_VAR_ring_s3_*` | location + replication tests | RING backend as the source of a replication location |
-| `TF_VAR_dest_ring_s3_*` | replication destination tests | RING backend as the destination of a replication stream |
 
 ### Notes
 
-- The file must use `export` so `set -a` / `source` in the workflow picks up the variables.
-- `TF_ACC_TERRAFORM_PATH` must point to an OpenTofu (or Terraform) binary already installed on the runner. Setting it in `~/.bashrc` alone is **not sufficient** — GitHub Actions uses `bash --noprofile --norc`, so only variables from `~/.artesca-test.env` are available.
-- Replication tests require an independent RING cluster reachable from the ARTESCA network. If `TF_VAR_dest_ring_s3_*` variables are not set, replication tests are skipped rather than failed.
+- `make testacc` sets `TF_ACC_PROVIDER_NAMESPACE` to the Makefile's `scality` namespace.
+- Location, replication and workflow tests fail if the `TF_VAR_ring_s3_*` or `TF_VAR_dest_ring_s3_*` variables are not set.
 
 ## Local Development Builds
 
 For local testing without a release:
 
 ```bash
-# Build with version injection
-make build VERSION=v0.4.0-dev
+# Build the binary in the repository root
+make build
 
 # Or use dev_overrides in ~/.terraformrc / tofu config:
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/cmrh/artesca" = "/path/to/built/binary/directory"
+    "registry.opentofu.org/cmrh/artesca" = "/path/to/built/binary/directory"
   }
   direct {}
 }

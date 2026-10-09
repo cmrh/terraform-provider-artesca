@@ -32,7 +32,7 @@ output "expiration_workflow_ids" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `account_name` | String | Yes | The account that owns the bucket. |
+| `account_name` | String | Yes | Name of the account that owns the bucket. |
 | `bucket_name` | String | Yes | The bucket whose workflows should be listed. |
 
 ## Attributes Exported

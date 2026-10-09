@@ -26,7 +26,7 @@ func (d *LocationDataSource) Metadata(_ context.Context, req datasource.Metadata
 
 func (d *LocationDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Looks up an existing ARTESCA storage location by name. Sensitive details (secret_key, password) are not returned -- the overlay view masks them.",
+		Description: "Looks up an existing ARTESCA storage location by name. ARTESCA does not return secret_key or password, so they are empty.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Description: "The name of the location to look up.",
