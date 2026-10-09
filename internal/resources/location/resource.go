@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,6 +25,7 @@ var (
 	_ resource.Resource                   = &LocationResource{}
 	_ resource.ResourceWithImportState    = &LocationResource{}
 	_ resource.ResourceWithValidateConfig = &LocationResource{}
+	_ resource.ResourceWithUpgradeState   = &LocationResource{}
 )
 
 // requiredDetailsByType maps each known location_type to the details fields
@@ -67,6 +69,7 @@ func (r *LocationResource) Metadata(_ context.Context, req resource.MetadataRequ
 func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages an ARTESCA storage location.",
+		Version:     1,
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Description: "The name of the location. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
@@ -141,7 +144,7 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						},
 					},
 					"bucket_match": schema.BoolAttribute{
-						Description: "Whether the bucket name must match exactly. Defaults to false.",
+						Description: "If true, objects are written at the root of the target bucket; if false, under a prefix named after the source bucket. Defaults to false. Sharing a true location between buckets can lose data.",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
@@ -483,6 +486,26 @@ func (r *LocationResource) Delete(ctx context.Context, req resource.DeleteReques
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting location", err.Error())
 		return
+	}
+}
+
+// UpgradeState fills details.bucket_match in state written before it had a
+// default; otherwise a plan without refresh would replace the location.
+func (r *LocationResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				values, err := creds.DecodeRawState(req)
+				if err != nil {
+					resp.Diagnostics.AddError("Cannot upgrade state", err.Error())
+					return
+				}
+				if details, ok := values["details"].(map[string]any); ok && details["bucket_match"] == nil {
+					details["bucket_match"] = false
+				}
+				creds.WriteUpgradedState(ctx, r, values, resp)
+			},
+		},
 	}
 }
 
