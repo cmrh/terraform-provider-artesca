@@ -8,7 +8,6 @@ resource "artesca_location" "aws_s3" {
     bucket_name            = "my-target-bucket"
     bucket_match           = true
     region                 = "us-east-1"
-    server_side_encryption = false
   }
 }
 

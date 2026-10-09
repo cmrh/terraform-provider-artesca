@@ -92,12 +92,11 @@ resource "artesca_location" "source" {
   location_type = "location-scality-ring-s3-v1"
 
   details {
-    endpoint               = "%s"
-    access_key             = "%s"
-    secret_key             = "%s"
-    bucket_name            = "%s"
-    bucket_match           = false
-    server_side_encryption = true
+    endpoint     = "%s"
+    access_key   = "%s"
+    secret_key   = "%s"
+    bucket_name  = "%s"
+    bucket_match = false
   }
 }
 `, name,
@@ -115,12 +114,11 @@ resource "artesca_location" "dest" {
   location_type = "location-scality-ring-s3-v1"
 
   details {
-    endpoint               = "%s"
-    access_key             = "%s"
-    secret_key             = "%s"
-    bucket_name            = "%s"
-    bucket_match           = false
-    server_side_encryption = true
+    endpoint     = "%s"
+    access_key   = "%s"
+    secret_key   = "%s"
+    bucket_name  = "%s"
+    bucket_match = false
   }
 }
 `, name,
