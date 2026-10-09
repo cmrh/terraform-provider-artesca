@@ -31,6 +31,8 @@ var (
 // Types not in this map (location-mem-v1, location-file-v1, location-b2-v1,
 // location-scality-hdclient-v1, and any future types) skip client-side
 // validation and rely on the API to reject incomplete config.
+const locationTypeAWSS3 = "location-aws-s3-v1"
+
 var requiredDetailsByType = map[string][]string{
 	"location-aws-s3-v1":             {"access_key", "secret_key", "bucket_name"},
 	"location-gcp-v1":                {"access_key", "secret_key", "bucket_name"},
@@ -158,7 +160,7 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						},
 					},
 					"server_side_encryption": schema.BoolAttribute{
-						Description: "Whether to enable server-side encryption.",
+						Description: "Ask Amazon S3 to encrypt stored objects (SSE-S3). Only valid for location-aws-s3-v1.",
 						Optional:    true,
 					},
 					"storage_class": schema.StringAttribute{
@@ -271,6 +273,14 @@ func (r *LocationResource) ValidateConfig(ctx context.Context, req resource.Vali
 	}
 	if config.LocationType.IsNull() || config.LocationType.IsUnknown() {
 		return
+	}
+	if config.Details != nil && !config.Details.ServerSideEncryption.IsNull() &&
+		config.LocationType.ValueString() != locationTypeAWSS3 {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("details").AtName("server_side_encryption"),
+			"Unsupported attribute for location type",
+			fmt.Sprintf("details.server_side_encryption is only supported for location_type %q.", locationTypeAWSS3),
+		)
 	}
 	required, ok := requiredDetailsByType[config.LocationType.ValueString()]
 	if !ok {
@@ -627,7 +637,8 @@ func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *Lo
 	}
 	setIfConfigured(&model.Endpoint, d.Endpoint)
 	setIfConfigured(&model.Region, d.Region)
-	if d.ServerSideEncryption != nil {
+	// Unset and false are equivalent; keep null so an unset attribute doesn't diff.
+	if d.ServerSideEncryption != nil && (*d.ServerSideEncryption || !model.ServerSideEncryption.IsNull()) {
 		model.ServerSideEncryption = types.BoolValue(*d.ServerSideEncryption)
 	}
 	setIfConfigured(&model.StorageClass, d.StorageClass)

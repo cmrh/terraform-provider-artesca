@@ -12,6 +12,7 @@ Update your configuration (replace `account_access_key` / `account_secret_key` w
 
 ## Breaking changes since v0.3.0
 
+- **`artesca_location`**: `details.server_side_encryption` is only accepted for `location-aws-s3-v1`; remove it from other location types.
 - **`account_name` replaces `account_access_key` / `account_secret_key`** on all account-scoped resources (buckets and sub-resources, IAM users/groups/roles/policies and attachments, user access keys, expiration/transition workflows) and on `data.artesca_group`, `data.artesca_policy`, `data.artesca_role`, `data.artesca_user`. The provider obtains temporary credentials for the account from its OIDC login; account keys are no longer configured or stored.
 - **Import IDs** for account-scoped resources start with the account name: `tofu import artesca_user.alice my-app/alice`.
 - **`data.artesca_account`** no longer exports `email` or `access_key`; **`data.artesca_accounts`** no longer exports `email`.

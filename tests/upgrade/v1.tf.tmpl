@@ -17,12 +17,11 @@ resource "artesca_location" "src" {
   name          = "upg-src-SUFFIX"
   location_type = "location-scality-ring-s3-v1"
   details {
-    endpoint               = var.ring.endpoint
-    access_key             = var.ring.access_key
-    secret_key             = var.ring.secret_key
-    bucket_name            = var.ring.bucket_name
-    bucket_match           = false
-    server_side_encryption = true
+    endpoint     = var.ring.endpoint
+    access_key   = var.ring.access_key
+    secret_key   = var.ring.secret_key
+    bucket_name  = var.ring.bucket_name
+    bucket_match = false
   }
 }
 
@@ -30,12 +29,11 @@ resource "artesca_location" "dst" {
   name          = "upg-dst-SUFFIX"
   location_type = "location-scality-ring-s3-v1"
   details {
-    endpoint               = var.dest_ring.endpoint
-    access_key             = var.dest_ring.access_key
-    secret_key             = var.dest_ring.secret_key
-    bucket_name            = var.dest_ring.bucket_name
-    bucket_match           = false
-    server_side_encryption = true
+    endpoint     = var.dest_ring.endpoint
+    access_key   = var.dest_ring.access_key
+    secret_key   = var.dest_ring.secret_key
+    bucket_name  = var.dest_ring.bucket_name
+    bucket_match = false
   }
 }
 

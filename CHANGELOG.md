@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (breaking)
 
+- **`artesca_location.details.server_side_encryption` is only accepted for `location-aws-s3-v1` (#53).** Other location types don't support it; setting it now fails at plan time.
+
 - **`artesca_bucket_workflow_replication` manages an S3 replication rule (#2).** It reads and writes the bucket's S3 replication configuration (`Get/Put/DeleteBucketReplication`), merging its rule with others on the same bucket, like the expiration and transition resources do with lifecycle. The management API never stored a replication workflow's `name` or `version`, so they could not be read back. New shape: `account_name`, `bucket_name`, `destination_bucket_name`, `enabled`, optional `filter { object_key_prefix }`, computed `rule_id`; import ID `<account_name>/<bucket_name>/<rule_id>`. Removed `instance_id`, `account_id`, `name`, `version`, `workflow_id`, and the `source` / `destination` blocks.
 
 ### Removed

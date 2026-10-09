@@ -214,12 +214,11 @@ resource "artesca_location" "source" {
   location_type = "location-scality-ring-s3-v1"
 
   details {
-    endpoint               = var.ring_s3_endpoint
-    access_key             = var.ring_s3_access_key
-    secret_key             = var.ring_s3_secret_key
-    bucket_name            = var.ring_s3_bucket_name
-    bucket_match           = false
-    server_side_encryption = true
+    endpoint     = var.ring_s3_endpoint
+    access_key   = var.ring_s3_access_key
+    secret_key   = var.ring_s3_secret_key
+    bucket_name  = var.ring_s3_bucket_name
+    bucket_match = false
   }
 }
 
@@ -253,12 +252,11 @@ resource "artesca_location" "dest" {
   location_type = "location-scality-ring-s3-v1"
 
   details {
-    endpoint               = var.dest_ring_s3_endpoint
-    access_key             = var.dest_ring_s3_access_key
-    secret_key             = var.dest_ring_s3_secret_key
-    bucket_name            = var.dest_ring_s3_bucket_name
-    bucket_match           = false
-    server_side_encryption = true
+    endpoint     = var.dest_ring_s3_endpoint
+    access_key   = var.dest_ring_s3_access_key
+    secret_key   = var.dest_ring_s3_secret_key
+    bucket_name  = var.dest_ring_s3_bucket_name
+    bucket_match = false
   }
 }
 

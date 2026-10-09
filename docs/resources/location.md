@@ -17,12 +17,11 @@ resource "artesca_location" "aws_s3" {
   location_type = "location-aws-s3-v1"
 
   details {
-    access_key             = var.aws_access_key
-    secret_key             = var.aws_secret_key
-    bucket_name            = "my-target-bucket"
-    bucket_match           = true
-    region                 = "us-east-1"
-    server_side_encryption = false
+    access_key   = var.aws_access_key
+    secret_key   = var.aws_secret_key
+    bucket_name  = "my-target-bucket"
+    bucket_match = true
+    region       = "us-east-1"
   }
 }
 ```
@@ -66,7 +65,7 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 | `bucket_match` | Boolean | Whether to use bucket matching. |
 | `endpoint` | String | Custom endpoint URL (for S3-compatible backends). |
 | `region` | String | AWS region or equivalent. |
-| `server_side_encryption` | Boolean | Enable server-side encryption. |
+| `server_side_encryption` | Boolean | Ask Amazon S3 to encrypt stored objects (SSE-S3). Only valid for `location-aws-s3-v1`. |
 | `storage_class` | String | Storage class (e.g., `STANDARD`, `GLACIER`). |
 | `mpu_bucket_name` | String | Separate bucket for multipart uploads. |
 | `username` | String | Username (for Azure or other backends). |

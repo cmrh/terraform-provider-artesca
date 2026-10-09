@@ -24,7 +24,7 @@ func TestAccLocation_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("artesca_location.source", "location_type", "location-scality-ring-s3-v1"),
 					resource.TestCheckResourceAttrSet("artesca_location.source", "object_id"),
 					resource.TestCheckResourceAttr("artesca_location.source", "details.bucket_match", "false"),
-					resource.TestCheckResourceAttr("artesca_location.source", "details.server_side_encryption", "true"),
+					resource.TestCheckNoResourceAttr("artesca_location.source", "details.server_side_encryption"),
 				),
 			},
 		},
@@ -40,15 +40,15 @@ func TestAccLocation_update(t *testing.T) {
 		CheckDestroy:             testAccCheckLocationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccLocationWithSSE(rName, true),
+				Config: testAccLocationWithRegion(rName, "us-east-1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("artesca_location.source", "details.server_side_encryption", "true"),
+					resource.TestCheckResourceAttr("artesca_location.source", "details.region", "us-east-1"),
 				),
 			},
 			{
-				Config: testAccLocationWithSSE(rName, false),
+				Config: testAccLocationWithRegion(rName, "us-west-2"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("artesca_location.source", "details.server_side_encryption", "false"),
+					resource.TestCheckResourceAttr("artesca_location.source", "details.region", "us-west-2"),
 				),
 			},
 		},
@@ -137,19 +137,19 @@ resource "artesca_location" "test" {
 	})
 }
 
-func testAccLocationWithSSE(name string, sse bool) string {
+func testAccLocationWithRegion(name, region string) string {
 	return fmt.Sprintf(`
 resource "artesca_location" "source" {
   name          = %q
   location_type = "location-scality-ring-s3-v1"
 
   details {
-    endpoint               = "%s"
-    access_key             = "%s"
-    secret_key             = "%s"
-    bucket_name            = "%s"
-    bucket_match           = false
-    server_side_encryption = %t
+    endpoint     = "%s"
+    access_key   = "%s"
+    secret_key   = "%s"
+    bucket_name  = "%s"
+    bucket_match = false
+    region       = %q
   }
 }
 `, name,
@@ -157,6 +157,32 @@ resource "artesca_location" "source" {
 		os.Getenv("TF_VAR_ring_s3_access_key"),
 		os.Getenv("TF_VAR_ring_s3_secret_key"),
 		os.Getenv("TF_VAR_ring_s3_bucket_name"),
-		sse,
+		region,
 	)
+}
+
+func TestAccLocation_validateConfigSSEOnlyAWS(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_location" "test" {
+  name          = "tf-acc-loc-ring-sse"
+  location_type = "location-scality-ring-s3-v1"
+
+  details {
+    endpoint               = "http://ring.example.com"
+    access_key             = "ak"
+    secret_key             = "sk"
+    bucket_name            = "b"
+    server_side_encryption = true
+  }
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)server_side_encryption is only supported.*location-aws-s3-v1`),
+			},
+		},
+	})
 }
