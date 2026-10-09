@@ -49,4 +49,5 @@ The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
+- Changes to `policy_document` made outside Terraform appear in the next plan. Whitespace and key-order differences are ignored.
 - Only `policy_document` can be updated in-place. Other attributes force replacement.

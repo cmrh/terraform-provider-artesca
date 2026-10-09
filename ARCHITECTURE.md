@@ -51,6 +51,8 @@ internal/
 │   └── ...
 ├── creds/
 │   └── resolve.go               # Env-var fallback for per-account ak/sk on import
+├── policydoc/
+│   └── policydoc.go             # Compare JSON policy documents by meaning
 ├── provider/
 │   ├── provider.go              # Schema, Configure, Resources(), DataSources()
 │   ├── resource_*_test.go       # Acceptance tests, one per resource
@@ -176,6 +178,10 @@ Fields the API cannot update in-place use `stringplanmodifier.RequiresReplace()`
 ### State-preserved Read
 
 Resources where the API cannot return secrets after creation (`access_key`, `secret_key`) preserve those fields from prior state in `Read`. Don't overwrite from the (empty) API response.
+
+### Policy documents
+
+Resources that hold a JSON policy (`bucket_policy`, `policy`, `user_policy`, `group_policy`, the `role` trust policy) read it on every refresh and compare it with state using `policydoc.Refresh`, which keeps the state value when the two differ only in whitespace or key order. `policydoc.EquivalenceModifier` does the same for the plan, ahead of any `RequiresReplace`.
 
 ### Bucket sub-resources
 

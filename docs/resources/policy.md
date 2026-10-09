@@ -64,6 +64,7 @@ The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
+- Changes to `policy_document` made outside Terraform appear in the next plan. Whitespace and key-order differences are ignored.
 - All attributes force replacement on change. Update the policy by replacing the resource (Terraform will delete and re-create).
 - ARTESCA supports policy versions internally, but this provider only manages the active version.
 - Names are unique within the account regardless of case: `Alice` and `alice` can't both exist.
