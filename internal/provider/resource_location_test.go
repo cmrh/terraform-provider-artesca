@@ -65,6 +65,14 @@ data "artesca_location" "crr" {
 					resource.TestCheckResourceAttr("data.artesca_location.crr", "details.sts_endpoint", endpoint),
 				),
 			},
+			{
+				ResourceName:                         "artesca_location.crr",
+				ImportState:                          true,
+				ImportStateId:                        rName,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "name",
+				ImportStateVerifyIgnore:              []string{"details.secret_key"},
+			},
 		},
 	})
 }
@@ -110,7 +118,7 @@ func TestAccLocation_importState(t *testing.T) {
 				ImportStateId:                        rName,
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
-				ImportStateVerifyIgnore:              []string{"details.secret_key", "details.access_key", "details.bucket_match", "details.bucket_name", "details.endpoint", "details.region"},
+				ImportStateVerifyIgnore:              []string{"details.secret_key"},
 			},
 		},
 	})

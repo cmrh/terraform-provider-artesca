@@ -176,7 +176,7 @@ func apiDetailsToDataModel(ctx context.Context, d *client.LocationDetails) *Loca
 		AccessKey:            stringOrNull(d.AccessKey),
 		SecretKey:            stringOrNull(d.SecretKey),
 		BucketName:           stringOrNull(d.BucketName),
-		BucketMatch:          boolOrNull(d.BucketMatch),
+		BucketMatch:          types.BoolValue(d.BucketMatch != nil && *d.BucketMatch), // omitted when false
 		Endpoint:             stringOrNull(d.Endpoint),
 		StsEndpoint:          stringOrNull(d.StsEndpoint),
 		Region:               stringOrNull(d.Region),
