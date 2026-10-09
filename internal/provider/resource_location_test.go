@@ -31,7 +31,7 @@ func TestAccLocation_basic(t *testing.T) {
 	})
 }
 
-// The destination RING S3 Connector is an S3C site, which serves STS on its S3 endpoint.
+// Checks sts_endpoint round-trips; it does not exercise replication through the location.
 func TestAccLocation_crr(t *testing.T) {
 	rName := randomName("tf-acc-crr")
 	endpoint := os.Getenv("TF_VAR_dest_ring_s3_endpoint")
