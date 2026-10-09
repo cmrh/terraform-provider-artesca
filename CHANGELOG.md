@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Docs: ARTESCA constraints (#62).** The provider needs a user with the `StorageManager` role; buckets must be empty to delete; locations: at most 10, versioned target bucket for Amazon S3 and RING S3, truststore CA for TLS, no delete while holding data, CRR is replication-only, don't change `us-east-1`; accounts: deletion prerequisites and the three default roles; IAM names are case-insensitive.
 - **`data.artesca_bucket_workflows` takes `account_name` (#58),** like every other account-scoped data source. `account_id` and `instance_id` are removed; the provider resolves the account ID from the name.
 - **Release pipeline** moved from a self-hosted runner to `ubuntu-latest`. Build artifacts are handed to the signing job via immutable within-run workflow artifacts, and every checksum is re-verified before signing.
 - **Release binary naming**: the binary inside each zip now uses the `v`-prefixed version (`terraform-provider-artesca_v0.4.0`) — the archive filename remains unprefixed (`terraform-provider-artesca_0.4.0_linux_amd64.zip`). This matches the OpenTofu / Terraform Registry conventions.

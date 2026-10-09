@@ -14,7 +14,7 @@ The provider authenticates via three API surfaces:
 - **IAM API** -- AWS Signature V4 with per-account credentials (users, groups, roles, policies, access keys). Account lookups use the provider's OIDC token.
 - **S3 / STS API** -- AWS Signature V4 with per-account credentials (buckets and sub-resources; assume-role and caller-identity).
 
-Per-account credentials are temporary: for each `account_name`, the provider exchanges its OIDC token for credentials on the account's storage-manager role (STS `AssumeRoleWithWebIdentity`) and refreshes them before they expire. No account keys are configured or stored.
+Per-account credentials are temporary: for each `account_name`, the provider exchanges its OIDC token for credentials on the account's storage-manager role (STS `AssumeRoleWithWebIdentity`) and refreshes them before they expire. No account keys are configured or stored. Only ARTESCA users with the `StorageManager` admin role can assume that role, so the configured `username` needs it.
 
 The IAM endpoint is automatically derived from the management endpoint (`management.` → `iam.`). The STS endpoint is derived from the S3 endpoint (`s3.` → `sts.`), or from the management endpoint (`management.` → `sts.`) when `s3_endpoint` is not set.
 
