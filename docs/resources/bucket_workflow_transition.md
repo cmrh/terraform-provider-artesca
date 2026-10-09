@@ -2,23 +2,21 @@
 page_title: "artesca_bucket_workflow_transition Resource - artesca"
 subcategory: "Bucket Workflows"
 description: |-
-  Manages a bucket object transition lifecycle workflow that automatically moves objects to a different storage location.
+  Manages a bucket lifecycle transition rule in ARTESCA via the S3 API.
 ---
 
 # artesca_bucket_workflow_transition
 
-Manages a bucket object transition lifecycle workflow in ARTESCA. Transition workflows automatically move objects to a different storage location based on age or date criteria.
+Manages one transition rule in a bucket's S3 lifecycle configuration: objects move to another storage location a set number of days after creation. Each resource manages a single rule; several transition and expiration resources can target the same bucket, and the provider merges them into the bucket's lifecycle configuration. Lifecycle rules appear as transition workflows in the ARTESCA UI.
 
 ## Example
 
 ```hcl
 resource "artesca_bucket_workflow_transition" "archive" {
-  account_id         = artesca_account.app.id
-  bucket_name        = "app-data"
-  name               = "archive-to-cold"
+  account_name       = artesca_account.app.name
+  bucket_name        = artesca_bucket.data.name
   enabled            = true
-  location_name      = artesca_location.cold_storage.name
-  apply_to_version   = "current"
+  location_name      = artesca_location.cold.name
   trigger_delay_days = 30
 
   filter {
@@ -27,55 +25,29 @@ resource "artesca_bucket_workflow_transition" "archive" {
 }
 ```
 
-## Example (noncurrent versions)
-
-```hcl
-resource "artesca_bucket_workflow_transition" "old_versions" {
-  account_id         = artesca_account.app.id
-  bucket_name        = "versioned-data"
-  name               = "move-old-versions"
-  enabled            = true
-  location_name      = artesca_location.archive.name
-  apply_to_version   = "noncurrent"
-  trigger_delay_days = 90
-}
-```
-
 ## Argument Reference
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `instance_id` | String | No | Instance UUID. Defaults to the provider's auto-discovered instance ID. Forces replacement. |
-| `account_id` | String | Yes | Account ID (from `artesca_account.id`). Forces replacement. |
-| `bucket_name` | String | Yes | Target bucket name. Forces replacement. |
-| `name` | String | No | Workflow name. |
-| `enabled` | Boolean | Yes | Whether the workflow is active. |
-| `location_name` | String | Yes | Destination storage location for transitioned objects. |
-| `apply_to_version` | String | Yes | Which object versions to transition: `current` or `noncurrent`. |
-| `trigger_delay_date` | String | No | Transition objects after this date (format: `YYYY-MM-DD`). |
-| `trigger_delay_days` | Int | No | Transition objects after this many days. |
-| `filter` | Block | No | Object filter criteria. See below. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
+| `bucket_name` | String | Yes | Bucket the rule applies to. Forces replacement. |
+| `enabled` | Boolean | Yes | Whether the rule is active. |
+| `location_name` | String | Yes | Storage location objects transition to (the lifecycle rule's storage class). Must be an existing location, e.g. `artesca_location.<name>.name`. |
+| `trigger_delay_days` | Int | Yes | Days after object creation when the object transitions. Must be zero or a positive integer. |
+| `rule_id` | String | No | Lifecycle rule ID, at most 255 characters. Generated if not set. Forces replacement. |
+| `filter` | Block | No | Object filter. See below. |
 
 ### Filter Block
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `object_key_prefix` | String | No | Only apply to objects matching this key prefix. |
-| `object_tags` | Block (list) | No | Only apply to objects with these tags. See below. |
-
-### Object Tags Block
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `key` | String | Yes | Tag key. |
-| `value` | String | Yes | Tag value. |
+| `object_key_prefix` | String | No | Only transition objects whose key starts with this prefix. Omit to apply to all objects. |
 
 ## Attributes Exported
 
 | Name | Description |
 |------|-------------|
-| `workflow_id` | Unique workflow identifier assigned by the server. |
-| `instance_id` | The resolved instance ID (useful when auto-discovered). |
+| `rule_id` | The lifecycle rule ID. |
 
 ## Import
 
@@ -87,6 +59,7 @@ The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
-- `instance_id`, `account_id`, and `bucket_name` force replacement -- the workflow cannot be moved.
-- Exactly one of `trigger_delay_date` or `trigger_delay_days` should typically be set.
-- The destination `location_name` must reference an existing storage location.
+- On a versioned (or versioning-suspended) bucket, only the current version transitions; noncurrent versions are unaffected.
+- `account_name`, `bucket_name`, and `rule_id` force replacement — a rule cannot be moved.
+- Changes to `enabled`, `location_name`, `trigger_delay_days`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
+- A bucket's lifecycle configuration holds at most 1,000 rules across all expiration and transition resources.

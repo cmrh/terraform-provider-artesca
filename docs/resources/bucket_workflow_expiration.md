@@ -2,47 +2,26 @@
 page_title: "artesca_bucket_workflow_expiration Resource - artesca"
 subcategory: "Bucket Workflows"
 description: |-
-  Manages a bucket object expiration lifecycle workflow that automatically deletes objects based on age, date, or version criteria.
+  Manages a bucket lifecycle expiration rule in ARTESCA via the S3 API.
 ---
 
 # artesca_bucket_workflow_expiration
 
-Manages a bucket object expiration lifecycle workflow in ARTESCA. Expiration workflows automatically delete objects based on age, date, or version criteria.
+Manages one expiration rule in a bucket's S3 lifecycle configuration: objects expire a set number of days after creation. Each resource manages a single rule; several expiration and transition resources can target the same bucket, and the provider merges them into the bucket's lifecycle configuration. Lifecycle rules appear as expiration workflows in the ARTESCA UI.
 
 ## Example
 
 ```hcl
 resource "artesca_bucket_workflow_expiration" "cleanup" {
-  account_id  = artesca_account.app.id
-  bucket_name = "app-data"
-  name        = "expire-old-objects"
-  enabled     = true
+  account_name = artesca_account.app.name
+  bucket_name  = artesca_bucket.data.name
+  enabled      = true
 
   current_version_trigger_delay_days = 90
 
   filter {
     object_key_prefix = "logs/"
-
-    object_tags {
-      key   = "environment"
-      value = "staging"
-    }
   }
-}
-```
-
-## Example (delete markers and incomplete uploads)
-
-```hcl
-resource "artesca_bucket_workflow_expiration" "maintenance" {
-  account_id  = artesca_account.app.id
-  bucket_name = "app-data"
-  name        = "cleanup-maintenance"
-  enabled     = true
-
-  expire_delete_markers_trigger                  = true
-  incomplete_multipart_upload_trigger_delay_days = 7
-  previous_version_trigger_delay_days            = 30
 }
 ```
 
@@ -50,38 +29,24 @@ resource "artesca_bucket_workflow_expiration" "maintenance" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `instance_id` | String | No | Instance UUID. Defaults to the provider's auto-discovered instance ID. Forces replacement. |
-| `account_id` | String | Yes | Account ID (from `artesca_account.id`). Forces replacement. |
-| `bucket_name` | String | Yes | Target bucket name. Forces replacement. |
-| `name` | String | No | Workflow name. |
-| `enabled` | Boolean | Yes | Whether the workflow is active. |
-| `current_version_trigger_delay_date` | String | No | Expire current versions after this date (format: `YYYY-MM-DD`). |
-| `current_version_trigger_delay_days` | Int | No | Expire current versions after this many days. |
-| `expire_delete_markers_trigger` | Boolean | No | Remove expired delete markers. |
-| `incomplete_multipart_upload_trigger_delay_days` | Int | No | Abort incomplete multipart uploads after this many days. |
-| `previous_version_trigger_delay_days` | Int | No | Expire previous versions after this many days. |
-| `filter` | Block | No | Object filter criteria. See below. |
+| `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
+| `bucket_name` | String | Yes | Bucket the rule applies to. Forces replacement. |
+| `enabled` | Boolean | Yes | Whether the rule is active. |
+| `current_version_trigger_delay_days` | Int | Yes | Days after object creation when the current version expires. Must be a positive integer. |
+| `rule_id` | String | No | Lifecycle rule ID, at most 255 characters. Generated if not set. Forces replacement. |
+| `filter` | Block | No | Object filter. See below. |
 
 ### Filter Block
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `object_key_prefix` | String | No | Only apply to objects matching this key prefix. |
-| `object_tags` | Block (list) | No | Only apply to objects with these tags. See below. |
-
-### Object Tags Block
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `key` | String | Yes | Tag key. |
-| `value` | String | Yes | Tag value. |
+| `object_key_prefix` | String | No | Only expire objects whose key starts with this prefix. Omit to apply to all objects. |
 
 ## Attributes Exported
 
 | Name | Description |
 |------|-------------|
-| `workflow_id` | Unique workflow identifier assigned by the server. |
-| `instance_id` | The resolved instance ID (useful when auto-discovered). |
+| `rule_id` | The lifecycle rule ID. |
 
 ## Import
 
@@ -93,5 +58,7 @@ The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
-- `instance_id`, `account_id`, and `bucket_name` force replacement -- the workflow cannot be moved.
-- At least one trigger (`current_version_trigger_delay_days`, `expire_delete_markers_trigger`, etc.) should be set.
+- On a bucket that has never had versioning enabled, expiration deletes the object. On a versioned (or versioning-suspended) bucket, it applies only to the current version.
+- `account_name`, `bucket_name`, and `rule_id` force replacement — a rule cannot be moved.
+- Changes to `enabled`, `current_version_trigger_delay_days`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
+- A bucket's lifecycle configuration holds at most 1,000 rules across all expiration and transition resources.
