@@ -34,7 +34,7 @@ resource "artesca_bucket_workflow_replication" "backup" {
 | `bucket_name` | String | Yes | Source bucket. Versioning must be enabled. Forces replacement. |
 | `destination_bucket_name` | String | Yes | Bucket objects are replicated to. Versioning must be enabled. |
 | `enabled` | Boolean | Yes | Whether the rule is active. |
-| `rule_id` | String | No | Replication rule ID. Generated if not set. Forces replacement. |
+| `rule_id` | String | No | Replication rule ID, 1–255 characters. Generated if not set. Forces replacement. |
 | `filter` | Block | No | Object filter. See below. |
 
 ### Filter Block

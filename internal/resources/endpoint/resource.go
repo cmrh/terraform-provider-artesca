@@ -49,13 +49,13 @@ func (r *EndpointResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				},
 			},
 			"location_name": schema.StringAttribute{
-				Description: "The name of the location this endpoint points to. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Description: "The name of the location this endpoint points to.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					validators.BucketName{},
+					validators.LocationName{},
 				},
 			},
 			"is_builtin": schema.BoolAttribute{

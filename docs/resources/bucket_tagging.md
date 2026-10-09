@@ -30,7 +30,7 @@ resource "artesca_bucket_tagging" "example" {
 |------|------|----------|-------------|
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `bucket_name` | String | Yes | The name of the bucket to tag. Forces replacement. |
-| `tags` | Map(String) | Yes | Map of tag key/value pairs. Replacing this map replaces the bucket's entire tag set. |
+| `tags` | Map(String) | Yes | Map of tag key/value pairs, at most 50. Replacing this map replaces the bucket's entire tag set. |
 
 ## Import
 

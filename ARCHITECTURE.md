@@ -151,7 +151,13 @@ The `internal/validators` package provides reusable schema validators:
 | `IAMUsername()` | Same rules as IAMName, maxLen 64 | username |
 | `IAMPolicyName()` | Same rules as IAMName, maxLen 128 | policy_name on user_policy, group_policy |
 | `JSONDocument()` | Valid JSON | policy documents, trust policies |
-| `SSEAlgorithm()` | One of the supported SSE algorithms | sse_algorithm on bucket_encryption |
+| `SSEAlgorithm()` | `AES256` | sse_algorithm on bucket_encryption |
+| `LocationName()` | 3+ chars, lowercase + numbers + hyphens, starts with a letter | location name, endpoint location_name |
+| `RuleID()` | 1-255 chars | rule_id on lifecycle and replication workflows |
+| `RoleSessionName()` | Letters, numbers, `_=,.@-` | role_session_name on assumed_role_credentials |
+| `MapSizeAtMost(max)` | At most `max` entries | tags on bucket_tagging (50) |
+| `Int64AtLeast(min)` | ≥ `min` | lifecycle day counts |
+| `Int64Between(min, max)` | `min`–`max` inclusive | duration_seconds on assumed_role_credentials |
 
 ## Testing
 

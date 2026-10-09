@@ -64,7 +64,7 @@ func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.Schema
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					validators.LifecycleRuleID{},
+					validators.RuleID{},
 				},
 			},
 			"enabled": schema.BoolAttribute{

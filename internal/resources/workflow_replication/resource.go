@@ -55,12 +55,15 @@ func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.Schem
 				},
 			},
 			"rule_id": schema.StringAttribute{
-				Description: "The replication rule ID. Auto-generated if not set.",
+				Description: "The replication rule ID, 1–255 characters. Auto-generated if not set.",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					validators.RuleID{},
 				},
 			},
 			"enabled": schema.BoolAttribute{

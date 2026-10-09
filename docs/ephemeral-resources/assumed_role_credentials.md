@@ -62,8 +62,8 @@ check "assume_role_succeeded" {
 | `access_key` | String | Yes | Access key of the IAM user calling `AssumeRole`. Sensitive. |
 | `secret_key` | String | Yes | Secret key of the IAM user calling `AssumeRole`. Sensitive. |
 | `role_arn` | String | Yes | ARN of the role to assume. |
-| `role_session_name` | String | Yes | Session name. Recorded in the assumed-role ARN; useful for audit log correlation. |
-| `duration_seconds` | Int64 | No  | Session lifetime. Defaults to STS's default (3600s / 1 hour) when omitted. |
+| `role_session_name` | String | Yes | Session name: letters, numbers, and `_=,.@-`. Recorded in the assumed-role ARN; useful for audit log correlation. |
+| `duration_seconds` | Int64 | No  | Session lifetime, 900–43200 seconds and at most the role's maximum session duration. Defaults to 3600 (1 hour). |
 | `external_id` | String | No  | External ID, if the role's trust policy requires one. |
 
 ~> **Note:** ARTESCA does not enforce STS session policies, so this resource has no `policy` argument. Restrict access through the role's attached policies instead.

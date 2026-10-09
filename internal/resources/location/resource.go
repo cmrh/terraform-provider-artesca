@@ -28,30 +28,27 @@ var (
 	_ resource.ResourceWithUpgradeState   = &LocationResource{}
 )
 
-// requiredDetailsByType maps each known location_type to the details fields
-// the ARTESCA API requires. Sourced from the swagger location-*-v1 schemas.
-// Types not in this map (location-mem-v1, location-file-v1, location-b2-v1,
-// location-scality-hdclient-v1, and any future types) skip client-side
-// validation and rely on the API to reject incomplete config.
 const locationTypeAWSS3 = "location-aws-s3-v1"
 
+// requiredDetailsByType maps the location types ARTESCA documents to the
+// details fields they require. Other types skip client-side validation and
+// rely on the API to reject incomplete config.
 var requiredDetailsByType = map[string][]string{
-	"location-aws-s3-v1":             {"access_key", "secret_key", "bucket_name"},
-	"location-gcp-v1":                {"access_key", "secret_key", "bucket_name"},
-	"location-aws-glacier-v1":        {"access_key", "secret_key", "bucket_name"},
-	"location-azure-v1":              {"endpoint", "bucket_name"},
-	"location-azure-archive-v1":      {"endpoint", "bucket_name"},
-	"location-wasabi-v1":             {"endpoint", "access_key", "secret_key", "bucket_name"},
-	"location-do-spaces-v1":          {"endpoint", "access_key", "secret_key", "bucket_name"},
-	"location-scality-ring-s3-v1":    {"endpoint", "access_key", "secret_key", "bucket_name"},
-	"location-scality-artesca-s3-v1": {"endpoint", "access_key", "secret_key", "bucket_name"},
-	"location-ceph-radosgw-s3-v1":    {"endpoint", "access_key", "secret_key", "bucket_name"},
-	"location-scality-sproxyd-v1":    {"bootstrap_list", "chord_cos", "proxy_path"},
-	"location-scality-hdclient-v2":   {"bootstrap_list"},
-	"location-nfs-mount-v1":          {"endpoint"},
-	"location-dmf-v1":                {"endpoint", "username", "password", "repo_id", "ns_id"},
-	"location-miria-v1":              {"endpoint", "username", "password", "repo_id"},
-	"location-scality-crr-v1":        {"endpoint", "sts_endpoint", "access_key", "secret_key"},
+	"location-aws-s3-v1":               {"access_key", "secret_key", "bucket_name"},
+	"location-gcp-v1":                  {"access_key", "secret_key", "bucket_name"},
+	"location-aws-glacier-v1":          {"access_key", "secret_key", "bucket_name"},
+	"location-azure-v1":                {"endpoint", "bucket_name"},
+	"location-azure-archive-v1":        {"endpoint", "bucket_name"},
+	"location-wasabi-v1":               {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-ring-s3-v1":      {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-artesca-s3-v1":   {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-sproxyd-v1":      {"bootstrap_list", "chord_cos", "proxy_path"},
+	"location-dmf-v1":                  {"endpoint", "username", "password", "repo_id", "ns_id"},
+	"location-miria-v1":                {"endpoint", "username", "password", "repo_id"},
+	"location-scaleway-glacier-v1":     {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-ovh-cold-archive-v1":     {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-versity-tape-archive-v1": {"endpoint", "access_key", "secret_key", "bucket_name"},
+	"location-scality-crr-v1":          {"endpoint", "sts_endpoint", "access_key", "secret_key"},
 }
 
 type LocationResource struct {
@@ -72,13 +69,13 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		Version:     1,
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Description: "The name of the location. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
+				Description: "The name of the location. At least 3 characters: lowercase letters, numbers, and hyphens, starting with a letter.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					validators.BucketName{},
+					validators.LocationName{},
 				},
 			},
 			"location_type": schema.StringAttribute{
