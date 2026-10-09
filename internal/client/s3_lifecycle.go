@@ -18,6 +18,18 @@ type lifecycleRule struct {
 	Filter     *lifecycleFilter     `xml:"Filter,omitempty"`
 	Expiration *lifecycleExpiration `xml:"Expiration,omitempty"`
 	Transition *lifecycleTransition `xml:"Transition,omitempty"`
+	Inner      string               `xml:",innerxml"` // set on read only
+}
+
+// MarshalXML writes a rule read from the server back unchanged, keeping
+// elements the provider doesn't model (tag filters, dates, noncurrent-version
+// actions, ...). Rules built by the provider are encoded from their fields.
+func (r lifecycleRule) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if r.Inner != "" {
+		return e.EncodeElement(rawXML{Inner: r.Inner}, start)
+	}
+	type plain lifecycleRule
+	return e.EncodeElement(plain(r), start)
 }
 
 type lifecycleFilter struct {
@@ -33,6 +45,9 @@ type lifecycleTransition struct {
 	StorageClass string `xml:"StorageClass"`
 }
 
+// LifecycleRule is one rule of a bucket's lifecycle configuration. Rules
+// returned by GetBucketLifecycle are written back by PutBucketLifecycle exactly
+// as read; to change a rule, replace it with a new LifecycleRule.
 type LifecycleRule struct {
 	ID                 string
 	Status             string
@@ -40,6 +55,8 @@ type LifecycleRule struct {
 	ExpirationDays     int
 	TransitionDays     int
 	TransitionLocation string
+
+	raw string // inner XML as read from the server
 }
 
 func (c *S3Client) GetBucketLifecycle(ctx context.Context, creds Credentials, bucket string) ([]LifecycleRule, error) {
@@ -67,6 +84,7 @@ func (c *S3Client) GetBucketLifecycle(ctx context.Context, creds Credentials, bu
 		rule := LifecycleRule{
 			ID:     r.ID,
 			Status: r.Status,
+			raw:    r.Inner,
 		}
 		if r.Filter != nil {
 			rule.Prefix = r.Filter.Prefix
@@ -88,6 +106,10 @@ func (c *S3Client) PutBucketLifecycle(ctx context.Context, creds Credentials, bu
 	config := lifecycleConfiguration{}
 
 	for _, r := range rules {
+		if r.raw != "" {
+			config.Rules = append(config.Rules, lifecycleRule{Inner: r.raw})
+			continue
+		}
 		xmlRule := lifecycleRule{
 			ID:     r.ID,
 			Status: r.Status,

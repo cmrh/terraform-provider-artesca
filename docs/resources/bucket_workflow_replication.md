@@ -7,7 +7,7 @@ description: |-
 
 # artesca_bucket_workflow_replication
 
-Manages one rule of a bucket's S3 replication configuration, replicating objects from `bucket_name` to `destination_bucket_name`. Each resource manages a single rule; several resources can target the same bucket, and the provider merges them into the bucket's configuration. Replication rules appear as replication workflows in the ARTESCA UI, identified by their rule ID.
+Manages one rule of a bucket's S3 replication configuration, replicating objects from `bucket_name` to `destination_bucket_name`. Each resource manages a single rule; several resources can target the same bucket, and the provider merges them into the bucket's configuration. Rules created outside Terraform, such as in the ARTESCA UI, are left unchanged. Replication rules appear as replication workflows in the ARTESCA UI, identified by their rule ID.
 
 For instance-level, location-based replication, use `artesca_replication` instead.
 

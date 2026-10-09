@@ -83,6 +83,11 @@ type s3ErrorResponse struct {
 	Message string   `xml:"Message"`
 }
 
+// rawXML encodes an element's inner XML verbatim.
+type rawXML struct {
+	Inner string `xml:",innerxml"`
+}
+
 // isTransientGatewayStatus returns true for upstream/proxy statuses that
 // commonly clear on retry (502/503/504). 500 is excluded because it usually
 // signals a real server-side error rather than transient unavailability.
@@ -376,6 +381,32 @@ func (c *S3Client) DeleteBucket(ctx context.Context, creds Credentials, bucket s
 	}
 
 	return nil
+}
+
+// PutBucketSubresourceXML replaces a bucket configuration subresource (for
+// example "lifecycle" or "replication") with body as given. Acceptance tests
+// use it to create configurations the provider doesn't model.
+func (c *S3Client) PutBucketSubresourceXML(ctx context.Context, creds Credentials, bucket, subresource, body string) error {
+	respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, subresource, body, creds)
+	if err != nil {
+		return fmt.Errorf("put bucket %s: %w", subresource, err)
+	}
+	if statusCode != 200 {
+		return fmt.Errorf("put bucket %s failed (status %d): %s", subresource, statusCode, string(respBody))
+	}
+	return nil
+}
+
+// GetBucketSubresourceXML returns a bucket configuration subresource as raw XML.
+func (c *S3Client) GetBucketSubresourceXML(ctx context.Context, creds Credentials, bucket, subresource string) (string, error) {
+	body, statusCode, err := c.doSignedRequest(ctx, "GET", "/"+bucket, subresource, "", creds)
+	if err != nil {
+		return "", fmt.Errorf("get bucket %s: %w", subresource, err)
+	}
+	if statusCode != 200 {
+		return "", fmt.Errorf("get bucket %s failed (status %d): %s", subresource, statusCode, string(body))
+	}
+	return string(body), nil
 }
 
 func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, body string, creds Credentials) ([]byte, int, error) {

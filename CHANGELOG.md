@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Workflow resources rewrote other rules on the same bucket (#59).** When adding, changing, or removing their rule, `artesca_bucket_workflow_expiration`, `_transition`, and `_replication` wrote the bucket's other rules back with only the fields the provider models, dropping tag filters, dates, noncurrent-version actions, and replication `StorageClass`. A tag-filtered expiration rule became a rule for the whole bucket. Other rules are now written back exactly as read.
 - **Transitions with `trigger_delay_days = 0` were rejected (#63).** The provider left `Days` out of the lifecycle XML when it was 0, and ARTESCA returned `MalformedXML`. `Days` is now always sent.
 - **Accounts reported as deleted right after creation.** `artesca_account`, `data.artesca_account`, and `data.artesca_accounts` looked accounts up in the management overlay view, which does not list them. They now use IAM `GetRolesForWebIdentity` with the provider's OIDC token (#35). `artesca_account.arn` is now the account root ARN (`arn:aws:iam::<id>:root`).
 - **Bucket configs lost when several were applied at once (#46).** ARTESCA can silently drop some of several config writes made concurrently to the same bucket, and OpenTofu creates bucket sub-resources in parallel. All bucket-config writes (tagging, encryption, policy, versioning, lifecycle, replication) and bucket deletion are now serialized per bucket inside the provider.

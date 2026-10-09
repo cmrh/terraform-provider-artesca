@@ -7,7 +7,7 @@ description: |-
 
 # artesca_bucket_workflow_expiration
 
-Manages one expiration rule in a bucket's S3 lifecycle configuration: objects expire a set number of days after creation. Each resource manages a single rule; several expiration and transition resources can target the same bucket, and the provider merges them into the bucket's lifecycle configuration. Lifecycle rules appear as expiration workflows in the ARTESCA UI.
+Manages one expiration rule in a bucket's S3 lifecycle configuration: objects expire a set number of days after creation. Each resource manages a single rule; several expiration and transition resources can target the same bucket, and the provider merges them into the bucket's lifecycle configuration. Rules created outside Terraform, such as in the ARTESCA UI, are left unchanged. Lifecycle rules appear as expiration workflows in the ARTESCA UI.
 
 ## Example
 

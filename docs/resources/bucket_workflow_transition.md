@@ -7,7 +7,7 @@ description: |-
 
 # artesca_bucket_workflow_transition
 
-Manages one transition rule in a bucket's S3 lifecycle configuration: objects move to another storage location a set number of days after creation. Each resource manages a single rule; several transition and expiration resources can target the same bucket, and the provider merges them into the bucket's lifecycle configuration. Lifecycle rules appear as transition workflows in the ARTESCA UI.
+Manages one transition rule in a bucket's S3 lifecycle configuration: objects move to another storage location a set number of days after creation. Each resource manages a single rule; several transition and expiration resources can target the same bucket, and the provider merges them into the bucket's lifecycle configuration. Rules created outside Terraform, such as in the ARTESCA UI, are left unchanged. Lifecycle rules appear as transition workflows in the ARTESCA UI.
 
 ## Example
 
