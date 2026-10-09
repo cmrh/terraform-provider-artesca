@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/xml"
@@ -81,6 +82,14 @@ type s3ErrorResponse struct {
 	XMLName xml.Name `xml:"Error"`
 	Code    string   `xml:"Code"`
 	Message string   `xml:"Message"`
+}
+
+// NewRuleID returns a random UUID-formatted ID for a lifecycle or
+// replication rule.
+func NewRuleID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
 // rawXML encodes an element's inner XML verbatim.

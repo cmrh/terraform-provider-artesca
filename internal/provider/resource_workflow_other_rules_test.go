@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -132,8 +131,7 @@ func testAccBucketS3(s *terraform.State, bucketResource string) (*client.S3Clien
 	if !ok {
 		return nil, client.Credentials{}, "", fmt.Errorf("no credentials for %s", rs.Primary.Attributes["account_name"])
 	}
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	return client.NewS3Client(os.Getenv("ARTESCA_S3_ENDPOINT"), "us-east-1", insecure), creds, rs.Primary.Attributes["name"], nil
+	return testAccS3Client(), creds, rs.Primary.Attributes["name"], nil
 }
 
 func testAccPutBucketXML(bucketResource, subresource, body string) resource.TestCheckFunc {

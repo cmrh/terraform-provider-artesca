@@ -3,10 +3,8 @@ package provider
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
-	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
@@ -179,11 +177,6 @@ func testAccCheckWorkflowReplicationDestroy(s *terraform.State) error {
 		}
 	}
 	return nil
-}
-
-func testAccS3Client() *client.S3Client {
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	return client.NewS3Client(os.Getenv("ARTESCA_S3_ENDPOINT"), "us-east-1", insecure)
 }
 
 func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktName, dstBktName string, enabled bool, prefix string) string {

@@ -13,7 +13,7 @@ body:
     attributes:
       label: Affected resource / data source
       description: Existing `artesca_*` name, or `(new)` if proposing a new one.
-      placeholder: "artesca_instance (new data source)"
+      placeholder: "artesca_bucket_cors (new resource)"
     validations:
       required: true
 

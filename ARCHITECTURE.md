@@ -135,7 +135,7 @@ Implication: the management client batches (and where appropriate caches) that o
 
 ## Workflow resource reads
 
-All three bucket workflow resources are S3 bucket configuration under the hood: `artesca_bucket_workflow_expiration` and `_transition` manage lifecycle rules (`Get/PutBucketLifecycle`), and `_replication` manages replication rules (`Get/Put/DeleteBucketReplication`). Each resource owns one rule; Create/Update/Delete read the bucket's configuration, merge the change, and write it back under a per-client lock (`LockLifecycle` / `LockReplication`). Read finds the rule by ID, so deletion and out-of-band changes are detected.
+All three bucket workflow resources are S3 bucket configuration under the hood: `artesca_bucket_workflow_expiration` and `_transition` manage lifecycle rules (`Get/PutBucketLifecycle`), and `_replication` manages replication rules (`Get/Put/DeleteBucketReplication`). Each resource owns one rule; Create/Update/Delete read the bucket's configuration, merge the change, and write it back under a per-bucket lock (`S3Client.LockBucket`, shared by every bucket config write). Rules the provider doesn't own are written back exactly as read. Read finds the rule by ID, so deletion and out-of-band changes are detected.
 
 The management API's workflow endpoints show the same rules (a replication rule's ID is its workflow `streamId`), but they don't return anything the S3 configuration lacks, and the `name`/`version` a workflow is created with are not stored.
 

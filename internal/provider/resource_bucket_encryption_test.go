@@ -8,8 +8,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
-
-	"github.com/cmrh/terraform-provider-artesca/internal/client"
 )
 
 func TestAccBucketEncryption_basic(t *testing.T) {
@@ -73,8 +71,7 @@ func testAccCheckBucketEncryptionDestroy(s *terraform.State) error {
 	if s3Endpoint == "" {
 		return nil
 	}
-	insecure := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "true" || os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY") == "1"
-	s3Client := client.NewS3Client(s3Endpoint, "us-east-1", insecure)
+	s3Client := testAccS3Client()
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "artesca_bucket_encryption" {
