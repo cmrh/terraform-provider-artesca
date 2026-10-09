@@ -65,4 +65,5 @@ The import ID starts with the name of the account that owns the resource.
 - ARTESCA validates the policy on `PUT`. Common rejection: `MalformedPolicy: Policy has invalid resource` when a Resource ARN names a different bucket.
 - Anonymous principals (`Principal: "*"`) are accepted.
 - The policy field uses semantic JSON comparison for drift detection, so reformatting the policy with `jsonencode` or alternate whitespace will not produce a planned change.
-- **Account principals:** Do not use `artesca_account.<x>.arn` for `Principal.AWS`. The management API currently returns a non-standard ARN (`arn:aws:iam::<id>:/<name>/`) that the policy validator rejects with a misleading `MalformedPolicy: This policy contains invalid Json` error. Construct the root form yourself: `"arn:aws:iam::${artesca_account.<x>.id}:root"`.
+- **Account principals:** `artesca_account.<x>.arn` is the account root ARN (`arn:aws:iam::<id>:root`) and can be used directly in `Principal.AWS`.
+- **No encryption condition keys:** ARTESCA rejects the SSE condition keys `s3:x-amz-server-side-encryption` and `s3:x-amz-server-side-encryption-aws-kms-key-id` with `MalformedPolicy`, so a bucket policy cannot require encrypted uploads. Use `artesca_bucket_encryption` to encrypt new objects by default instead.

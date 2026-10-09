@@ -32,8 +32,7 @@ func TestPutBucketEncryption(t *testing.T) {
 
 	c := NewS3Client(apiServer.URL, "us-east-1", false)
 	err := c.PutBucketEncryption(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", BucketEncryptionConfig{
-		SSEAlgorithm:     "AES256",
-		BucketKeyEnabled: true,
+		SSEAlgorithm: "AES256",
 	})
 	if err != nil {
 		t.Fatalf("PutBucketEncryption returned error: %v", err)
@@ -41,8 +40,9 @@ func TestPutBucketEncryption(t *testing.T) {
 	if !strings.Contains(requestBody, "<SSEAlgorithm>AES256</SSEAlgorithm>") {
 		t.Errorf("body missing SSEAlgorithm: %q", requestBody)
 	}
-	if !strings.Contains(requestBody, "<BucketKeyEnabled>true</BucketKeyEnabled>") {
-		t.Errorf("body missing BucketKeyEnabled=true: %q", requestBody)
+	// ARTESCA does not store BucketKeyEnabled; the provider does not send it.
+	if strings.Contains(requestBody, "BucketKeyEnabled") {
+		t.Errorf("body should not contain BucketKeyEnabled: %q", requestBody)
 	}
 }
 
@@ -76,9 +76,6 @@ func TestGetBucketEncryption(t *testing.T) {
 	}
 	if cfg.SSEAlgorithm != "AES256" {
 		t.Errorf("SSEAlgorithm = %q, want AES256", cfg.SSEAlgorithm)
-	}
-	if cfg.BucketKeyEnabled {
-		t.Errorf("BucketKeyEnabled = true, want false")
 	}
 }
 

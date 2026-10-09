@@ -9,11 +9,10 @@ import (
 )
 
 // BucketEncryptionConfig captures the SSE configuration for a bucket.
-// ARTESCA today supports SSE-S3 (SSEAlgorithm = "AES256"). BucketKeyEnabled is
-// returned by the server even when not set on PUT.
+// ARTESCA supports SSE-S3 (SSEAlgorithm = "AES256"). It accepts but does not
+// store BucketKeyEnabled, so the field is not modeled.
 type BucketEncryptionConfig struct {
-	SSEAlgorithm     string
-	BucketKeyEnabled bool
+	SSEAlgorithm string
 }
 
 type bucketEncryptionRequest struct {
@@ -23,8 +22,7 @@ type bucketEncryptionRequest struct {
 }
 
 type bucketEncryptionRequestRule struct {
-	Apply            bucketEncryptionRequestApply `xml:"ApplyServerSideEncryptionByDefault"`
-	BucketKeyEnabled bool                         `xml:"BucketKeyEnabled"`
+	Apply bucketEncryptionRequestApply `xml:"ApplyServerSideEncryptionByDefault"`
 }
 
 type bucketEncryptionRequestApply struct {
@@ -37,8 +35,7 @@ type bucketEncryptionResponse struct {
 }
 
 type bucketEncryptionResponseRule struct {
-	Apply            bucketEncryptionResponseApply `xml:"ApplyServerSideEncryptionByDefault"`
-	BucketKeyEnabled bool                          `xml:"BucketKeyEnabled"`
+	Apply bucketEncryptionResponseApply `xml:"ApplyServerSideEncryptionByDefault"`
 }
 
 type bucketEncryptionResponseApply struct {
@@ -51,8 +48,7 @@ func (c *S3Client) PutBucketEncryption(ctx context.Context, creds Credentials, b
 	req := bucketEncryptionRequest{
 		XMLNS: "http://s3.amazonaws.com/doc/2006-03-01/",
 		Rules: []bucketEncryptionRequestRule{{
-			Apply:            bucketEncryptionRequestApply{SSEAlgorithm: cfg.SSEAlgorithm},
-			BucketKeyEnabled: cfg.BucketKeyEnabled,
+			Apply: bucketEncryptionRequestApply(cfg),
 		}},
 	}
 	body, err := xml.Marshal(req)
@@ -96,8 +92,7 @@ func (c *S3Client) GetBucketEncryption(ctx context.Context, creds Credentials, b
 	}
 	rule := resp.Rules[0]
 	return &BucketEncryptionConfig{
-		SSEAlgorithm:     rule.Apply.SSEAlgorithm,
-		BucketKeyEnabled: rule.BucketKeyEnabled,
+		SSEAlgorithm: rule.Apply.SSEAlgorithm,
 	}, nil
 }
 
