@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -122,4 +123,22 @@ resource "artesca_replication" "test" {
   }
 }
 `, enabled)
+}
+
+func TestAccReplication_validateConfigMissingBlocks(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_replication" "test" {
+  name    = "tf-acc-repl-missing"
+  enabled = true
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)Missing source block.*Missing destination block|Missing destination block.*Missing source block`),
+			},
+		},
+	})
 }

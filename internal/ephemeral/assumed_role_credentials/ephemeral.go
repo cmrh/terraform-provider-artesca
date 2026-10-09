@@ -107,13 +107,6 @@ func (r *AssumedRoleCredentialsEphemeralResource) Configure(_ context.Context, r
 		)
 		return
 	}
-	if providerData.STS == nil {
-		resp.Diagnostics.AddError(
-			"STS client not configured",
-			"The provider's s3_endpoint must be set so the STS endpoint can be derived from it. Set s3_endpoint in the provider block or ARTESCA_S3_ENDPOINT in the environment.",
-		)
-		return
-	}
 	r.stsClient = providerData.STS
 }
 

@@ -361,14 +361,14 @@ func (r *WorkflowReplicationResource) UpgradeState(_ context.Context) map[int64]
 		0: {StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
 			old, err := creds.DecodeRawState(req)
 			if err != nil {
-				creds.UpgradeError(resp, err)
+				creds.UpgradeError(resp, r, err)
 				return
 			}
 
 			accountID, _ := old["account_id"].(string)
 			accountName, err := creds.ResolveAccountNameByID(ctx, func() *client.AccountCredentialSource { return r.accounts }, accountID)
 			if err != nil {
-				creds.UpgradeError(resp, err)
+				creds.UpgradeError(resp, r, err)
 				return
 			}
 
