@@ -62,7 +62,7 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 | `access_key` | String | Access key for the backend. Sensitive. |
 | `secret_key` | String | Secret key for the backend. Sensitive. |
 | `bucket_name` | String | Target bucket on the backend. |
-| `bucket_match` | Boolean | Whether to use bucket matching. Defaults to `false`. |
+| `bucket_match` | Boolean | If `true`, objects are written at the root of the target bucket; if `false`, under a prefix named after the source bucket. Defaults to `false`. See the warning below. |
 | `endpoint` | String | Custom endpoint URL (for S3-compatible backends). |
 | `sts_endpoint` | String | STS endpoint of the destination site. Required for `location-scality-crr-v1`. |
 | `region` | String | AWS region or equivalent. |
@@ -85,6 +85,8 @@ Whether a `details.*` field is required depends on `location_type` -- see [Requi
 | `data_parts` | Int | Data parts for erasure coding. |
 | `gcp_endpoint` | String | GCP endpoint URL. |
 | `bucket_prefix` | String | Bucket prefix. |
+
+~> **Warning:** With `bucket_match = true`, using the same location for several buckets can lose data, because objects with the same key overwrite each other. ARTESCA rejects a second location on the same endpoint and target bucket unless both have `bucket_match = false`.
 
 ### Required fields by location type
 
