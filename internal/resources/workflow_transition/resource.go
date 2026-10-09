@@ -62,6 +62,9 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{
+					validators.LifecycleRuleID{},
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Description: "Whether the lifecycle rule is enabled.",
@@ -72,8 +75,11 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 				Required:    true,
 			},
 			"trigger_delay_days": schema.Int64Attribute{
-				Description: "Number of days after which objects are transitioned.",
+				Description: "Number of days after which objects are transitioned. Must be at least 0.",
 				Required:    true,
+				Validators: []validator.Int64{
+					validators.Int64AtLeast{Min: 0},
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{

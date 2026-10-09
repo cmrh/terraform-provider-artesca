@@ -386,3 +386,54 @@ func TestDescriptions(t *testing.T) {
 		}
 	}
 }
+
+func TestLifecycleRuleID(t *testing.T) {
+	v := LifecycleRuleID{}
+	ctx := context.Background()
+	cases := map[string]bool{
+		"r1":                     true,
+		strings.Repeat("a", 255): true,
+		strings.Repeat("é", 255): true,
+		"":                       false,
+		strings.Repeat("a", 256): false,
+	}
+	for val, ok := range cases {
+		resp := &validator.StringResponse{}
+		v.ValidateString(ctx, testStringRequest(val), resp)
+		if resp.Diagnostics.HasError() == ok {
+			t.Errorf("len %d: error = %v, want %v", len([]rune(val)), resp.Diagnostics.HasError(), !ok)
+		}
+	}
+	for _, req := range []validator.StringRequest{testNullRequest(), testUnknownRequest()} {
+		resp := &validator.StringResponse{}
+		v.ValidateString(ctx, req, resp)
+		if resp.Diagnostics.HasError() {
+			t.Error("expected no error for null/unknown value")
+		}
+	}
+}
+
+func TestInt64AtLeast(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		min, val int64
+		ok       bool
+	}{
+		{1, 1, true}, {1, 90, true}, {1, 0, false}, {1, -1, false},
+		{0, 0, true}, {0, 30, true}, {0, -1, false},
+	}
+	for _, tc := range cases {
+		resp := &validator.Int64Response{}
+		Int64AtLeast{Min: tc.min}.ValidateInt64(ctx, validator.Int64Request{Path: path.Root("test"), ConfigValue: types.Int64Value(tc.val)}, resp)
+		if resp.Diagnostics.HasError() == tc.ok {
+			t.Errorf("min %d val %d: error = %v, want %v", tc.min, tc.val, resp.Diagnostics.HasError(), !tc.ok)
+		}
+	}
+	for _, cv := range []types.Int64{types.Int64Null(), types.Int64Unknown()} {
+		resp := &validator.Int64Response{}
+		Int64AtLeast{Min: 1}.ValidateInt64(ctx, validator.Int64Request{Path: path.Root("test"), ConfigValue: cv}, resp)
+		if resp.Diagnostics.HasError() {
+			t.Error("expected no error for null/unknown value")
+		}
+	}
+}

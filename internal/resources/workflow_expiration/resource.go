@@ -63,14 +63,20 @@ func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.Schema
 					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{
+					validators.LifecycleRuleID{},
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Description: "Whether the lifecycle rule is enabled.",
 				Required:    true,
 			},
 			"current_version_trigger_delay_days": schema.Int64Attribute{
-				Description: "Number of days after which current version objects expire.",
+				Description: "Number of days after which current version objects expire. Must be at least 1.",
 				Required:    true,
+				Validators: []validator.Int64{
+					validators.Int64AtLeast{Min: 1},
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
