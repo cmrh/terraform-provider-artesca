@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
@@ -227,5 +228,50 @@ func (v SSEAlgorithm) ValidateString(_ context.Context, req validator.StringRequ
 	if val != "AES256" {
 		resp.Diagnostics.AddAttributeError(req.Path, "Invalid SSE algorithm",
 			fmt.Sprintf("Must be \"AES256\", got %q.", val))
+	}
+}
+
+// LifecycleRuleID validates S3 lifecycle rule IDs: 1–255 characters.
+type LifecycleRuleID struct{}
+
+func (v LifecycleRuleID) Description(_ context.Context) string {
+	return "must be 1–255 characters"
+}
+
+func (v LifecycleRuleID) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v LifecycleRuleID) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	n := utf8.RuneCountInString(req.ConfigValue.ValueString())
+	if n < 1 || n > 255 {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid rule ID",
+			fmt.Sprintf("Must be 1–255 characters, got %d.", n))
+	}
+}
+
+// Int64AtLeast validates that an integer is at least Min.
+type Int64AtLeast struct {
+	Min int64
+}
+
+func (v Int64AtLeast) Description(_ context.Context) string {
+	return fmt.Sprintf("must be at least %d", v.Min)
+}
+
+func (v Int64AtLeast) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v Int64AtLeast) ValidateInt64(_ context.Context, req validator.Int64Request, resp *validator.Int64Response) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if val := req.ConfigValue.ValueInt64(); val < v.Min {
+		resp.Diagnostics.AddAttributeError(req.Path, "Value too small",
+			fmt.Sprintf("Must be at least %d, got %d.", v.Min, val))
 	}
 }
