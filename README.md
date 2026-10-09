@@ -25,9 +25,6 @@ provider "artesca" {
   password            = var.artesca_password
 
   # Optional
-  instance_id          = "auto-discovered-if-omitted"
-  oidc_realm           = "artesca"                        # default
-  client_id            = "zenko-ui"                       # default
   iam_region           = "us-east-1"                      # default
   insecure_skip_verify = false                            # default
   s3_endpoint          = "https://s3.artesca.example.com" # required for bucket resources
@@ -42,13 +39,9 @@ All attributes can also be set via environment variables:
 | `oidc_url` | `ARTESCA_OIDC_URL` |
 | `username` | `ARTESCA_USERNAME` |
 | `password` | `ARTESCA_PASSWORD` |
-| `instance_id` | `ARTESCA_INSTANCE_ID` |
-| `oidc_realm` | `ARTESCA_OIDC_REALM` |
-| `client_id` | `ARTESCA_CLIENT_ID` |
 | `iam_region` | `ARTESCA_IAM_REGION` |
 | `insecure_skip_verify` | `ARTESCA_INSECURE_SKIP_VERIFY` |
 | `s3_endpoint` | `ARTESCA_S3_ENDPOINT` |
-| _(scope only)_ | `ARTESCA_OIDC_SCOPE` (default: `openid`) |
 
 Account-scoped resources (IAM and S3) identify their account with `account_name`; the provider obtains temporary credentials for it from the OIDC login, so no account keys are configured. Their import IDs start with the account name, e.g. `tofu import artesca_user.alice my-app/alice`.
 
