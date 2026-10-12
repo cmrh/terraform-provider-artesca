@@ -13,7 +13,7 @@ This document describes how to cut a release of the ARTESCA Terraform Provider.
 ### 1. Prepare
 
 - Ensure `main` is green: unit tests, formatting, and vet all pass in CI
-- Run acceptance tests against real infrastructure: trigger the **Acceptance Tests** workflow manually via `Actions > Acceptance Tests > Run workflow`
+- Optionally run acceptance tests first: `Actions > Acceptance Tests > Run workflow` (the release runs them again before building)
 - Update `CHANGELOG.md` — move items from `[Unreleased]` into a new version section
 
 ### 2. Internal / Pre-release
@@ -47,10 +47,8 @@ After the release workflow completes:
 - [ ] GitHub release page has `.zip` archives for all 5 platforms
 - [ ] `SHA256SUMS` file is present and contains all 5 checksums plus the manifest
 - [ ] `SHA256SUMS.sig` file is present (GPG signature)
-- [ ] Manifest JSON has correct version and `"protocols": ["6.0"]`
+- [ ] Manifest is `terraform-registry-manifest.json` (`"protocol_versions": ["6.0"]`)
 - [ ] Release is **not** marked as pre-release (for public releases)
-
-Run `scripts/verify-release.sh <tag>` for an automated check of the same criteria plus zip-content sanity checks.
 
 ## Version Numbering
 
@@ -66,8 +64,9 @@ All tags must include the patch number (use `v1.0.0`, not `v1.0`).
 
 ```
 Tag push
-  └─ test job: unit tests (-race), go vet, gofmt
-       └─ build job (5 platforms in parallel):
+  └─ test job: unit tests (-race), go vet, govulncheck, gofmt
+       └─ acceptance job: full acceptance suite on the self-hosted runner
+            └─ build job (5 platforms in parallel), only if both pass:
             - Builds binary with version injected via -ldflags
             - Binary name: terraform-provider-artesca_v{VERSION}  (with v)
             - Archive name: terraform-provider-artesca_{VERSION}_{os}_{arch}.zip  (no v)
@@ -128,7 +127,7 @@ When rotating the GPG key:
 
 ## Test Environment
 
-The acceptance workflow (`.github/workflows/acceptance.yml`, run manually or on `v*` tags) runs on the self-hosted runner `cm-tf-provider-artesca` against a real ARTESCA cluster. It reads repository secrets and hardcodes `ARTESCA_INSECURE_SKIP_VERIFY="true"` and `TF_ACC_TERRAFORM_PATH=/usr/bin/tofu`.
+The acceptance workflow (`.github/workflows/acceptance.yml`) runs as part of every release, before anything is built or published, and can also be run manually. It runs on the self-hosted runner `cm-tf-provider-artesca` against a real ARTESCA cluster. It reads repository secrets and hardcodes `ARTESCA_INSECURE_SKIP_VERIFY="true"` and `TF_ACC_TERRAFORM_PATH=/usr/bin/tofu`.
 
 ### Repository secrets
 
