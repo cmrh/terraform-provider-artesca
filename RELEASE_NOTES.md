@@ -48,7 +48,7 @@ Update your configuration (replace `account_access_key` / `account_secret_key` w
 
 ## Fixed
 
-- **`artesca_bucket_workflow_replication` drift detection.** The resource manages its rule in the bucket's S3 replication configuration, so `Read()` detects deletion and changes to `enabled`, the destination bucket, and the prefix.
+- **`artesca_bucket_workflow_replication` drift detection.** The resource manages its rule in the bucket's S3 replication configuration, so `Read()` detects deletion and changes to `enabled`, the destination location or bucket, and the prefix.
 
 ## CI / tooling
 
