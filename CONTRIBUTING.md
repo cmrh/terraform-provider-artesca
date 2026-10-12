@@ -22,12 +22,12 @@ You'll need:
 Build and install the provider locally:
 
 ```bash
-make install VERSION=0.4.1-dev
+make install VERSION=1.0.1-dev
 ```
 
 This drops the binary at
-`~/.terraform.d/plugins/registry.opentofu.org/scality/artesca/<VERSION>/<OS>_<ARCH>/`;
-configurations that use it set `source = "scality/artesca"`.
+`~/.terraform.d/plugins/registry.opentofu.org/artesca/artesca/<VERSION>/<OS>_<ARCH>/`;
+configurations that use it set `source = "artesca/artesca"`.
 
 For interactive development, configure dev_overrides in `~/.terraformrc`:
 
