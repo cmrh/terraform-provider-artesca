@@ -7,24 +7,24 @@ description: |-
 
 # artesca_bucket_workflow_replication
 
-Manages one rule of a bucket's S3 replication configuration, replicating objects from `bucket_name` to `destination_bucket_name`. Each resource manages a single rule; several resources can target the same bucket, and the provider merges them into the bucket's configuration. Rules created outside Terraform, such as in the ARTESCA UI, are left unchanged. Replication rules appear as replication workflows in the ARTESCA UI, identified by their rule ID.
+Manages one rule of a bucket's S3 replication configuration, replicating objects from `bucket_name` to a storage location (`destination_location`). Each resource manages a single rule; several resources can target the same bucket, and the provider merges them into the bucket's configuration. Rules created outside Terraform, such as in the ARTESCA UI, are left unchanged. Replication rules appear as replication workflows in the ARTESCA UI, identified by their rule ID.
 
-For instance-level, location-based replication, use `artesca_replication` instead.
+For instance-level replication streams, use `artesca_replication` instead.
 
 ## Example
 
-```hcl
-resource "artesca_bucket_workflow_replication" "backup" {
-  account_name            = artesca_account.app.name
-  bucket_name             = artesca_bucket.source.name
-  destination_bucket_name = artesca_bucket.backup.name
-  enabled                 = true
+A bucket on ARTESCA's own storage (`us-east-1`) replicating to a RING location:
 
-  filter {
-    object_key_prefix = "logs/"
-  }
+```hcl
+resource "artesca_bucket_workflow_replication" "offsite" {
+  account_name         = artesca_account.app.name
+  bucket_name          = artesca_bucket.data.name
+  destination_location = artesca_location.ring.name
+  enabled              = true
 }
 ```
+
+Objects land in the location's target bucket, under a prefix named after the source bucket unless the location sets `bucket_match = true`.
 
 ## Argument Reference
 
@@ -32,7 +32,8 @@ resource "artesca_bucket_workflow_replication" "backup" {
 |------|------|----------|-------------|
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `bucket_name` | String | Yes | Source bucket. Versioning must be enabled. Forces replacement. |
-| `destination_bucket_name` | String | Yes | Bucket objects are replicated to. Versioning must be enabled. |
+| `destination_location` | String | Yes | Location objects are replicated to. For RING S3 and cloud locations, objects go to the location's target bucket. |
+| `destination_bucket_name` | String | No | For a cross-region replication (CRR) `destination_location`, the bucket on the remote site. Versioning must be enabled. |
 | `enabled` | Boolean | Yes | Whether the rule is active. |
 | `rule_id` | String | No | Replication rule ID, 1–255 characters. Generated if not set. Forces replacement. |
 | `filter` | Block | No | Object filter. See below. |
@@ -60,5 +61,6 @@ The import ID starts with the name of the account that owns the resource.
 ## Notes
 
 - `account_name`, `bucket_name`, and `rule_id` force replacement — a rule cannot be moved.
-- Changes to `enabled`, `destination_bucket_name`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
-- Both buckets must exist with versioning enabled before the rule is created.
+- Changes to `enabled`, `destination_location`, `destination_bucket_name`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
+- The source bucket must have versioning enabled before the rule is created.
+- ARTESCA rejects a rule naming a location created moments earlier; the provider retries for up to 5 minutes while the location propagates.

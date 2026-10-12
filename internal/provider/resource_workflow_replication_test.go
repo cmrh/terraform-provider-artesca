@@ -11,26 +11,30 @@ import (
 
 const testAccReplicationResource = "artesca_bucket_workflow_replication.test"
 
+// Replication rules send a bucket on us-east-1 to a remote location, the main
+// use case. The location is created in the same apply, which also exercises the
+// retry while it propagates.
 func TestAccWorkflowReplication_basic(t *testing.T) {
 	rAcct := randomName("tf-acc")
-	rSrcLoc := randomName("tf-acc-sloc")
-	rDstLoc := randomName("tf-acc-dloc")
+	rLoc := randomName("tf-acc-loc")
 	rSrcBkt := randomName("tf-acc-sbkt")
-	rDstBkt := randomName("tf-acc-dbkt")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, ""),
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "true"),
 					resource.TestCheckResourceAttr(testAccReplicationResource, "bucket_name", rSrcBkt),
-					resource.TestCheckResourceAttr(testAccReplicationResource, "destination_bucket_name", rDstBkt),
+					resource.TestCheckResourceAttr(testAccReplicationResource, "destination_location", rLoc),
+					resource.TestCheckNoResourceAttr(testAccReplicationResource, "destination_bucket_name"),
 					resource.TestCheckResourceAttrSet(testAccReplicationResource, "rule_id"),
 					testAccCheckReplicationRules(rSrcBkt, 1),
+					testAccCheckBucketXMLContains("artesca_bucket.source", "replication",
+						fmt.Sprintf("<Bucket>arn:aws:s3:::%s</Bucket><StorageClass>%s</StorageClass>", rSrcBkt, rLoc)),
 				),
 			},
 		},
@@ -39,29 +43,27 @@ func TestAccWorkflowReplication_basic(t *testing.T) {
 
 func TestAccWorkflowReplication_update(t *testing.T) {
 	rAcct := randomName("tf-acc")
-	rSrcLoc := randomName("tf-acc-sloc")
-	rDstLoc := randomName("tf-acc-dloc")
+	rLoc := randomName("tf-acc-loc")
 	rSrcBkt := randomName("tf-acc-sbkt")
-	rDstBkt := randomName("tf-acc-dbkt")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, ""),
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, ""),
 				Check:  resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "true"),
 			},
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, false, "logs/"),
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, false, "logs/"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "false"),
 					resource.TestCheckResourceAttr(testAccReplicationResource, "filter.object_key_prefix", "logs/"),
 				),
 			},
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, ""),
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, ""),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(testAccReplicationResource, "enabled", "true"),
 					resource.TestCheckNoResourceAttr(testAccReplicationResource, "filter.object_key_prefix"),
@@ -75,18 +77,16 @@ func TestAccWorkflowReplication_update(t *testing.T) {
 // second must keep the first, and removing one must keep the other.
 func TestAccWorkflowReplication_multipleRules(t *testing.T) {
 	rAcct := randomName("tf-acc")
-	rSrcLoc := randomName("tf-acc-sloc")
-	rDstLoc := randomName("tf-acc-dloc")
+	rLoc := randomName("tf-acc-loc")
 	rSrcBkt := randomName("tf-acc-sbkt")
-	rDstBkt := randomName("tf-acc-dbkt")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "a/") +
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, "a/") +
 					testAccWorkflowReplicationExtraRule("b/"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(testAccReplicationResource, "filter.object_key_prefix", "a/"),
@@ -95,7 +95,7 @@ func TestAccWorkflowReplication_multipleRules(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "a/"),
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, "a/"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(testAccReplicationResource, "filter.object_key_prefix", "a/"),
 					testAccCheckReplicationRules(rSrcBkt, 1),
@@ -105,19 +105,59 @@ func TestAccWorkflowReplication_multipleRules(t *testing.T) {
 	})
 }
 
-func TestAccWorkflowReplication_importState(t *testing.T) {
+// A bucket on one remote location (lab1) replicates to another (lab2).
+func TestAccWorkflowReplication_remoteToRemote(t *testing.T) {
 	rAcct := randomName("tf-acc")
 	rSrcLoc := randomName("tf-acc-sloc")
 	rDstLoc := randomName("tf-acc-dloc")
 	rSrcBkt := randomName("tf-acc-sbkt")
-	rDstBkt := randomName("tf-acc-dbkt")
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
 		Steps: []resource.TestStep{
-			{Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "logs/")},
+			{
+				Config: testAccAccountConfig(rAcct) +
+					testAccLocationSourceConfig(rSrcLoc) +
+					testAccLocationDestConfig(rDstLoc) +
+					testAccBucketConfig("source", rSrcBkt, "artesca_location.source.name", true) + `
+resource "artesca_bucket_workflow_replication" "test" {
+  account_name         = artesca_account.test.name
+  bucket_name          = artesca_bucket.source.name
+  destination_location = artesca_location.dest.name
+  enabled              = true
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(testAccReplicationResource, "destination_location", rDstLoc),
+					resource.TestCheckNoResourceAttr(testAccReplicationResource, "destination_bucket_name"),
+					testAccCheckBucketXMLContains("artesca_bucket.source", "replication",
+						fmt.Sprintf("<Bucket>arn:aws:s3:::%s</Bucket><StorageClass>%s</StorageClass>", rSrcBkt, rDstLoc)),
+				),
+			},
+			{
+				ResourceName:                         testAccReplicationResource,
+				ImportState:                          true,
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateBucketAndAttr(testAccReplicationResource, "rule_id")),
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "rule_id",
+			},
+		},
+	})
+}
+
+func TestAccWorkflowReplication_importState(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rLoc := randomName("tf-acc-loc")
+	rSrcBkt := randomName("tf-acc-sbkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, "logs/")},
 			{
 				ResourceName:                         testAccReplicationResource,
 				ImportState:                          true,
@@ -179,7 +219,9 @@ func testAccCheckWorkflowReplicationDestroy(s *terraform.State) error {
 	return nil
 }
 
-func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktName, dstBktName string, enabled bool, prefix string) string {
+// testAccWorkflowReplicationConfig replicates a bucket on us-east-1, ARTESCA's
+// own storage, to a RING location.
+func testAccWorkflowReplicationConfig(acctName, locName, srcBktName string, enabled bool, prefix string) string {
 	filter := ""
 	if prefix != "" {
 		filter = fmt.Sprintf(`
@@ -189,16 +231,14 @@ func testAccWorkflowReplicationConfig(acctName, srcLocName, dstLocName, srcBktNa
   }`, prefix)
 	}
 	return testAccAccountConfig(acctName) +
-		testAccLocationSourceConfig(srcLocName) +
-		testAccLocationDestConfig(dstLocName) +
-		testAccBucketConfig("source", srcBktName, "artesca_location.source.name", true) +
-		testAccBucketConfig("dest", dstBktName, "artesca_location.dest.name", true) +
+		testAccLocationSourceConfig(locName) +
+		testAccBucketConfig("source", srcBktName, "null", true) +
 		fmt.Sprintf(`
 resource "artesca_bucket_workflow_replication" "test" {
-  account_name            = artesca_account.test.name
-  bucket_name             = artesca_bucket.source.name
-  destination_bucket_name = artesca_bucket.dest.name
-  enabled                 = %t%s
+  account_name         = artesca_account.test.name
+  bucket_name          = artesca_bucket.source.name
+  destination_location = artesca_location.source.name
+  enabled              = %t%s
 }
 `, enabled, filter)
 }
@@ -206,10 +246,10 @@ resource "artesca_bucket_workflow_replication" "test" {
 func testAccWorkflowReplicationExtraRule(prefix string) string {
 	return fmt.Sprintf(`
 resource "artesca_bucket_workflow_replication" "second" {
-  account_name            = artesca_account.test.name
-  bucket_name             = artesca_bucket.source.name
-  destination_bucket_name = artesca_bucket.dest.name
-  enabled                 = true
+  account_name         = artesca_account.test.name
+  bucket_name          = artesca_bucket.source.name
+  destination_location = artesca_location.source.name
+  enabled              = true
 
   filter {
     object_key_prefix = %q

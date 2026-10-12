@@ -157,8 +157,18 @@ func replicationToSummary(s *client.ReplicationStream) ReplicationSummary {
 		r.SourceLocation = types.StringValue("")
 	}
 	if s.Destination != nil {
-		r.DestinationBucketName = types.StringValue(s.Destination.BucketName)
-		r.DestinationLocation = types.StringValue(s.Destination.Location)
+		// Rules written as S3 replication config list their location under
+		// locations, and name the source bucket as a placeholder destination.
+		location := s.Destination.Location
+		if location == "" && len(s.Destination.Locations) > 0 {
+			location = s.Destination.Locations[0].Name
+		}
+		bucket := s.Destination.BucketName
+		if location != "" && s.Source != nil && bucket == s.Source.BucketName {
+			bucket = ""
+		}
+		r.DestinationBucketName = types.StringValue(bucket)
+		r.DestinationLocation = types.StringValue(location)
 		r.DestinationPreferredReadLocation = types.StringValue(s.Destination.PreferredReadLocation)
 		r.DestinationRole = types.StringValue(s.Destination.Role)
 	} else {

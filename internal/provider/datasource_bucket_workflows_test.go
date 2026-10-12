@@ -8,17 +8,15 @@ import (
 
 func TestAccDataSourceBucketWorkflows_basic(t *testing.T) {
 	rAcct := randomName("tf-acc")
-	rSrcLoc := randomName("tf-acc-sloc")
-	rDstLoc := randomName("tf-acc-dloc")
+	rLoc := randomName("tf-acc-loc")
 	rSrcBkt := randomName("tf-acc-sbkt")
-	rDstBkt := randomName("tf-acc-dbkt")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccWorkflowReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, rDstBkt, true, "") + `
+				Config: testAccWorkflowReplicationConfig(rAcct, rLoc, rSrcBkt, true, "") + `
 data "artesca_bucket_workflows" "lookup" {
   account_name = artesca_account.test.name
   bucket_name  = artesca_bucket.source.name
@@ -29,7 +27,8 @@ data "artesca_bucket_workflows" "lookup" {
 					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.#", "1"),
 					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.enabled", "true"),
 					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.source_bucket_name", rSrcBkt),
-					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.destination_bucket_name", rDstBkt),
+					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.destination_location", rLoc),
+					resource.TestCheckResourceAttr("data.artesca_bucket_workflows.lookup", "replications.0.destination_bucket_name", ""),
 					resource.TestCheckResourceAttrSet("data.artesca_bucket_workflows.lookup", "replications.0.workflow_id"),
 				),
 			},

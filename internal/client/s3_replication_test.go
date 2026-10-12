@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 var testCreds = Credentials{AccessKey: "ak", SecretKey: "sk", SessionToken: "tok"}
@@ -147,5 +148,72 @@ func TestDeleteBucketReplication(t *testing.T) {
 		if err != nil {
 			t.Errorf("status %d: DeleteBucketReplication returned error: %v", status, err)
 		}
+	}
+}
+
+func TestBucketReplicationStorageClass(t *testing.T) {
+	var put string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`<ReplicationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ID>r1</ID><Prefix/><Status>Enabled</Status>` +
+				`<Destination><Bucket>arn:aws:s3:::src</Bucket><StorageClass>remote</StorageClass></Destination></Rule>` +
+				`<Role>arn:aws:iam::root:role/s3-replication-role</Role></ReplicationConfiguration>`))
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		put = string(b)
+	}))
+	defer server.Close()
+
+	c := NewS3Client(server.URL, "us-east-1", false)
+	cfg, err := c.GetBucketReplication(context.Background(), testCreds, "src")
+	if err != nil {
+		t.Fatalf("GetBucketReplication returned error: %v", err)
+	}
+	if got := cfg.Rules[0]; got.StorageClass != "remote" || got.DestinationBucket != "src" {
+		t.Errorf("rule = %+v, want StorageClass remote, DestinationBucket src", got)
+	}
+
+	err = c.PutBucketReplication(context.Background(), testCreds, "src", BucketReplication{Role: DefaultReplicationRole,
+		Rules: []ReplicationRule{{ID: "r2", Status: "Enabled", DestinationBucket: "src", StorageClass: "remote"}}})
+	if err != nil {
+		t.Fatalf("PutBucketReplication returned error: %v", err)
+	}
+	if want := `<Destination><Bucket>arn:aws:s3:::src</Bucket><StorageClass>remote</StorageClass></Destination>`; !strings.Contains(put, want) {
+		t.Errorf("body missing %s:\n%s", want, put)
+	}
+}
+
+func TestPutBucketReplicationRetriesWhileLocationPropagates(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		storageClass string
+		wantCalls    int
+		wantErr      bool
+	}{
+		{"rule names a location", "remote", 3, false},
+		{"bucket-to-bucket rule", "", 1, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls++
+				if calls < 3 {
+					w.WriteHeader(http.StatusBadRequest)
+					_, _ = w.Write([]byte(`<Error><Code>MalformedXML</Code><Message>The XML you provided was not well-formed or did not validate against our published schema.</Message></Error>`))
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			c := NewS3Client(server.URL, "us-east-1", false)
+			c.propagationBackoffOverride = time.Millisecond
+			err := c.PutBucketReplication(context.Background(), testCreds, "src", BucketReplication{Role: DefaultReplicationRole,
+				Rules: []ReplicationRule{{ID: "r", Status: "Enabled", DestinationBucket: "dst", StorageClass: tc.storageClass}}})
+			if (err != nil) != tc.wantErr || calls != tc.wantCalls {
+				t.Errorf("err = %v, calls = %d; want error %v, %d calls", err, calls, tc.wantErr, tc.wantCalls)
+			}
+		})
 	}
 }
