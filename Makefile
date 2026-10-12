@@ -1,5 +1,5 @@
 HOSTNAME=registry.opentofu.org
-NAMESPACE=scality
+NAMESPACE=artesca
 NAME=artesca
 BINARY=terraform-provider-${NAME}
 VERSION=0.1.0

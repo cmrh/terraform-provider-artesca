@@ -7,8 +7,8 @@
 #   scripts/verify-release.sh <tag> [--gpg-key <path>]
 #
 # Examples:
-#   scripts/verify-release.sh v0.4.0-rc1
-#   scripts/verify-release.sh v0.4.0 --gpg-key .github/RELEASE_KEY.asc
+#   scripts/verify-release.sh v1.0.0-rc1
+#   scripts/verify-release.sh v1.0.0 --gpg-key .github/RELEASE_KEY.asc
 #
 # Checks:
 #   1. Tag exists as a GitHub release with assets.

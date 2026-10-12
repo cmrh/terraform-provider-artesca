@@ -21,8 +21,8 @@ This document describes how to cut a release of the ARTESCA Terraform Provider.
 Tag with a pre-release suffix to build and test artifacts without publishing to any registry:
 
 ```bash
-git tag v0.4.0-rc1
-git push origin v0.4.0-rc1
+git tag v1.0.0-rc1
+git push origin v1.0.0-rc1
 ```
 
 This produces a full set of release artifacts (binaries, checksums, signed SHA256SUMS) but marks the GitHub release as **pre-release**. Both the Terraform and OpenTofu registries ignore pre-releases.
@@ -34,8 +34,8 @@ Valid pre-release suffixes: `-rc1`, `-beta.1`, `-dev.1` (any of `-rc`, `-beta`, 
 Once the pre-release has been verified, tag the same commit without a suffix:
 
 ```bash
-git tag v0.4.0
-git push origin v0.4.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 This creates a full GitHub release that registries will discover and serve to users.
@@ -56,11 +56,11 @@ Run `scripts/verify-release.sh <tag>` for an automated check of the same criteri
 
 Follow [Semantic Versioning](https://semver.org/):
 
-- **Patch** (`v0.4.1`): bug fixes, dependency updates
-- **Minor** (`v0.5.0`): new resources, new attributes, non-breaking changes
-- **Major** (`v1.0.0`, `v2.0.0`): breaking changes to resource schemas or provider configuration
+- **Patch** (`v1.0.1`): bug fixes, dependency updates
+- **Minor** (`v1.1.0`): new resources, new attributes, non-breaking changes
+- **Major** (`v2.0.0`): breaking changes to resource schemas or provider configuration
 
-All tags must include the patch number (use `v0.4.0`, not `v0.4`).
+All tags must include the patch number (use `v1.0.0`, not `v1.0`).
 
 ## What the Release Workflow Does
 
@@ -147,13 +147,13 @@ Export the same variables (an env file sourced with `set -a` works), plus:
 
 ```bash
 export TF_ACC_TERRAFORM_PATH="$(which tofu)"
-export TF_ACC_PROVIDER_NAMESPACE="scality"
+export TF_ACC_PROVIDER_NAMESPACE="artesca"
 make testacc
 ```
 
 ### Notes
 
-- `make testacc` sets `TF_ACC_PROVIDER_NAMESPACE` to the Makefile's `scality` namespace.
+- The acceptance workflow and `make testacc` set `TF_ACC_PROVIDER_NAMESPACE` to `artesca`.
 - Location, replication and workflow tests fail if the `TF_VAR_ring_s3_*` or `TF_VAR_dest_ring_s3_*` variables are not set.
 
 ## Local Development Builds
@@ -189,7 +189,7 @@ terraform {
   required_providers {
     artesca = {
       source  = "cmrh/artesca"
-      version = "~> 0.4.0"
+      version = "~> 1.0"
     }
   }
 }
