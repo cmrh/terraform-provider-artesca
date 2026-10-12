@@ -1,33 +1,50 @@
 name: Acceptance Tests
 
 on:
+  workflow_call:
+    secrets:
+      ARTESCA_MANAGEMENT_ENDPOINT:
+        required: true
+      ARTESCA_OIDC_URL:
+        required: true
+      ARTESCA_USERNAME:
+        required: true
+      ARTESCA_PASSWORD:
+        required: true
+      ARTESCA_S3_ENDPOINT:
+        required: true
+      RING_S3_ENDPOINT:
+        required: true
+      RING_S3_ACCESS_KEY:
+        required: true
+      RING_S3_SECRET_KEY:
+        required: true
+      RING_S3_BUCKET_NAME:
+        required: true
+      DEST_RING_S3_ENDPOINT:
+        required: true
+      DEST_RING_S3_ACCESS_KEY:
+        required: true
+      DEST_RING_S3_SECRET_KEY:
+        required: true
+      DEST_RING_S3_BUCKET_NAME:
+        required: true
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
+
+permissions:
+  contents: read
 
 jobs:
   acceptance:
     name: Acceptance Tests
     runs-on: cm-tf-provider-artesca
+    timeout-minutes: 90
     env:
-      TF_ACC: "1"
+      # Single knob for the runtime binary the acceptance framework drives.
+      # Swap to /usr/bin/terraform (or any other path) to validate against
+      # the upstream Terraform binary without touching any other step.
       TF_ACC_TERRAFORM_PATH: /usr/bin/tofu
       TF_ACC_PROVIDER_NAMESPACE: artesca
-      ARTESCA_MANAGEMENT_ENDPOINT: ${{ secrets.ARTESCA_MANAGEMENT_ENDPOINT }}
-      ARTESCA_INSECURE_SKIP_VERIFY: "true"
-      ARTESCA_OIDC_URL: ${{ secrets.ARTESCA_OIDC_URL }}
-      ARTESCA_USERNAME: ${{ secrets.ARTESCA_USERNAME }}
-      ARTESCA_PASSWORD: ${{ secrets.ARTESCA_PASSWORD }}
-      ARTESCA_S3_ENDPOINT: ${{ secrets.ARTESCA_S3_ENDPOINT }}
-      TF_VAR_ring_s3_endpoint: ${{ secrets.RING_S3_ENDPOINT }}
-      TF_VAR_ring_s3_access_key: ${{ secrets.RING_S3_ACCESS_KEY }}
-      TF_VAR_ring_s3_secret_key: ${{ secrets.RING_S3_SECRET_KEY }}
-      TF_VAR_ring_s3_bucket_name: ${{ secrets.RING_S3_BUCKET_NAME }}
-      TF_VAR_dest_ring_s3_endpoint: ${{ secrets.DEST_RING_S3_ENDPOINT }}
-      TF_VAR_dest_ring_s3_access_key: ${{ secrets.DEST_RING_S3_ACCESS_KEY }}
-      TF_VAR_dest_ring_s3_secret_key: ${{ secrets.DEST_RING_S3_SECRET_KEY }}
-      TF_VAR_dest_ring_s3_bucket_name: ${{ secrets.DEST_RING_S3_BUCKET_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -35,10 +52,30 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
 
       - name: Download dependencies
         run: go mod download
 
+      - name: Acceptance runtime version
+        run: |
+          "$TF_ACC_TERRAFORM_PATH" version
+
       - name: Run acceptance tests
-        run: make testacc
+        env:
+          TF_ACC: 1
+          ARTESCA_INSECURE_SKIP_VERIFY: "true"
+          ARTESCA_MANAGEMENT_ENDPOINT: ${{ secrets.ARTESCA_MANAGEMENT_ENDPOINT }}
+          ARTESCA_OIDC_URL: ${{ secrets.ARTESCA_OIDC_URL }}
+          ARTESCA_USERNAME: ${{ secrets.ARTESCA_USERNAME }}
+          ARTESCA_PASSWORD: ${{ secrets.ARTESCA_PASSWORD }}
+          ARTESCA_S3_ENDPOINT: ${{ secrets.ARTESCA_S3_ENDPOINT }}
+          TF_VAR_ring_s3_endpoint: ${{ secrets.RING_S3_ENDPOINT }}
+          TF_VAR_ring_s3_access_key: ${{ secrets.RING_S3_ACCESS_KEY }}
+          TF_VAR_ring_s3_secret_key: ${{ secrets.RING_S3_SECRET_KEY }}
+          TF_VAR_ring_s3_bucket_name: ${{ secrets.RING_S3_BUCKET_NAME }}
+          TF_VAR_dest_ring_s3_endpoint: ${{ secrets.DEST_RING_S3_ENDPOINT }}
+          TF_VAR_dest_ring_s3_access_key: ${{ secrets.DEST_RING_S3_ACCESS_KEY }}
+          TF_VAR_dest_ring_s3_secret_key: ${{ secrets.DEST_RING_S3_SECRET_KEY }}
+          TF_VAR_dest_ring_s3_bucket_name: ${{ secrets.DEST_RING_S3_BUCKET_NAME }}
+        run: go test ./... -v -count 1 -timeout 80m
