@@ -8,15 +8,18 @@
 #
 # Examples:
 #   scripts/verify-release.sh v1.0.0-rc1
-#   scripts/verify-release.sh v1.0.0 --gpg-key .github/RELEASE_KEY.asc
+#   scripts/verify-release.sh v1.0.0 --gpg-key /path/to/other-key.asc
+#
+# The signature is checked against .github/RELEASE_KEY.asc unless --gpg-key
+# names another public key.
 #
 # Checks:
 #   1. Tag exists as a GitHub release with assets.
 #   2. All five platforms have a .zip and a .zip.sha256 asset.
 #   3. Archive filenames use no 'v' prefix; binary inside each zip uses the 'v' prefix.
 #   4. SHA256SUMS file lists every zip and matches each zip's actual sha256.
-#   5. SHA256SUMS.sig verifies against the provided GPG public key (optional).
-#   6. manifest.json is valid JSON with the expected shape.
+#   5. SHA256SUMS.sig verifies against the release public key.
+#   6. manifest.json matches terraform-registry-manifest.json.
 #   7. Each zip contains exactly one binary with the expected name.
 
 set -euo pipefail
@@ -46,6 +49,15 @@ while [ "$#" -gt 0 ]; do
     *) echo "Unknown arg: $1" >&2; exit 2;;
   esac
 done
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -z "$GPG_KEY" ] && [ -f "$REPO_ROOT/.github/RELEASE_KEY.asc" ]; then
+  GPG_KEY="$REPO_ROOT/.github/RELEASE_KEY.asc"
+fi
+# The checks run from a temp directory, so make the key path absolute.
+if [ -n "$GPG_KEY" ] && [ -f "$GPG_KEY" ]; then
+  GPG_KEY="$(cd "$(dirname "$GPG_KEY")" && pwd)/$(basename "$GPG_KEY")"
+fi
 
 # Strip leading 'v' from the tag to get the version-as-used-in-filenames.
 VERSION_NO_V="${TAG#v}"
@@ -151,7 +163,7 @@ echo
 
 echo "==> Step 5: GPG signature"
 if [ -z "$GPG_KEY" ]; then
-  echo "  - skipped (no --gpg-key provided)"
+  echo "  - skipped (no .github/RELEASE_KEY.asc and no --gpg-key)"
 elif [ ! -f "$GPG_KEY" ]; then
   fail "GPG key file not found: $GPG_KEY"
 elif [ ! -f "$SHA_FILE" ] || [ ! -f "$SIG_FILE" ]; then
@@ -171,29 +183,23 @@ else
 fi
 echo
 
-# --- step 6: manifest.json shape ---
+# --- step 6: manifest.json ---
 
 echo "==> Step 6: manifest.json"
 if [ -f "$MANIFEST_FILE" ]; then
   if jq empty "$MANIFEST_FILE" >/dev/null 2>&1; then
     pass "manifest is valid JSON"
-    manifest_version=$(jq -r '.version' "$MANIFEST_FILE")
-    if [ "$manifest_version" = "$VERSION_NO_V" ]; then
-      pass "manifest version = $VERSION_NO_V"
+    # The release asset is terraform-registry-manifest.json renamed.
+    if [ "$(jq -S . "$MANIFEST_FILE")" = "$(jq -S . "$REPO_ROOT/terraform-registry-manifest.json")" ]; then
+      pass "manifest matches terraform-registry-manifest.json"
     else
-      fail "manifest version mismatch (got $manifest_version, want $VERSION_NO_V)"
+      fail "manifest differs from terraform-registry-manifest.json"
     fi
-    protocols=$(jq -r '.protocols // [] | join(",")' "$MANIFEST_FILE")
+    protocols=$(jq -r '.metadata.protocol_versions // [] | join(",")' "$MANIFEST_FILE")
     if [ -n "$protocols" ]; then
-      pass "manifest protocols = [$protocols]"
+      pass "manifest protocol_versions = [$protocols]"
     else
-      fail "manifest missing protocols"
-    fi
-    platforms=$(jq '.platforms // [] | length' "$MANIFEST_FILE")
-    if [ "$platforms" = "${#EXPECTED_PLATFORMS[@]}" ]; then
-      pass "manifest lists $platforms platforms"
-    else
-      fail "manifest lists $platforms platforms, want ${#EXPECTED_PLATFORMS[@]}"
+      fail "manifest missing metadata.protocol_versions"
     fi
   else
     fail "manifest is not valid JSON"
