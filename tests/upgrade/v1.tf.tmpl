@@ -166,13 +166,3 @@ resource "artesca_bucket_workflow_transition" "src" {
     object_key_prefix = "data/"
   }
 }
-
-resource "artesca_bucket_workflow_replication" "src" {
-  account_name            = artesca_account.app.name
-  bucket_name             = artesca_bucket.src.name
-  destination_bucket_name = artesca_bucket.dst.name
-  enabled                 = true
-  filter {
-    object_key_prefix = "repl/"
-  }
-}

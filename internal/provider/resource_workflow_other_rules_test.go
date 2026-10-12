@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -71,25 +72,26 @@ resource "artesca_bucket_workflow_expiration" "test" {
 
 func TestAccWorkflowReplication_keepsOtherRules(t *testing.T) {
 	rAcct := randomName("tf-acc")
-	rLoc := randomName("tf-acc-dloc")
+	rLoc := randomName("tf-acc-loc")
 	rSrc := randomName("tf-acc-src")
-	rDst := randomName("tf-acc-dst")
 
+	// Both rules replicate the us-east-1 source bucket to the RING location,
+	// under different prefixes. The out-of-band rule names its location in
+	// StorageClass, which the provider must write back unchanged.
 	otherRule := fmt.Sprintf(`<ReplicationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">`+
 		`<Role>%s</Role>`+
 		`<Rule><ID>other-loc</ID><Prefix>other/</Prefix><Status>Enabled</Status><Destination><Bucket>arn:aws:s3:::%s</Bucket><StorageClass>%s</StorageClass></Destination></Rule>`+
-		`</ReplicationConfiguration>`, client.DefaultReplicationRole, rDst, rLoc)
-	kept := fmt.Sprintf(`<StorageClass>%s</StorageClass>`, rLoc)
-	base := testAccAccountConfig(rAcct) + testAccLocationDestConfig(rLoc) +
-		testAccBucketConfig("source", rSrc, "artesca_location.dest.name", true) +
-		testAccBucketConfig("dest", rDst, "artesca_location.dest.name", true)
+		`</ReplicationConfiguration>`, client.DefaultReplicationRole, rSrc, rLoc)
+	kept := fmt.Sprintf(`<ID>other-loc</ID><Prefix>other/</Prefix><Status>Enabled</Status><Destination><Bucket>arn:aws:s3:::%s</Bucket><StorageClass>%s</StorageClass></Destination>`, rSrc, rLoc)
+	base := testAccAccountConfig(rAcct) + testAccLocationSourceConfig(rLoc) +
+		testAccBucketConfig("source", rSrc, "null", true)
 	withRule := func(enabled bool) string {
 		return base + fmt.Sprintf(`
 resource "artesca_bucket_workflow_replication" "test" {
-  account_name            = artesca_account.test.name
-  bucket_name             = artesca_bucket.source.name
-  destination_bucket_name = artesca_bucket.dest.name
-  enabled                 = %t
+  account_name         = artesca_account.test.name
+  bucket_name          = artesca_bucket.source.name
+  destination_location = artesca_location.source.name
+  enabled              = %t
 
   filter {
     object_key_prefix = "tf/"
@@ -140,7 +142,16 @@ func testAccPutBucketXML(bucketResource, subresource, body string) resource.Test
 		if err != nil {
 			return err
 		}
-		return c.PutBucketSubresourceXML(context.Background(), creds, bucket, subresource, body)
+		// A rule naming a location created moments earlier is rejected with
+		// MalformedXML until the location propagates.
+		deadline := time.Now().Add(3 * time.Minute)
+		for {
+			err := c.PutBucketSubresourceXML(context.Background(), creds, bucket, subresource, body)
+			if err == nil || !strings.Contains(err.Error(), "MalformedXML") || time.Now().After(deadline) {
+				return err
+			}
+			time.Sleep(10 * time.Second)
+		}
 	}
 }
 

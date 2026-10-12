@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // DefaultReplicationRole is the role ARTESCA sets on bucket replication
@@ -20,6 +21,7 @@ type ReplicationRule struct {
 	Status            string // "Enabled" or "Disabled"
 	Prefix            string
 	DestinationBucket string // bucket name, not ARN
+	StorageClass      string // destination location name; empty for bucket-to-bucket
 
 	raw string // inner XML as read from the server
 }
@@ -42,7 +44,8 @@ type replicationRuleX struct {
 	Prefix      string `xml:"Prefix"`
 	Status      string `xml:"Status"`
 	Destination struct {
-		Bucket string `xml:"Bucket"`
+		Bucket       string `xml:"Bucket"`
+		StorageClass string `xml:"StorageClass,omitempty"`
 	} `xml:"Destination"`
 	Inner string `xml:",innerxml"` // set on read only
 }
@@ -86,6 +89,7 @@ func (c *S3Client) GetBucketReplication(ctx context.Context, creds Credentials, 
 			Status:            r.Status,
 			Prefix:            r.Prefix,
 			DestinationBucket: strings.TrimPrefix(r.Destination.Bucket, s3BucketARNPrefix),
+			StorageClass:      r.Destination.StorageClass,
 			raw:               r.Inner,
 		})
 	}
@@ -93,11 +97,20 @@ func (c *S3Client) GetBucketReplication(ctx context.Context, creds Credentials, 
 }
 
 // PutBucketReplication replaces the bucket's replication configuration.
+//
+// ARTESCA rejects a rule naming a location it hasn't picked up yet with
+// MalformedXML, so when a rule built here names a location, that error is
+// retried until the location propagates.
 func (c *S3Client) PutBucketReplication(ctx context.Context, creds Credentials, bucket string, cfg BucketReplication) error {
 	config := replicationConfiguration{Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/", Role: cfg.Role}
+	namesLocation := false
 	for _, r := range cfg.Rules {
 		x := replicationRuleX{ID: r.ID, Prefix: r.Prefix, Status: r.Status, Inner: r.raw}
 		x.Destination.Bucket = s3BucketARNPrefix + r.DestinationBucket
+		x.Destination.StorageClass = r.StorageClass
+		if r.raw == "" && r.StorageClass != "" {
+			namesLocation = true
+		}
 		config.Rules = append(config.Rules, x)
 	}
 
@@ -106,14 +119,29 @@ func (c *S3Client) PutBucketReplication(ctx context.Context, creds Credentials, 
 		return fmt.Errorf("marshaling replication config: %w", err)
 	}
 
-	respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, "replication", string(body), creds)
-	if err != nil {
-		return fmt.Errorf("put bucket replication: %w", err)
+	deadline := time.Now().Add(propagationTimeout)
+	backoff := c.propagationBackoff()
+	for {
+		respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, "replication", string(body), creds)
+		if err != nil && namesLocation && strings.Contains(err.Error(), "MalformedXML") && time.Now().Before(deadline) {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("put bucket replication: %w", err)
+			case <-time.After(backoff):
+			}
+			if backoff < 30*time.Second {
+				backoff *= 2
+			}
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("put bucket replication: %w", err)
+		}
+		if statusCode != 200 {
+			return fmt.Errorf("put bucket replication failed (status %d): %s", statusCode, string(respBody))
+		}
+		return nil
 	}
-	if statusCode != 200 {
-		return fmt.Errorf("put bucket replication failed (status %d): %s", statusCode, string(respBody))
-	}
-	return nil
 }
 
 // DeleteBucketReplication removes the bucket's replication configuration.

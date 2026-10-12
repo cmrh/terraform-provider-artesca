@@ -43,12 +43,13 @@ func TestSchema_Validators(t *testing.T) {
 
 func TestModelToReplicationRule(t *testing.T) {
 	m := &WorkflowReplicationResourceModel{
-		Enabled:               types.BoolValue(false),
-		DestinationBucketName: types.StringValue("dst"),
-		Filter:                &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue("logs/")},
+		BucketName:          types.StringValue("src"),
+		Enabled:             types.BoolValue(false),
+		DestinationLocation: types.StringValue("lab1"),
+		Filter:              &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue("logs/")},
 	}
 	got := modelToReplicationRule(m, "rule-1")
-	want := client.ReplicationRule{ID: "rule-1", Status: "Disabled", Prefix: "logs/", DestinationBucket: "dst"}
+	want := client.ReplicationRule{ID: "rule-1", Status: "Disabled", Prefix: "logs/", DestinationBucket: "src", StorageClass: "lab1"}
 	if got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
@@ -58,6 +59,44 @@ func TestModelToReplicationRule(t *testing.T) {
 	got = modelToReplicationRule(m, "rule-1")
 	if got.Status != "Enabled" || got.Prefix != "" {
 		t.Errorf("got %+v, want Enabled with empty prefix", got)
+	}
+}
+
+func TestReplicationDestinationModes(t *testing.T) {
+	null := types.StringNull()
+	str := types.StringValue
+	for _, tc := range []struct {
+		name             string
+		bucket, location types.String // configuration
+		wantRuleBucket   string
+		wantStorageClass string
+	}{
+		{"location only: source bucket fills the rule", null, str("lab1"), "src", "lab1"},
+		{"bucket and location (CRR)", str("remote-dst"), str("crr"), "remote-dst", "crr"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &WorkflowReplicationResourceModel{
+				BucketName:            str("src"),
+				Enabled:               types.BoolValue(true),
+				DestinationBucketName: tc.bucket,
+				DestinationLocation:   tc.location,
+			}
+			rule := modelToReplicationRule(m, "r")
+			if rule.DestinationBucket != tc.wantRuleBucket || rule.StorageClass != tc.wantStorageClass {
+				t.Fatalf("rule = %+v, want bucket %q, storage class %q", rule, tc.wantRuleBucket, tc.wantStorageClass)
+			}
+
+			// Read after create starts from the configured values; read after
+			// import starts empty. Both must reproduce the configuration.
+			for _, start := range []types.String{tc.bucket, null} {
+				got := &WorkflowReplicationResourceModel{BucketName: str("src"), DestinationBucketName: start}
+				replicationRuleToModel(&rule, got)
+				if !got.DestinationBucketName.Equal(tc.bucket) || !got.DestinationLocation.Equal(tc.location) {
+					t.Errorf("starting from %s: read back bucket %s, location %s; want %s, %s",
+						start, got.DestinationBucketName, got.DestinationLocation, tc.bucket, tc.location)
+				}
+			}
+		})
 	}
 }
 

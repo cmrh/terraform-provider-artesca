@@ -10,6 +10,8 @@ First public release of the ARTESCA Terraform provider on `cmrh/artesca`.
 
 Update your configuration (replace `account_access_key` / `account_secret_key` with `account_name = artesca_account.<name>.name`; see the breaking changes below), then run `tofu plan`. Existing state is migrated automatically: the provider identifies each resource's account from the access key still in state, so the plan shows no changes. If those keys no longer work (account deleted or keys rotated), the plan fails with instructions to `tofu state rm` and `tofu import` the affected resource instead (access keys can't be imported, so they are recreated).
 
+`artesca_bucket_workflow_replication` is the exception: rules from v0.3.x replicate bucket-to-bucket, which is no longer supported. Add `destination_location` to each one; the first plan updates the rule in place.
+
 ## Breaking changes since v0.3.0
 
 - **`artesca_location`**: `details.server_side_encryption` is only accepted for `location-aws-s3-v1`; remove it from other location types.
@@ -18,7 +20,7 @@ Update your configuration (replace `account_access_key` / `account_secret_key` w
 - **Import IDs** for account-scoped resources start with the account name: `tofu import artesca_user.alice my-app/alice`.
 - **`data.artesca_account`** no longer exports `email` or `access_key`; **`data.artesca_accounts`** no longer exports `email`.
 - **`artesca_account.arn`** is the account root ARN (`arn:aws:iam::<id>:root`).
-- **`artesca_bucket_workflow_replication`** manages an S3 replication rule and uses the same shape as the other bucket workflow resources: `account_name`, `bucket_name`, `destination_bucket_name`, `enabled`, optional `filter { object_key_prefix }`, and computed `rule_id`. Removed: `instance_id`, `account_id`, `name`, `version`, `workflow_id`, and the `source` / `destination` blocks. Import IDs are `<account_name>/<bucket_name>/<rule_id>`.
+- **`artesca_bucket_workflow_replication`** manages an S3 replication rule and uses the same shape as the other bucket workflow resources: `account_name`, `bucket_name`, `destination_location` (required), optional `destination_bucket_name` (the remote bucket for a cross-region replication location), `enabled`, optional `filter { object_key_prefix }`, and computed `rule_id`. Rules replicate to a storage location; bucket-to-bucket rules without a location are not supported. Removed: `instance_id`, `account_id`, `name`, `version`, `workflow_id`, and the `source` / `destination` blocks. Import IDs are `<account_name>/<bucket_name>/<rule_id>`.
 
 ## Recent additions since v0.3.0
 

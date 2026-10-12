@@ -135,7 +135,7 @@ func (c *S3Client) PutBucketLifecycle(ctx context.Context, creds Credentials, bu
 	}
 
 	deadline := time.Now().Add(propagationTimeout)
-	backoff := 5 * time.Second
+	backoff := c.propagationBackoff()
 
 	for {
 		respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, "lifecycle", string(xmlBody), creds)

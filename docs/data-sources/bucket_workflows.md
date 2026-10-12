@@ -46,8 +46,8 @@ output "expiration_workflow_ids" {
 | `source_bucket_name` | Source bucket name. |
 | `source_prefix` | Object key prefix filter. |
 | `source_location` | Source location name. |
-| `destination_bucket_name` | Destination bucket name. |
-| `destination_location` | Destination location name. |
+| `destination_bucket_name` | Remote bucket for a cross-region replication location; empty otherwise. |
+| `destination_location` | Location objects are replicated to. |
 | `destination_preferred_read_location` | Preferred read location. |
 | `destination_role` | IAM role for replication. |
 

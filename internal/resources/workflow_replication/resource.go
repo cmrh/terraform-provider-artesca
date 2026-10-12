@@ -40,7 +40,7 @@ func (r *WorkflowReplicationResource) Metadata(_ context.Context, req resource.M
 func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Version:     1,
-		Description: "Manages a bucket replication rule in ARTESCA via the S3 API. Replicates objects from bucket_name to destination_bucket_name.",
+		Description: "Manages a bucket replication rule in ARTESCA via the S3 API. Replicates objects from bucket_name to a storage location.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
 			"bucket_name": schema.StringAttribute{
@@ -70,10 +70,17 @@ func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.Schem
 				Required:    true,
 			},
 			"destination_bucket_name": schema.StringAttribute{
-				Description: "The bucket objects are replicated to. Versioning must be enabled. Must be 3–63 characters, lowercase letters, numbers, hyphens, and periods.",
-				Required:    true,
+				Description: "For a cross-region replication (CRR) destination_location, the bucket on the remote site. Versioning must be enabled.",
+				Optional:    true,
 				Validators: []validator.String{
 					validators.BucketName{},
+				},
+			},
+			"destination_location": schema.StringAttribute{
+				Description: "The location objects are replicated to. For RING S3 and cloud locations, objects go to the location's target bucket.",
+				Required:    true,
+				Validators: []validator.String{
+					validators.LocationName{},
 				},
 			},
 		},
@@ -323,10 +330,17 @@ func modelToReplicationRule(model *WorkflowReplicationResourceModel, ruleID stri
 		status = "Enabled"
 	}
 
+	// A rule always names a bucket. With only a location, ARTESCA takes the
+	// target bucket from the location, so the source bucket fills the field.
+	destBucket := model.BucketName.ValueString()
+	if !model.DestinationBucketName.IsNull() {
+		destBucket = model.DestinationBucketName.ValueString()
+	}
 	rule := client.ReplicationRule{
 		ID:                ruleID,
 		Status:            status,
-		DestinationBucket: model.DestinationBucketName.ValueString(),
+		DestinationBucket: destBucket,
+		StorageClass:      model.DestinationLocation.ValueString(),
 	}
 	if model.Filter != nil && !model.Filter.ObjectKeyPrefix.IsNull() {
 		rule.Prefix = model.Filter.ObjectKeyPrefix.ValueString()
@@ -336,7 +350,16 @@ func modelToReplicationRule(model *WorkflowReplicationResourceModel, ruleID stri
 
 func replicationRuleToModel(rule *client.ReplicationRule, model *WorkflowReplicationResourceModel) {
 	model.Enabled = types.BoolValue(rule.Status == "Enabled")
-	model.DestinationBucketName = types.StringValue(rule.DestinationBucket)
+	model.DestinationLocation = types.StringNull()
+	if rule.StorageClass != "" {
+		model.DestinationLocation = types.StringValue(rule.StorageClass)
+	}
+	// A location-only rule names the source bucket as a placeholder; keep
+	// destination_bucket_name null for it.
+	placeholder := rule.StorageClass != "" && rule.DestinationBucket == model.BucketName.ValueString()
+	if !placeholder || !model.DestinationBucketName.IsNull() {
+		model.DestinationBucketName = types.StringValue(rule.DestinationBucket)
+	}
 	switch {
 	case model.Filter != nil:
 		// An unset prefix is stored as ""; keep it null so it doesn't diff.

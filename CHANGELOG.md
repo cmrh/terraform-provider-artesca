@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`artesca_bucket_workflow_replication.destination_location` (#85).** Rules replicate a bucket to a storage location, such as a bucket on ARTESCA's own storage (`us-east-1`) to a RING location. `destination_location` is required; `destination_bucket_name` is optional and only names the remote bucket for a cross-region replication location. Bucket-to-bucket rules without a location are no longer supported. Writes naming a location created moments earlier are retried while it propagates.
 - **Temporary per-account credentials (#36).** Account-scoped resources and data sources take `account_name`. The provider resolves the account and obtains credentials on its storage-manager role via STS `AssumeRoleWithWebIdentity` with the provider's OIDC token, caching them per account until shortly before expiry. IAM and S3 requests sign the session token. The STS endpoint is now always configured (derived from the management endpoint when `s3_endpoint` is unset).
 - **Import support** for 17 previously-unimportable resources: `artesca_bucket`, all bucket sub-resources (`_policy`, `_tagging`, `_encryption`), all IAM resources (users, groups, roles, policies, attachments, memberships), and all workflow resources (expiration, transition, replication). Import IDs for account-scoped resources start with the account name (`<account_name>/<id>`).
 

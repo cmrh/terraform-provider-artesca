@@ -377,10 +377,10 @@ output "expiration_rule_id" {
 # --- Bucket Workflow Replication ---
 
 resource "artesca_bucket_workflow_replication" "test" {
-  account_name            = artesca_account.test.name
-  bucket_name             = artesca_bucket.source.name
-  destination_bucket_name = artesca_bucket.dest.name
-  enabled                 = true
+  account_name         = artesca_account.test.name
+  bucket_name          = artesca_bucket.source.name
+  destination_location = artesca_location.dest.name
+  enabled              = true
 }
 
 output "wf_replication_rule_id" {

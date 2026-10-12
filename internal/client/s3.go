@@ -31,6 +31,9 @@ type S3Client struct {
 	bucketLocksMu            sync.Mutex
 	bucketLocks              map[string]*sync.Mutex
 	transientBackoffOverride time.Duration
+	// propagationBackoffOverride shortens the wait between retries while a new
+	// location propagates; tests only.
+	propagationBackoffOverride time.Duration
 }
 
 // LockBucket serializes bucket-config writes (tagging, encryption, policy,
@@ -52,6 +55,15 @@ func (c *S3Client) LockBucket(bucket string) (unlock func()) {
 
 	mu.Lock()
 	return mu.Unlock
+}
+
+// propagationBackoff is the first wait between retries while S3 doesn't know a
+// newly created location yet; it doubles up to 30 s.
+func (c *S3Client) propagationBackoff() time.Duration {
+	if c.propagationBackoffOverride > 0 {
+		return c.propagationBackoffOverride
+	}
+	return 5 * time.Second
 }
 
 func (c *S3Client) transientBackoff() time.Duration {
@@ -129,7 +141,7 @@ func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, 
 	}
 
 	deadline := time.Now().Add(propagationTimeout)
-	backoff := 5 * time.Second
+	backoff := c.propagationBackoff()
 
 	for {
 		_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "", body, creds)
