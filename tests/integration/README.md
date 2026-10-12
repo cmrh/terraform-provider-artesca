@@ -16,7 +16,7 @@ Full create-plan-destroy lifecycle test for all provider resources against a rea
 | `artesca_bucket_policy`, `artesca_bucket_tagging` | Policy and tags on the source bucket |
 | `artesca_endpoint` | Endpoint for the source location |
 | `artesca_bucket_workflow_expiration`, `artesca_bucket_workflow_transition` | Lifecycle rules on the source bucket |
-| `artesca_bucket_workflow_replication` | Replication rule from the source to the destination bucket |
+| `artesca_bucket_workflow_replication` | Replication rule from the source bucket to the destination location |
 
 ## Prerequisites
 
