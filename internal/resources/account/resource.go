@@ -50,18 +50,11 @@ func (r *AccountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"email": schema.StringAttribute{
-				Description: "The email address associated with the account. Cannot be changed after creation. Not readable from the API, so it is not imported; an imported account adopts the configured value without replacement.",
+				Description: "The email address associated with the account. Required to create an account and not readable from the API: changing it replaces the account, removing it from the configuration changes nothing, and an imported account adopts the configured value.",
 				Optional:    true,
+				Computed:    true,
 				PlanModifiers: []planmodifier.String{
-					// Email can't be read back, so a null state value (after import)
-					// means "unknown", not "no email" -- adopt the config in place.
-					stringplanmodifier.RequiresReplaceIf(
-						func(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
-							resp.RequiresReplace = !req.StateValue.IsNull()
-						},
-						"Changing email replaces the account.",
-						"Changing `email` replaces the account.",
-					),
+					emailPlanModifier{},
 				},
 				Validators: []validator.String{
 					validators.Email{},
@@ -202,8 +195,8 @@ func (r *AccountResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 func (r *AccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Name is ForceNew; email only reaches Update when adopting a value into
-	// state after import (see the email plan modifier). Nothing to call on the
-	// API -- just sync state.
+	// state after import (see emailPlanModifier). Nothing to call on the API --
+	// just sync state.
 	var plan AccountResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
