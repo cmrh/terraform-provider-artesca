@@ -25,19 +25,6 @@ func (c *ManagementClient) GetReplicationStream(ctx context.Context, streamID st
 	return nil, nil
 }
 
-func (c *ManagementClient) findReplicationStreamByName(ctx context.Context, name string) (*ReplicationStream, error) {
-	overlay, err := c.GetOverlay(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, rs := range overlay.ReplicationStreams {
-		if rs.Name == name {
-			return &rs, nil
-		}
-	}
-	return nil, nil
-}
-
 func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *ReplicationStream) (*ReplicationStream, error) {
 	c.overlayMu.Lock()
 	defer c.overlayMu.Unlock()
@@ -60,21 +47,12 @@ func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *
 			return &created, nil
 		}
 
-		// The management API may create the stream but return 400 due to
-		// propagation delay (e.g. "could not find source bucket"). Check
-		// whether the stream was actually persisted despite the error.
+		// A bucket created moments earlier is rejected with 400 until it
+		// propagates; the rejected request creates nothing, so retry.
 		if status == http.StatusBadRequest {
 			msg := string(body)
 			isPropagation := strings.Contains(msg, "could not find source bucket") ||
 				strings.Contains(msg, "could not find destination bucket")
-			isOverlap := strings.Contains(msg, "overlapping prefix")
-
-			if isPropagation || isOverlap {
-				existing, lookupErr := c.findReplicationStreamByName(ctx, stream.Name)
-				if lookupErr == nil && existing != nil {
-					return existing, nil
-				}
-			}
 			if isPropagation && time.Now().Before(deadline) {
 				time.Sleep(backoff)
 				if backoff < 30*time.Second {

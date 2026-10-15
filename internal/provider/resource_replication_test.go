@@ -142,3 +142,42 @@ resource "artesca_replication" "test" {
 		},
 	})
 }
+
+// A second stream with the same name and source must fail, not take over the
+// first stream.
+func TestAccReplication_overlapFails(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rSrcLoc := randomName("tf-acc-sloc")
+	rDstLoc := randomName("tf-acc-dloc")
+	rSrcBkt := randomName("tf-acc-sbkt")
+	config := testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, true)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckReplicationDestroy,
+		Steps: []resource.TestStep{
+			{Config: config},
+			{
+				Config: config + `
+resource "artesca_replication" "duplicate" {
+  name    = "tf-acc-overlay-repl"
+  enabled = true
+
+  source {
+    bucket_name = artesca_bucket.source.name
+    prefix      = ""
+  }
+
+  destination {
+    locations {
+      name = artesca_location.dest.name
+    }
+  }
+}
+`,
+				ExpectError: regexp.MustCompile(`overlapping prefix`),
+			},
+		},
+	})
+}
