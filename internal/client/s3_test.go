@@ -150,6 +150,19 @@ func TestHeadBucketNotFound(t *testing.T) {
 	}
 }
 
+func TestHeadBucketForbidden(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(403)
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	_, err := client.HeadBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket")
+	if err == nil || !strings.Contains(err.Error(), "access denied") {
+		t.Fatalf("error = %v, want access denied", err)
+	}
+}
+
 func TestHeadBucketServerError(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
