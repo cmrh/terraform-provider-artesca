@@ -117,6 +117,27 @@ func TestCreateReplicationStreamError(t *testing.T) {
 	}
 }
 
+// An overlapping prefix means another stream already covers the source; it
+// must fail rather than return that stream.
+func TestCreateReplicationStreamOverlapFails(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(400)
+		_, _ = w.Write([]byte(`{"message":"failed validation: Rule 'other' with the same source bucket src have overlapping prefix ''"}`))
+	}))
+	defer apiServer.Close()
+
+	client, cleanup := newTestManagementClient(t, apiServer)
+	defer cleanup()
+
+	_, err := client.CreateReplicationStream(context.Background(), &ReplicationStream{Name: "new-stream", Source: &ReplicationSource{BucketName: "src"}})
+	if err == nil || !strings.Contains(err.Error(), "overlapping prefix") {
+		t.Fatalf("error = %v, want overlapping prefix", err)
+	}
+}
+
 func TestUpdateReplicationStream(t *testing.T) {
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
