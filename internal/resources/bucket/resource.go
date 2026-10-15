@@ -10,7 +10,7 @@ import (
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -60,10 +60,12 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				},
 			},
 			"versioning_enabled": schema.BoolAttribute{
-				Description: "Whether versioning is enabled on the ARTESCA S3 bucket. Required for replication workflows.",
+				Description: "Whether versioning is enabled on the ARTESCA S3 bucket. Required for replication workflows. When unset, versioning is not managed and the attribute reports the bucket's state.",
 				Optional:    true,
 				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			creds.AttrAccountName: creds.ResourceAttribute(),
 		},
@@ -126,7 +128,14 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	if plan.VersioningEnabled.ValueBool() {
+	if plan.VersioningEnabled.IsUnknown() {
+		versioning, err := r.s3Client.GetBucketVersioning(ctx, acctCreds, bucketName)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading bucket versioning", err.Error())
+			return
+		}
+		plan.VersioningEnabled = types.BoolValue(versioning)
+	} else if plan.VersioningEnabled.ValueBool() {
 		unlock := r.s3Client.LockBucket(bucketName)
 		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, true); err != nil {

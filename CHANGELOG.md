@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`artesca_bucket` no longer adopts an existing bucket (#102).** Creating a bucket the account already owns fails with an error pointing to `tofu import`, instead of writing unverified attributes to state.
 - **`artesca_bucket` refresh on 403 (#103).** A 403 from HeadBucket (another account's bucket, expired credentials, a deny policy) is now an error instead of removing the bucket from state. Only 404 means the bucket is gone.
 - **`artesca_replication` no longer adopts an existing stream (#104).** When the API rejects a create because another stream has an overlapping prefix on the same source bucket, the error is reported instead of taking over a same-named stream.
+- **`artesca_bucket.versioning_enabled` no longer defaults to `false` (#105).** When unset, versioning is not managed: the attribute reports the bucket's state, and a versioned bucket whose configuration omits it (after import, or after removing the line) is no longer suspended. Set `versioning_enabled = false` to suspend versioning.
 
 ## [1.0.0] - unreleased
 
