@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -131,6 +132,10 @@ func isLocationPropagationError(err error) bool {
 
 const propagationTimeout = 300 * time.Second
 
+// ErrBucketAlreadyOwned is returned by CreateBucket when the account already
+// owns a bucket with that name.
+var ErrBucketAlreadyOwned = errors.New("bucket already exists and is owned by this account")
+
 func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, locationConstraint string) error {
 	var body string
 	if locationConstraint != "" {
@@ -144,7 +149,14 @@ func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, 
 	backoff := c.propagationBackoff()
 
 	for {
-		_, status, err := c.doSignedRequest(ctx, http.MethodPut, "/"+bucket, "", body, creds)
+		_, status, retried, err := c.doSignedRequestRetried(ctx, http.MethodPut, "/"+bucket, "", body, creds)
+		if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
+			// After a gateway retry, the first attempt may be what created it.
+			if retried {
+				return nil
+			}
+			return ErrBucketAlreadyOwned
+		}
 		if err != nil && isLocationPropagationError(err) && time.Now().Before(deadline) {
 			time.Sleep(backoff)
 			if backoff < 30*time.Second {
@@ -431,9 +443,17 @@ func (c *S3Client) GetBucketSubresourceXML(ctx context.Context, creds Credential
 }
 
 func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, body string, creds Credentials) ([]byte, int, error) {
+	respBody, statusCode, _, err := c.doSignedRequestRetried(ctx, method, path, query, body, creds)
+	return respBody, statusCode, err
+}
+
+// doSignedRequestRetried is doSignedRequest that also reports whether the
+// request was resent after a transient gateway status, so an earlier attempt
+// may have been applied.
+func (c *S3Client) doSignedRequestRetried(ctx context.Context, method, path, query, body string, creds Credentials) ([]byte, int, bool, error) {
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
-		return nil, 0, fmt.Errorf("parsing endpoint: %w", err)
+		return nil, 0, false, fmt.Errorf("parsing endpoint: %w", err)
 	}
 
 	host := u.Host
@@ -458,6 +478,7 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 	var (
 		respBody   []byte
 		statusCode int
+		retried    bool
 	)
 
 	for attempt := range transientGatewayMaxAttempts {
@@ -496,7 +517,7 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 
 		req, err := http.NewRequestWithContext(ctx, method, fullURL, strings.NewReader(body))
 		if err != nil {
-			return nil, 0, fmt.Errorf("creating request: %w", err)
+			return nil, 0, retried, fmt.Errorf("creating request: %w", err)
 		}
 
 		req.Header.Set("Host", host)
@@ -512,13 +533,13 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			return nil, 0, fmt.Errorf("executing request: %w", err)
+			return nil, 0, retried, fmt.Errorf("executing request: %w", err)
 		}
 
 		respBody, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 		_ = resp.Body.Close()
 		if err != nil {
-			return nil, 0, fmt.Errorf("reading response: %w", err)
+			return nil, 0, retried, fmt.Errorf("reading response: %w", err)
 		}
 		statusCode = resp.StatusCode
 
@@ -527,12 +548,13 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				return respBody, statusCode, ctx.Err()
+				return respBody, statusCode, retried, ctx.Err()
 			case <-timer.C:
 			}
 			if backoff < transientGatewayBackoffMax {
 				backoff *= 2
 			}
+			retried = true
 			continue
 		}
 		break
@@ -541,9 +563,9 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 	if statusCode >= 400 {
 		var s3Err s3ErrorResponse
 		if xmlErr := xml.Unmarshal(respBody, &s3Err); xmlErr == nil && s3Err.Code != "" {
-			return respBody, statusCode, fmt.Errorf("%s: %s", s3Err.Code, s3Err.Message)
+			return respBody, statusCode, retried, fmt.Errorf("%s: %s", s3Err.Code, s3Err.Message)
 		}
 	}
 
-	return respBody, statusCode, nil
+	return respBody, statusCode, retried, nil
 }

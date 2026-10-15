@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -81,6 +82,25 @@ func TestAccBucket_versioning(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("artesca_bucket.test", "versioning_enabled", "true"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccBucket_alreadyOwned(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rBucket := randomName("tf-acc-bkt")
+	config := testAccAccountConfig(rAcct) + testAccBucketConfig("test", rBucket, "null", false)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
+		Steps: []resource.TestStep{
+			{Config: config},
+			{
+				Config:      config + testAccBucketConfig("duplicate", rBucket, "null", false),
+				ExpectError: regexp.MustCompile(`already owns bucket`),
 			},
 		},
 	})
