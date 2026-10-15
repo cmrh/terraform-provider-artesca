@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 func TestAccBucket_basic(t *testing.T) {
@@ -138,6 +139,48 @@ resource "artesca_bucket" "other" {
 }
 `, rOther, rBucket, rBucket),
 				ExpectError: regexp.MustCompile(`access denied`),
+			},
+		},
+	})
+}
+
+// Without versioning_enabled in the configuration, versioning is not managed:
+// a new bucket reports its state, and removing the attribute from a versioned
+// bucket's configuration leaves versioning enabled.
+func TestAccBucket_versioningUnmanaged(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rBucket := randomName("tf-acc-bkt")
+	unset := testAccAccountConfig(rAcct) + fmt.Sprintf(`
+resource "artesca_bucket" "test" {
+  name         = %q
+  account_name = artesca_account.test.name
+}
+`, rBucket)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: unset,
+				Check:  resource.TestCheckResourceAttr("artesca_bucket.test", "versioning_enabled", "false"),
+			},
+			{
+				Config: testAccAccountConfig(rAcct) + testAccBucketConfig("test", rBucket, "null", true),
+				Check:  resource.TestCheckResourceAttr("artesca_bucket.test", "versioning_enabled", "true"),
+			},
+			{
+				Config: unset,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_bucket.test", plancheck.ResourceActionNoop)},
+				},
+				Check: resource.TestCheckResourceAttr("artesca_bucket.test", "versioning_enabled", "true"),
+			},
+			{
+				// Refresh reads the bucket: versioning is still enabled.
+				Config:   unset,
+				PlanOnly: true,
 			},
 		},
 	})
