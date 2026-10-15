@@ -223,8 +223,13 @@ func (c *S3Client) HeadBucket(ctx context.Context, creds Credentials, bucket str
 	if status == http.StatusOK {
 		return true, nil
 	}
-	if status == http.StatusNotFound || status == http.StatusForbidden {
+	// Only 404 means absent. 403 is returned for a bucket owned by another
+	// account, and for expired credentials or a deny policy.
+	if status == http.StatusNotFound {
 		return false, nil
+	}
+	if status == http.StatusForbidden {
+		return false, fmt.Errorf("head bucket %q: access denied (status 403)", bucket)
 	}
 
 	return false, fmt.Errorf("head bucket unexpected status %d", status)

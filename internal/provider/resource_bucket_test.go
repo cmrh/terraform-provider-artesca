@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -101,6 +102,42 @@ func TestAccBucket_alreadyOwned(t *testing.T) {
 			{
 				Config:      config + testAccBucketConfig("duplicate", rBucket, "null", false),
 				ExpectError: regexp.MustCompile(`already owns bucket`),
+			},
+		},
+	})
+}
+
+// HEAD on another account's bucket returns 403, which must surface as an
+// error rather than read as "bucket absent".
+func TestAccBucket_forbiddenIsError(t *testing.T) {
+	rAcct, rOther := randomName("tf-acc"), randomName("tf-acc")
+	rBucket := randomName("tf-acc-bkt")
+	config := testAccAccountConfig(rAcct) + testAccBucketConfig("test", rBucket, "null", false) + fmt.Sprintf(`
+resource "artesca_account" "other" {
+  name  = %q
+  email = "%s@test.example.com"
+}
+`, rOther, rOther)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
+		Steps: []resource.TestStep{
+			{Config: config},
+			{
+				Config: config + fmt.Sprintf(`
+import {
+  to = artesca_bucket.other
+  id = "%s/%s"
+}
+
+resource "artesca_bucket" "other" {
+  name         = %q
+  account_name = artesca_account.other.name
+}
+`, rOther, rBucket, rBucket),
+				ExpectError: regexp.MustCompile(`access denied`),
 			},
 		},
 	})
