@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **`artesca_account.email` (#101).** Removing it from the configuration no longer replaces the account; the value stays in state. Creating an account without it fails at plan time instead of with an API 422.
+- **`artesca_bucket` no longer adopts an existing bucket (#102).** Creating a bucket the account already owns fails with an error pointing to `tofu import`, instead of writing unverified attributes to state.
 
 ## [1.0.0] - unreleased
 

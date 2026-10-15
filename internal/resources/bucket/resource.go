@@ -2,8 +2,8 @@ package bucket
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -115,13 +115,15 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	})
 
 	err = r.s3Client.CreateBucket(ctx, acctCreds, bucketName, locationConstraint)
+	if errors.Is(err, client.ErrBucketAlreadyOwned) {
+		resp.Diagnostics.AddError("Bucket already exists",
+			fmt.Sprintf("Account %q already owns bucket %q. To manage it, import it: tofu import <address> %s/%s",
+				plan.AccountName.ValueString(), bucketName, plan.AccountName.ValueString(), bucketName))
+		return
+	}
 	if err != nil {
-		if strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
-			tflog.Debug(ctx, "Bucket already exists and is owned by this account", map[string]any{"bucket": bucketName})
-		} else {
-			resp.Diagnostics.AddError("Error creating bucket", err.Error())
-			return
-		}
+		resp.Diagnostics.AddError("Error creating bucket", err.Error())
+		return
 	}
 
 	if plan.VersioningEnabled.ValueBool() {

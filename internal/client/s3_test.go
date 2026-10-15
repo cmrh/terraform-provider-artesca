@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -70,6 +71,44 @@ func TestCreateBucketError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "BucketAlreadyExists") {
 		t.Errorf("error = %q, want BucketAlreadyExists", err.Error())
+	}
+}
+
+const alreadyOwnedBody = `<Error><Code>BucketAlreadyOwnedByYou</Code><Message>you already own it</Message></Error>`
+
+func TestCreateBucketAlreadyOwned(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(409)
+		_, _ = w.Write([]byte(alreadyOwnedBody))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	if !errors.Is(err, ErrBucketAlreadyOwned) {
+		t.Fatalf("error = %v, want ErrBucketAlreadyOwned", err)
+	}
+}
+
+// A gateway timeout may hide a successful create; the retry then reports the
+// bucket as already owned, which is our own bucket.
+func TestCreateBucketAlreadyOwnedAfterGatewayRetry(t *testing.T) {
+	var attempts int32
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&attempts, 1) == 1 {
+			w.WriteHeader(http.StatusGatewayTimeout)
+			return
+		}
+		w.WriteHeader(409)
+		_, _ = w.Write([]byte(alreadyOwnedBody))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	client.transientBackoffOverride = time.Millisecond
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	if err != nil {
+		t.Fatalf("CreateBucket returned error: %v", err)
 	}
 }
 
