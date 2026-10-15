@@ -215,6 +215,8 @@ func (r *ReplicationResource) Update(ctx context.Context, req resource.UpdateReq
 
 	apiStream := modelToAPIReplication(&plan)
 	apiStream.StreamID = state.StreamID.ValueString()
+	// The API rejects a stale version with 409; send the one it last returned.
+	apiStream.Version = state.Version.ValueInt64()
 
 	tflog.Debug(ctx, "Updating replication stream", map[string]any{"stream_id": state.StreamID.ValueString()})
 

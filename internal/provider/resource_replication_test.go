@@ -56,6 +56,22 @@ func TestAccReplication_update(t *testing.T) {
 				Config: testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("artesca_replication.test", "enabled", "false"),
+					resource.TestCheckResourceAttr("artesca_replication.test", "version", "2"),
+				),
+			},
+			// Each update must send the current version, or the API returns 409.
+			{
+				Config: testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("artesca_replication.test", "enabled", "true"),
+					resource.TestCheckResourceAttr("artesca_replication.test", "version", "3"),
+				),
+			},
+			{
+				Config: testAccReplicationConfig(rAcct, rSrcLoc, rDstLoc, rSrcBkt, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("artesca_replication.test", "enabled", "false"),
+					resource.TestCheckResourceAttr("artesca_replication.test", "version", "4"),
 				),
 			},
 		},
