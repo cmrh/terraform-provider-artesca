@@ -11,7 +11,7 @@ import (
 //   - create: email is required;
 //   - removed from config: keep the last known value (it can't be cleared);
 //   - set on an imported account: adopt it without replacing the account;
-//   - changed: replace the account.
+//   - changed, or unknown on an account whose email is known: replace it.
 type emailPlanModifier struct{}
 
 func (m emailPlanModifier) Description(_ context.Context) string {
@@ -23,7 +23,13 @@ func (m emailPlanModifier) MarkdownDescription(ctx context.Context) string {
 }
 
 func (m emailPlanModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	if req.Plan.Raw.IsNull() || req.ConfigValue.IsUnknown() {
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+	if req.ConfigValue.IsUnknown() {
+		// The new value may differ from the known one, which can only be
+		// changed by replacing the account. Create checks it is set.
+		resp.RequiresReplace = !req.State.Raw.IsNull() && !req.StateValue.IsNull()
 		return
 	}
 	if req.State.Raw.IsNull() {

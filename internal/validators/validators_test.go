@@ -221,7 +221,7 @@ func TestEmail(t *testing.T) {
 		{"valid simple", "user@example.com", false},
 		{"valid with plus", "user+tag@example.com", false},
 		{"valid subdomain", "user@sub.example.com", false},
-		{"valid empty string", "", false},
+		{"invalid empty string", "", true},
 		{"invalid no at", "userexample.com", true},
 		{"invalid no domain", "user@", true},
 		{"invalid double at", "user@@example.com", true},

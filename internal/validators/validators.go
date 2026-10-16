@@ -133,6 +133,7 @@ func (v Email) ValidateString(_ context.Context, req validator.StringRequest, re
 	}
 	val := req.ConfigValue.ValueString()
 	if val == "" {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid email address", "Must not be empty.")
 		return
 	}
 	_, err := mail.ParseAddress(val)
