@@ -77,6 +77,13 @@ func (r *BucketPolicyResource) Configure(_ context.Context, req resource.Configu
 		)
 		return
 	}
+	if providerData.S3 == nil {
+		resp.Diagnostics.AddError(
+			"S3 Client Not Configured",
+			"The s3_endpoint must be set in the provider configuration or via the ARTESCA_S3_ENDPOINT environment variable to use bucket resources.",
+		)
+		return
+	}
 	r.s3Client = providerData.S3
 	r.accounts = providerData.Accounts
 }

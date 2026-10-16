@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `artesca_bucket_workflow_expiration` / `_transition`: create fails when the bucket already has a rule with that ID; update fails when the rule is missing.
   - `data.artesca_locations` returns locations sorted by name.
   - `artesca_bucket_tagging.tags` requires at least one tag; ARTESCA stores no tag set for an empty map, so `tags = {}` was recreated on every plan.
+- **Robustness (#109).**
+  - `artesca_bucket_policy`, `_tagging` and `_encryption` report a configuration error instead of crashing when `s3_endpoint` isn't set.
+  - Propagation retries (bucket create, lifecycle, replication streams) stop when the operation is cancelled instead of waiting up to 5 minutes.
+  - IAM and STS requests are retried on 502/503/504, like S3 requests.
+  - IAM list calls (access keys, groups for user, attached user/group/role policies) follow pagination.
+  - `ARTESCA_INSECURE_SKIP_VERIFY` accepts any boolean (`TRUE`, `False`, `t`, `0`, …); an invalid value is an error instead of meaning `false`.
 
 ## [1.0.0] - unreleased
 

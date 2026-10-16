@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -128,30 +127,28 @@ func accountIDFromARN(arn string) string {
 // caller authenticates via the WebIdentityToken parameter. Success bodies are
 // JSON; errors are the standard IAM XML error document.
 func (c *IAMClient) doWebIdentityRequest(ctx context.Context, params url.Values) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(params.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", contentTypeForm)
-	req.Header.Set("Accept", contentTypeJSON)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+	body := params.Encode()
+	newReq := func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", contentTypeForm)
+		req.Header.Set("Accept", contentTypeJSON)
+		return req, nil
 	}
 
-	if resp.StatusCode >= 400 {
+	respBody, status, err := sendWithTransientRetry(ctx, c.httpClient, c.transientBackoff(), newReq)
+	if err != nil {
+		return nil, err
+	}
+
+	if status >= 400 {
 		var iamErr iamErrorResponse
 		if xmlErr := xml.Unmarshal(respBody, &iamErr); xmlErr == nil && iamErr.Error.Code != "" {
 			return nil, fmt.Errorf("%s: %s", iamErr.Error.Code, iamErr.Error.Message)
 		}
-		return nil, fmt.Errorf("IAM request failed (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("IAM request failed (status %d): %s", status, string(respBody))
 	}
 
 	return respBody, nil

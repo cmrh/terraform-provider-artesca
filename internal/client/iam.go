@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +25,16 @@ type IAMClient struct {
 	endpoint   string
 	region     string
 	httpClient *http.Client
+
+	// transientBackoffOverride shortens the gateway retry backoff in tests.
+	transientBackoffOverride time.Duration
+}
+
+func (c *IAMClient) transientBackoff() time.Duration {
+	if c.transientBackoffOverride > 0 {
+		return c.transientBackoffOverride
+	}
+	return transientGatewayBackoff
 }
 
 func NewIAMClient(endpoint, region string, insecureSkipVerify bool) *IAMClient {
@@ -249,6 +258,8 @@ type listAccessKeysResponse struct {
 	XMLName xml.Name `xml:"ListAccessKeysResponse"`
 	Result  struct {
 		AccessKeyMetadata []iamAccessKeyMetadata `xml:"AccessKeyMetadata>member"`
+		IsTruncated       bool                   `xml:"IsTruncated"`
+		Marker            string                 `xml:"Marker"`
 	} `xml:"ListAccessKeysResult"`
 }
 
@@ -290,17 +301,19 @@ func (c *IAMClient) ListAccessKeys(ctx context.Context, creds Credentials, userN
 		"UserName": {userName},
 	}
 
-	body, err := c.doSignedRequest(ctx, creds, params)
+	var keys []iamAccessKeyMetadata
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp listAccessKeysResponse
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list access keys response: %w", err)
+		}
+		keys = append(keys, resp.Result.AccessKeyMetadata...)
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list access keys: %w", err)
 	}
-
-	var resp listAccessKeysResponse
-	if err := xml.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parsing list access keys response: %w", err)
-	}
-
-	return resp.Result.AccessKeyMetadata, nil
+	return keys, nil
 }
 
 func (c *IAMClient) DeleteAccessKey(ctx context.Context, creds Credentials, userName, accessKeyId string) error {
@@ -349,7 +362,9 @@ type getGroupResponse struct {
 type listGroupsForUserResponse struct {
 	XMLName xml.Name `xml:"ListGroupsForUserResponse"`
 	Result  struct {
-		Groups []iamGroup `xml:"Groups>member"`
+		Groups      []iamGroup `xml:"Groups>member"`
+		IsTruncated bool       `xml:"IsTruncated"`
+		Marker      string     `xml:"Marker"`
 	} `xml:"ListGroupsForUserResult"`
 }
 
@@ -439,20 +454,22 @@ func (c *IAMClient) ListGroupsForUser(ctx context.Context, creds Credentials, us
 		"Action":   {"ListGroupsForUser"},
 		"UserName": {userName},
 	}
-	body, err := c.doSignedRequest(ctx, creds, params)
+	names := []string{}
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp listGroupsForUserResponse
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list groups for user response: %w", err)
+		}
+		for _, g := range resp.Result.Groups {
+			names = append(names, g.GroupName)
+		}
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list groups for user: %w", err)
-	}
-	var resp listGroupsForUserResponse
-	if err := xml.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parsing list groups for user response: %w", err)
-	}
-	names := make([]string, 0, len(resp.Result.Groups))
-	for _, g := range resp.Result.Groups {
-		names = append(names, g.GroupName)
 	}
 	return names, nil
 }
@@ -762,6 +779,8 @@ type listAttachedUserPoliciesResponse struct {
 	XMLName xml.Name `xml:"ListAttachedUserPoliciesResponse"`
 	Result  struct {
 		AttachedPolicies []attachedPolicy `xml:"AttachedPolicies>member"`
+		IsTruncated      bool             `xml:"IsTruncated"`
+		Marker           string           `xml:"Marker"`
 	} `xml:"ListAttachedUserPoliciesResult"`
 }
 
@@ -769,6 +788,8 @@ type listAttachedGroupPoliciesResponse struct {
 	XMLName xml.Name `xml:"ListAttachedGroupPoliciesResponse"`
 	Result  struct {
 		AttachedPolicies []attachedPolicy `xml:"AttachedPolicies>member"`
+		IsTruncated      bool             `xml:"IsTruncated"`
+		Marker           string           `xml:"Marker"`
 	} `xml:"ListAttachedGroupPoliciesResult"`
 }
 
@@ -776,6 +797,8 @@ type listAttachedRolePoliciesResponse struct {
 	XMLName xml.Name `xml:"ListAttachedRolePoliciesResponse"`
 	Result  struct {
 		AttachedPolicies []attachedPolicy `xml:"AttachedPolicies>member"`
+		IsTruncated      bool             `xml:"IsTruncated"`
+		Marker           string           `xml:"Marker"`
 	} `xml:"ListAttachedRolePoliciesResult"`
 }
 
@@ -813,20 +836,22 @@ func (c *IAMClient) ListAttachedUserPolicies(ctx context.Context, creds Credenti
 		"Action":   {"ListAttachedUserPolicies"},
 		"UserName": {userName},
 	}
-	body, err := c.doSignedRequest(ctx, creds, params)
+	arns := []string{}
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp listAttachedUserPoliciesResponse
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list attached user policies response: %w", err)
+		}
+		for _, p := range resp.Result.AttachedPolicies {
+			arns = append(arns, p.PolicyArn)
+		}
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list attached user policies: %w", err)
-	}
-	var resp listAttachedUserPoliciesResponse
-	if err := xml.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parsing list attached user policies response: %w", err)
-	}
-	arns := make([]string, 0, len(resp.Result.AttachedPolicies))
-	for _, p := range resp.Result.AttachedPolicies {
-		arns = append(arns, p.PolicyArn)
 	}
 	return arns, nil
 }
@@ -865,20 +890,22 @@ func (c *IAMClient) ListAttachedGroupPolicies(ctx context.Context, creds Credent
 		"Action":    {"ListAttachedGroupPolicies"},
 		"GroupName": {groupName},
 	}
-	body, err := c.doSignedRequest(ctx, creds, params)
+	arns := []string{}
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp listAttachedGroupPoliciesResponse
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list attached group policies response: %w", err)
+		}
+		for _, p := range resp.Result.AttachedPolicies {
+			arns = append(arns, p.PolicyArn)
+		}
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list attached group policies: %w", err)
-	}
-	var resp listAttachedGroupPoliciesResponse
-	if err := xml.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parsing list attached group policies response: %w", err)
-	}
-	arns := make([]string, 0, len(resp.Result.AttachedPolicies))
-	for _, p := range resp.Result.AttachedPolicies {
-		arns = append(arns, p.PolicyArn)
 	}
 	return arns, nil
 }
@@ -917,22 +944,52 @@ func (c *IAMClient) ListAttachedRolePolicies(ctx context.Context, creds Credenti
 		"Action":   {"ListAttachedRolePolicies"},
 		"RoleName": {roleName},
 	}
-	body, err := c.doSignedRequest(ctx, creds, params)
+	arns := []string{}
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp listAttachedRolePoliciesResponse
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list attached role policies response: %w", err)
+		}
+		for _, p := range resp.Result.AttachedPolicies {
+			arns = append(arns, p.PolicyArn)
+		}
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchEntity") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list attached role policies: %w", err)
 	}
-	var resp listAttachedRolePoliciesResponse
-	if err := xml.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parsing list attached role policies response: %w", err)
-	}
-	arns := make([]string, 0, len(resp.Result.AttachedPolicies))
-	for _, p := range resp.Result.AttachedPolicies {
-		arns = append(arns, p.PolicyArn)
-	}
 	return arns, nil
+}
+
+// listAllPages sends a paginated IAM list request, following Marker until
+// IsTruncated is false. page parses one response body and returns its
+// IsTruncated and Marker.
+func (c *IAMClient) listAllPages(ctx context.Context, creds Credentials, params url.Values, page func(body []byte) (bool, string, error)) error {
+	seen := map[string]bool{}
+	for {
+		body, err := c.doSignedRequest(ctx, creds, params)
+		if err != nil {
+			return err
+		}
+		truncated, marker, err := page(body)
+		if err != nil {
+			return err
+		}
+		if !truncated {
+			return nil
+		}
+		if marker == "" {
+			return fmt.Errorf("%s response is truncated but has no Marker", params.Get("Action"))
+		}
+		if seen[marker] {
+			return fmt.Errorf("%s returned a repeated Marker", params.Get("Action"))
+		}
+		seen[marker] = true
+		params.Set("Marker", marker)
+	}
 }
 
 // --- SigV4 Signing ---
@@ -947,81 +1004,74 @@ func (c *IAMClient) doSignedRequest(ctx context.Context, creds Credentials, para
 	params.Set("Version", iamAPIVersion)
 
 	host := u.Host
-	now := time.Now().UTC()
-	datestamp := now.Format("20060102")
-	amzdate := now.Format("20060102T150405Z")
-
-	// Build canonical query string
 	body := params.Encode()
-
-	// Create the canonical request for POST with form-encoded body.
-	// SigV4 canonical headers must be alphabetically sorted by header name.
-	canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-date:%s\n", host, amzdate)
-	signedHeaders := "host;x-amz-date"
-	if creds.SessionToken != "" {
-		canonicalHeaders += fmt.Sprintf("x-amz-security-token:%s\n", creds.SessionToken)
-		signedHeaders += ";x-amz-security-token"
-	}
 	payloadHash := sha256Hex([]byte(body))
 
-	canonicalRequest := strings.Join([]string{
-		http.MethodPost,
-		"/",
-		"",
-		canonicalHeaders,
-		signedHeaders,
-		payloadHash,
-	}, "\n")
-
-	// Create string to sign
-	region := c.region
-	service := iamAWSService
-	credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, region, service)
-	stringToSign := strings.Join([]string{
-		"AWS4-HMAC-SHA256",
-		amzdate,
-		credentialScope,
-		sha256Hex([]byte(canonicalRequest)),
-	}, "\n")
-
-	// Calculate signature
-	signingKey := getSignatureKey(creds.SecretKey, datestamp, region, service)
-	signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
-
-	// Build authorization header
-	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
-		creds.AccessKey, credentialScope, signedHeaders, signature)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", contentTypeForm)
-	req.Header.Set("Host", host)
-	req.Header.Set("X-Amz-Date", amzdate)
+	// SigV4 canonical headers must be alphabetically sorted by header name.
+	signedHeaders := "host;x-amz-date"
 	if creds.SessionToken != "" {
-		req.Header.Set("X-Amz-Security-Token", creds.SessionToken)
+		signedHeaders += ";x-amz-security-token"
 	}
-	req.Header.Set("Authorization", authHeader)
 
-	resp, err := c.httpClient.Do(req)
+	// Each attempt is signed with the current date.
+	newReq := func() (*http.Request, error) {
+		now := time.Now().UTC()
+		datestamp := now.Format("20060102")
+		amzdate := now.Format("20060102T150405Z")
+
+		canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-date:%s\n", host, amzdate)
+		if creds.SessionToken != "" {
+			canonicalHeaders += fmt.Sprintf("x-amz-security-token:%s\n", creds.SessionToken)
+		}
+
+		canonicalRequest := strings.Join([]string{
+			http.MethodPost,
+			"/",
+			"",
+			canonicalHeaders,
+			signedHeaders,
+			payloadHash,
+		}, "\n")
+
+		credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, c.region, iamAWSService)
+		stringToSign := strings.Join([]string{
+			"AWS4-HMAC-SHA256",
+			amzdate,
+			credentialScope,
+			sha256Hex([]byte(canonicalRequest)),
+		}, "\n")
+
+		signingKey := getSignatureKey(creds.SecretKey, datestamp, c.region, iamAWSService)
+		signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
+
+		authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
+			creds.AccessKey, credentialScope, signedHeaders, signature)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", contentTypeForm)
+		req.Header.Set("Host", host)
+		req.Header.Set("X-Amz-Date", amzdate)
+		if creds.SessionToken != "" {
+			req.Header.Set("X-Amz-Security-Token", creds.SessionToken)
+		}
+		req.Header.Set("Authorization", authHeader)
+		return req, nil
+	}
+
+	respBody, status, err := sendWithTransientRetry(ctx, c.httpClient, c.transientBackoff(), newReq)
 	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, err
 	}
 
-	if resp.StatusCode >= 400 {
+	if status >= 400 {
 		var iamErr iamErrorResponse
 		if xmlErr := xml.Unmarshal(respBody, &iamErr); xmlErr == nil && iamErr.Error.Code != "" {
 			return nil, fmt.Errorf("%s: %s", iamErr.Error.Code, iamErr.Error.Message)
 		}
-		return nil, fmt.Errorf("IAM request failed (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("IAM request failed (status %d): %s", status, string(respBody))
 	}
 
 	return respBody, nil

@@ -138,6 +138,18 @@ func IsNoSuchBucket(err error) bool {
 
 const propagationTimeout = 300 * time.Second
 
+// sleepCtx waits for d, or returns ctx.Err() if ctx ends first.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // ErrBucketAlreadyOwned is returned by CreateBucket when the account already
 // owns a bucket with that name.
 var ErrBucketAlreadyOwned = errors.New("bucket already exists and is owned by this account")
@@ -164,7 +176,9 @@ func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, 
 			return ErrBucketAlreadyOwned
 		}
 		if err != nil && isLocationPropagationError(err) && time.Now().Before(deadline) {
-			time.Sleep(backoff)
+			if err := sleepCtx(ctx, backoff); err != nil {
+				return err
+			}
 			if backoff < 30*time.Second {
 				backoff *= 2
 			}
@@ -555,12 +569,8 @@ func (c *S3Client) doSignedRequestRetried(ctx context.Context, method, path, que
 		statusCode = resp.StatusCode
 
 		if isTransientGatewayStatus(statusCode) && attempt < transientGatewayMaxAttempts-1 {
-			timer := time.NewTimer(backoff)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return respBody, statusCode, retried, ctx.Err()
-			case <-timer.C:
+			if err := sleepCtx(ctx, backoff); err != nil {
+				return respBody, statusCode, retried, err
 			}
 			if backoff < transientGatewayBackoffMax {
 				backoff *= 2

@@ -140,7 +140,9 @@ func (c *S3Client) PutBucketLifecycle(ctx context.Context, creds Credentials, bu
 	for {
 		respBody, statusCode, err := c.doSignedRequest(ctx, "PUT", "/"+bucket, "lifecycle", string(xmlBody), creds)
 		if err != nil && isLocationPropagationError(err) && time.Now().Before(deadline) {
-			time.Sleep(backoff)
+			if err := sleepCtx(ctx, backoff); err != nil {
+				return fmt.Errorf("put bucket lifecycle: %w", err)
+			}
 			if backoff < 30*time.Second {
 				backoff *= 2
 			}

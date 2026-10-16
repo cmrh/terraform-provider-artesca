@@ -643,3 +643,26 @@ func TestIsNoSuchBucket(t *testing.T) {
 		}
 	}
 }
+
+// A propagation retry must stop when the context ends, not wait out the
+// 5-minute propagation timeout.
+func TestCreateBucketPropagationRetryHonoursContext(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(400)
+		_, _ = w.Write([]byte(`<Error><Code>InvalidLocationConstraint</Code><Message>unknown location</Message></Error>`))
+	}))
+	defer apiServer.Close()
+
+	client := NewS3Client(apiServer.URL, "us-east-1", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err := client.CreateBucket(ctx, Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "typo-location")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want context.DeadlineExceeded", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Errorf("CreateBucket took %s after the context ended", elapsed)
+	}
+}

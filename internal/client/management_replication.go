@@ -54,7 +54,9 @@ func (c *ManagementClient) CreateReplicationStream(ctx context.Context, stream *
 			isPropagation := strings.Contains(msg, "could not find source bucket") ||
 				strings.Contains(msg, "could not find destination bucket")
 			if isPropagation && time.Now().Before(deadline) {
-				time.Sleep(backoff)
+				if err := sleepCtx(ctx, backoff); err != nil {
+					return nil, err
+				}
 				if backoff < 30*time.Second {
 					backoff *= 2
 				}
