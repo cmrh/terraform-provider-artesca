@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -68,4 +69,41 @@ resource "artesca_group_membership" "test" {
   username           = artesca_user.test.username
 }
 `, username, groupName)
+}
+
+// ARTESCA matches group names case-insensitively; a membership naming the
+// group in different case must stay in state.
+func TestAccGroupMembership_groupNameCase(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rUser := randomName("tf-acc-user")
+	rGroup := randomName("tf-acc-group")
+	config := testAccAccountConfig(rAcct) + fmt.Sprintf(`
+resource "artesca_user" "test" {
+  account_name = artesca_account.test.name
+  username     = %q
+}
+
+resource "artesca_group" "test" {
+  account_name = artesca_account.test.name
+  name         = %q
+}
+
+resource "artesca_group_membership" "test" {
+  account_name = artesca_account.test.name
+  group_name   = upper(artesca_group.test.name)
+  username     = artesca_user.test.username
+}
+`, rUser, rGroup)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckGroupMembershipDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttr("artesca_group_membership.test", "group_name", strings.ToUpper(rGroup)),
+			},
+		},
+	})
 }
