@@ -490,7 +490,7 @@ func TestRoleSessionName(t *testing.T) {
 	})
 }
 
-func TestMapSizeAtMost(t *testing.T) {
+func TestMapSizeBetween(t *testing.T) {
 	ctx := context.Background()
 	mapOf := func(n int) types.Map {
 		elems := map[string]attr.Value{}
@@ -499,16 +499,16 @@ func TestMapSizeAtMost(t *testing.T) {
 		}
 		return types.MapValueMust(types.StringType, elems)
 	}
-	for n, ok := range map[int]bool{0: true, 50: true, 51: false} {
+	for n, ok := range map[int]bool{0: false, 1: true, 50: true, 51: false} {
 		resp := &validator.MapResponse{}
-		MapSizeAtMost{Max: 50}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: mapOf(n)}, resp)
+		MapSizeBetween{Min: 1, Max: 50}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: mapOf(n)}, resp)
 		if resp.Diagnostics.HasError() == ok {
 			t.Errorf("%d elements: error = %v, want %v", n, resp.Diagnostics.HasError(), !ok)
 		}
 	}
 	for _, cv := range []types.Map{types.MapNull(types.StringType), types.MapUnknown(types.StringType)} {
 		resp := &validator.MapResponse{}
-		MapSizeAtMost{Max: 50}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: cv}, resp)
+		MapSizeBetween{Min: 1, Max: 50}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: cv}, resp)
 		if resp.Diagnostics.HasError() {
 			t.Error("expected no error for null/unknown value")
 		}

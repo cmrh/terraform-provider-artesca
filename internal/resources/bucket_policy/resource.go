@@ -128,6 +128,10 @@ func (r *BucketPolicyResource) Read(ctx context.Context, req resource.ReadReques
 		acctCreds,
 		state.BucketName.ValueString(),
 	)
+	if client.IsNoSuchBucket(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading bucket policy", err.Error())
 		return
@@ -193,6 +197,9 @@ func (r *BucketPolicyResource) Delete(ctx context.Context, req resource.DeleteRe
 		acctCreds,
 		state.BucketName.ValueString(),
 	); err != nil {
+		if client.IsNoSuchBucket(err) {
+			return // the bucket, and its configuration, is gone
+		}
 		resp.Diagnostics.AddError("Error deleting bucket policy", err.Error())
 	}
 }

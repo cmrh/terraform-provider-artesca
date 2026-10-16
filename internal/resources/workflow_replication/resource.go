@@ -189,6 +189,10 @@ func (r *WorkflowReplicationResource) Read(ctx context.Context, req resource.Rea
 	ruleID := state.RuleID.ValueString()
 
 	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
+	if client.IsNoSuchBucket(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading replication rules", err.Error())
 		return
@@ -282,6 +286,9 @@ func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.D
 
 	cfg, err := r.s3.GetBucketReplication(ctx, acctCreds, bucket)
 	if err != nil {
+		if client.IsNoSuchBucket(err) {
+			return // the bucket, and its configuration, is gone
+		}
 		resp.Diagnostics.AddError("Error reading existing replication rules", err.Error())
 		return
 	}
@@ -300,12 +307,18 @@ func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.D
 
 	if len(remaining) == 0 {
 		if err := r.s3.DeleteBucketReplication(ctx, acctCreds, bucket); err != nil {
+			if client.IsNoSuchBucket(err) {
+				return // the bucket, and its configuration, is gone
+			}
 			resp.Diagnostics.AddError("Error deleting replication configuration", err.Error())
 		}
 		return
 	}
 	cfg.Rules = remaining
 	if err := r.s3.PutBucketReplication(ctx, acctCreds, bucket, *cfg); err != nil {
+		if client.IsNoSuchBucket(err) {
+			return // the bucket, and its configuration, is gone
+		}
 		resp.Diagnostics.AddError("Error updating replication configuration", err.Error())
 	}
 }

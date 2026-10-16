@@ -629,3 +629,17 @@ func TestNewRuleID(t *testing.T) {
 		t.Errorf("two calls returned the same ID %q", a)
 	}
 }
+
+func TestIsNoSuchBucket(t *testing.T) {
+	for err, want := range map[error]bool{
+		nil:                                     false,
+		errors.New("NoSuchBucket: gone"):        true,
+		errors.New("get x: NoSuchBucket: gone"): true,
+		errors.New("NoSuchBucketPolicy: none"):  false,
+		errors.New("AccessDenied: no"):          false,
+	} {
+		if got := IsNoSuchBucket(err); got != want {
+			t.Errorf("IsNoSuchBucket(%v) = %v, want %v", err, got, want)
+		}
+	}
+}

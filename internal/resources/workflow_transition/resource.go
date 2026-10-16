@@ -149,6 +149,13 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
+	for _, rule := range existing {
+		if rule.ID == ruleID {
+			resp.Diagnostics.AddError("Lifecycle rule already exists",
+				fmt.Sprintf("Bucket %q already has a lifecycle rule with ID %q.", bucket, ruleID))
+			return
+		}
+	}
 	rules := append(existing, newRule)
 
 	tflog.Debug(ctx, "Creating transition lifecycle rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
@@ -228,12 +235,19 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 
 	updated := modelToLifecycleRule(&plan, ruleID)
 	rules := make([]client.LifecycleRule, 0, len(existing))
+	replaced := false
 	for _, rule := range existing {
 		if rule.ID == ruleID {
 			rules = append(rules, updated)
+			replaced = true
 		} else {
 			rules = append(rules, rule)
 		}
+	}
+	if !replaced {
+		resp.Diagnostics.AddError("Lifecycle rule not found",
+			fmt.Sprintf("Bucket %q has no lifecycle rule with ID %q.", bucket, ruleID))
+		return
 	}
 
 	tflog.Debug(ctx, "Updating transition lifecycle rule", map[string]any{"rule_id": ruleID})
@@ -267,6 +281,9 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 
 	existing, err := r.s3.GetBucketLifecycle(ctx, acctCreds, bucket)
 	if err != nil {
+		if client.IsNoSuchBucket(err) {
+			return // the bucket, and its configuration, is gone
+		}
 		resp.Diagnostics.AddError("Error reading existing lifecycle rules", err.Error())
 		return
 	}
@@ -282,11 +299,17 @@ func (r *WorkflowTransitionResource) Delete(ctx context.Context, req resource.De
 
 	if len(remaining) == 0 {
 		if err := r.s3.DeleteBucketLifecycle(ctx, acctCreds, bucket); err != nil {
+			if client.IsNoSuchBucket(err) {
+				return // the bucket, and its configuration, is gone
+			}
 			resp.Diagnostics.AddError("Error deleting lifecycle configuration", err.Error())
 			return
 		}
 	} else {
 		if err := r.s3.PutBucketLifecycle(ctx, acctCreds, bucket, remaining); err != nil {
+			if client.IsNoSuchBucket(err) {
+				return // the bucket, and its configuration, is gone
+			}
 			resp.Diagnostics.AddError("Error updating lifecycle configuration", err.Error())
 			return
 		}

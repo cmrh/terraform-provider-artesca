@@ -3,6 +3,7 @@ package locations
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -89,6 +90,10 @@ func (d *LocationsDataSource) Read(ctx context.Context, _ datasource.ReadRequest
 			ObjectID:          types.StringValue(loc.ObjectID),
 		})
 	}
+	// overlay.Locations is a map; sort for a stable order.
+	sort.Slice(out.Locations, func(i, j int) bool {
+		return out.Locations[i].Name.ValueString() < out.Locations[j].Name.ValueString()
+	})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &out)...)
 }

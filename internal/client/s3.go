@@ -130,6 +130,12 @@ func isLocationPropagationError(err error) bool {
 		(strings.Contains(msg, "MalformedXML") && strings.Contains(msg, "StorageClass"))
 }
 
+// IsNoSuchBucket reports whether err is S3's NoSuchBucket error (not
+// NoSuchBucketPolicy and similar).
+func IsNoSuchBucket(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "NoSuchBucket:")
+}
+
 const propagationTimeout = 300 * time.Second
 
 // ErrBucketAlreadyOwned is returned by CreateBucket when the account already
