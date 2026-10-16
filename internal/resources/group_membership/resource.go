@@ -136,7 +136,7 @@ func (r *GroupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	if slices.Contains(groups, state.GroupName.ValueString()) {
+	if inGroup(groups, state.GroupName.ValueString()) {
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 		return
 	}
@@ -189,4 +189,11 @@ func (r *GroupMembershipResource) ImportState(ctx context.Context, req resource.
 // to account_name.
 func (r *GroupMembershipResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
 	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
+}
+
+// inGroup reports whether name is in groups. ARTESCA matches group names
+// case-insensitively, so a membership configured as "Admins" for group
+// "admins" exists.
+func inGroup(groups []string, name string) bool {
+	return slices.ContainsFunc(groups, func(g string) bool { return strings.EqualFold(g, name) })
 }
