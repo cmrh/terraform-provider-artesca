@@ -38,6 +38,8 @@ provider "artesca" {
 
 `management_endpoint`, `oidc_url`, `username`, and `password` are required. The others are optional.
 
+An argument that is unset or `""` takes its environment variable, then its default. Arguments must be known at plan time; a value that is known only after apply is an error.
+
 ## Resources
 
 ### Accounts & Infrastructure
