@@ -21,13 +21,13 @@ This document describes how to cut a release of the ARTESCA Terraform Provider.
 Tag with a pre-release suffix to build and test the full release before a public version:
 
 ```bash
-git tag v1.0.0-rc1
-git push origin v1.0.0-rc1
+git tag v1.0.0-rc.1
+git push origin v1.0.0-rc.1
 ```
 
 This produces a full set of release artifacts (binaries, checksums, signed SHA256SUMS) but marks the GitHub release as **pre-release**. The registries may list pre-release versions, but Terraform and OpenTofu don't install them unless a configuration pins that exact version; version constraints such as `~> 1.0` resolve to public releases only.
 
-Valid pre-release suffixes: `-rc1`, `-beta.1`, `-dev.1` (any of `-rc`, `-beta`, `-dev`).
+Pre-release tags follow [SemVer](https://semver.org/#spec-item-9): `-alpha.N`, `-beta.N` or `-rc.N` (for example `v1.0.0-rc.1`). The numeric part is a separate identifier, so `rc.10` sorts after `rc.2`. The release workflow rejects any other tag format, and marks every tag with a suffix as a pre-release.
 
 ### 3. Public Release
 
