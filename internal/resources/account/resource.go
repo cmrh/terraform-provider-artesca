@@ -178,7 +178,9 @@ func (r *AccountResource) Read(ctx context.Context, req resource.ReadRequest, re
 		resp.Diagnostics.AddError("Error reading account", err.Error())
 		return
 	}
-	if acct == nil {
+	// A different ID means the account was deleted and recreated under the
+	// same name: the managed account is gone. Import leaves the ID empty.
+	if acct == nil || (state.ID.ValueString() != "" && acct.ID != state.ID.ValueString()) {
 		resp.State.RemoveResource(ctx)
 		return
 	}

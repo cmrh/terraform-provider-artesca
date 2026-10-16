@@ -304,26 +304,26 @@ func (v RoleSessionName) ValidateString(_ context.Context, req validator.StringR
 	}
 }
 
-// MapSizeAtMost validates that a map has at most Max elements.
-type MapSizeAtMost struct {
-	Max int
+// MapSizeBetween validates that a map has between Min and Max elements, inclusive.
+type MapSizeBetween struct {
+	Min, Max int
 }
 
-func (v MapSizeAtMost) Description(_ context.Context) string {
-	return fmt.Sprintf("must have at most %d elements", v.Max)
+func (v MapSizeBetween) Description(_ context.Context) string {
+	return fmt.Sprintf("must have between %d and %d elements", v.Min, v.Max)
 }
 
-func (v MapSizeAtMost) MarkdownDescription(ctx context.Context) string {
+func (v MapSizeBetween) MarkdownDescription(ctx context.Context) string {
 	return v.Description(ctx)
 }
 
-func (v MapSizeAtMost) ValidateMap(_ context.Context, req validator.MapRequest, resp *validator.MapResponse) {
+func (v MapSizeBetween) ValidateMap(_ context.Context, req validator.MapRequest, resp *validator.MapResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
-	if n := len(req.ConfigValue.Elements()); n > v.Max {
-		resp.Diagnostics.AddAttributeError(req.Path, "Too many elements",
-			fmt.Sprintf("Must have at most %d elements, got %d.", v.Max, n))
+	if n := len(req.ConfigValue.Elements()); n < v.Min || n > v.Max {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid number of elements",
+			fmt.Sprintf("Must have between %d and %d elements, got %d.", v.Min, v.Max, n))
 	}
 }
 

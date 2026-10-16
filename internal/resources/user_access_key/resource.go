@@ -3,6 +3,7 @@ package useraccesskey
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -141,6 +142,11 @@ func (r *UserAccessKeyResource) Read(ctx context.Context, req resource.ReadReque
 		acctCreds,
 		state.Username.ValueString(),
 	)
+	// The user is gone, and its keys with it.
+	if err != nil && strings.Contains(err.Error(), "NoSuchEntity") {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error listing access keys", err.Error())
 		return

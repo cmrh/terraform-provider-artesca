@@ -128,6 +128,10 @@ func (r *BucketEncryptionResource) Read(ctx context.Context, req resource.ReadRe
 		acctCreds,
 		state.BucketName.ValueString(),
 	)
+	if client.IsNoSuchBucket(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading bucket encryption", err.Error())
 		return
@@ -196,6 +200,9 @@ func (r *BucketEncryptionResource) Delete(ctx context.Context, req resource.Dele
 		acctCreds,
 		state.BucketName.ValueString(),
 	); err != nil {
+		if client.IsNoSuchBucket(err) {
+			return // the bucket, and its configuration, is gone
+		}
 		resp.Diagnostics.AddError("Error deleting bucket encryption", err.Error())
 	}
 }

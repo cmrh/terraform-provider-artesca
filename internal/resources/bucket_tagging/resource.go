@@ -54,11 +54,11 @@ func (r *BucketTaggingResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"tags": schema.MapAttribute{
-				Description: "Map of tag key/value pairs, at most 50. Replacing this map replaces the bucket's entire tag set.",
+				Description: "Map of tag key/value pairs, 1 to 50. Replacing this map replaces the bucket's entire tag set.",
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Map{
-					validators.MapSizeAtMost{Max: 50},
+					validators.MapSizeBetween{Min: 1, Max: 50},
 				},
 			},
 		},
@@ -134,6 +134,10 @@ func (r *BucketTaggingResource) Read(ctx context.Context, req resource.ReadReque
 		acctCreds,
 		state.BucketName.ValueString(),
 	)
+	if client.IsNoSuchBucket(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading bucket tags", err.Error())
 		return
@@ -210,6 +214,9 @@ func (r *BucketTaggingResource) Delete(ctx context.Context, req resource.DeleteR
 		acctCreds,
 		state.BucketName.ValueString(),
 	); err != nil {
+		if client.IsNoSuchBucket(err) {
+			return // the bucket, and its configuration, is gone
+		}
 		resp.Diagnostics.AddError("Error deleting bucket tags", err.Error())
 	}
 }

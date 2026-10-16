@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`artesca_replication` no longer adopts an existing stream (#104).** When the API rejects a create because another stream has an overlapping prefix on the same source bucket, the error is reported instead of taking over a same-named stream.
 - **`artesca_bucket.versioning_enabled` no longer defaults to `false` (#105).** When unset, versioning is not managed: the attribute reports the bucket's state, and a versioned bucket whose configuration omits it (after import, or after removing the line) is no longer suspended. Set `versioning_enabled = false` to suspend versioning.
 - **`artesca_replication` updates (#106).** Updates send the stream's current version instead of `1`, so updates after the first no longer fail with `409 Conflict`.
+- **Refresh of objects changed outside Terraform (#108).**
+  - `artesca_account`: an account deleted and recreated under the same name leaves state instead of being adopted.
+  - `artesca_bucket_policy`, `_tagging`, `_encryption` and `artesca_bucket_workflow_replication`: a deleted bucket removes the resource on refresh and on destroy instead of failing on `NoSuchBucket`; expiration and transition deletes do the same.
+  - `artesca_user_access_key`: a deleted user removes the key from state.
+  - `artesca_bucket_workflow_expiration` / `_transition`: create fails when the bucket already has a rule with that ID; update fails when the rule is missing.
+  - `data.artesca_locations` returns locations sorted by name.
+  - `artesca_bucket_tagging.tags` requires at least one tag; ARTESCA stores no tag set for an empty map, so `tags = {}` was recreated on every plan.
 
 ## [1.0.0] - unreleased
 
