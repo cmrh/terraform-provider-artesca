@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -25,6 +24,16 @@ type STSClient struct {
 	endpoint   string
 	region     string
 	httpClient *http.Client
+
+	// transientBackoffOverride shortens the gateway retry backoff in tests.
+	transientBackoffOverride time.Duration
+}
+
+func (c *STSClient) transientBackoff() time.Duration {
+	if c.transientBackoffOverride > 0 {
+		return c.transientBackoffOverride
+	}
+	return transientGatewayBackoff
 }
 
 func NewSTSClient(endpoint, region string, insecureSkipVerify bool) *STSClient {
@@ -208,76 +217,74 @@ func (c *STSClient) doSignedRequest(ctx context.Context, accessKey, secretKey, s
 	params.Set("Version", stsAPIVersion)
 
 	host := u.Host
-	now := time.Now().UTC()
-	datestamp := now.Format("20060102")
-	amzdate := now.Format("20060102T150405Z")
-
 	body := params.Encode()
-
-	// SigV4 canonical headers must be alphabetically sorted by header name.
-	canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-date:%s\n", host, amzdate)
-	signedHeaders := "host;x-amz-date"
-	if sessionToken != "" {
-		canonicalHeaders = fmt.Sprintf("host:%s\nx-amz-date:%s\nx-amz-security-token:%s\n", host, amzdate, sessionToken)
-		signedHeaders = "host;x-amz-date;x-amz-security-token"
-	}
 	payloadHash := sha256Hex([]byte(body))
 
-	canonicalRequest := strings.Join([]string{
-		http.MethodPost,
-		"/",
-		"",
-		canonicalHeaders,
-		signedHeaders,
-		payloadHash,
-	}, "\n")
-
-	region := c.region
-	service := stsAWSService
-	credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, region, service)
-	stringToSign := strings.Join([]string{
-		"AWS4-HMAC-SHA256",
-		amzdate,
-		credentialScope,
-		sha256Hex([]byte(canonicalRequest)),
-	}, "\n")
-
-	signingKey := getSignatureKey(secretKey, datestamp, region, service)
-	signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
-
-	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
-		accessKey, credentialScope, signedHeaders, signature)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", contentTypeForm)
-	req.Header.Set("Host", host)
-	req.Header.Set("X-Amz-Date", amzdate)
+	// SigV4 canonical headers must be alphabetically sorted by header name.
+	signedHeaders := "host;x-amz-date"
 	if sessionToken != "" {
-		req.Header.Set("X-Amz-Security-Token", sessionToken)
+		signedHeaders = "host;x-amz-date;x-amz-security-token"
 	}
-	req.Header.Set("Authorization", authHeader)
 
-	resp, err := c.httpClient.Do(req)
+	// Each attempt is signed with the current date.
+	newReq := func() (*http.Request, error) {
+		now := time.Now().UTC()
+		datestamp := now.Format("20060102")
+		amzdate := now.Format("20060102T150405Z")
+
+		canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-date:%s\n", host, amzdate)
+		if sessionToken != "" {
+			canonicalHeaders += fmt.Sprintf("x-amz-security-token:%s\n", sessionToken)
+		}
+
+		canonicalRequest := strings.Join([]string{
+			http.MethodPost,
+			"/",
+			"",
+			canonicalHeaders,
+			signedHeaders,
+			payloadHash,
+		}, "\n")
+
+		credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, c.region, stsAWSService)
+		stringToSign := strings.Join([]string{
+			"AWS4-HMAC-SHA256",
+			amzdate,
+			credentialScope,
+			sha256Hex([]byte(canonicalRequest)),
+		}, "\n")
+
+		signingKey := getSignatureKey(secretKey, datestamp, c.region, stsAWSService)
+		signature := hex.EncodeToString(hmacSHA256(signingKey, []byte(stringToSign)))
+
+		authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
+			accessKey, credentialScope, signedHeaders, signature)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", contentTypeForm)
+		req.Header.Set("Host", host)
+		req.Header.Set("X-Amz-Date", amzdate)
+		if sessionToken != "" {
+			req.Header.Set("X-Amz-Security-Token", sessionToken)
+		}
+		req.Header.Set("Authorization", authHeader)
+		return req, nil
+	}
+
+	respBody, status, err := sendWithTransientRetry(ctx, c.httpClient, c.transientBackoff(), newReq)
 	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, err
 	}
 
-	if resp.StatusCode >= 400 {
+	if status >= 400 {
 		var stsErr stsErrorResponse
 		if xmlErr := xml.Unmarshal(respBody, &stsErr); xmlErr == nil && stsErr.Error.Code != "" {
 			return nil, fmt.Errorf("%s: %s", stsErr.Error.Code, stsErr.Error.Message)
 		}
-		return nil, fmt.Errorf("STS request failed (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("STS request failed (status %d): %s", status, string(respBody))
 	}
 
 	return respBody, nil

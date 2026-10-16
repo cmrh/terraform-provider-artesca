@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -180,8 +181,8 @@ func testAccManagementClient() (*client.ManagementClient, error) {
 
 // testAccInsecure reports whether TLS verification is disabled for the test cluster.
 func testAccInsecure() bool {
-	v := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY")
-	return v == "true" || v == "1"
+	v, _ := strconv.ParseBool(os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY"))
+	return v
 }
 
 // testAccS3Client returns an S3 client for ARTESCA_S3_ENDPOINT.

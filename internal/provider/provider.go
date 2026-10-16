@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	accountds "github.com/cmrh/terraform-provider-artesca/internal/datasources/account"
@@ -154,8 +155,15 @@ func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureR
 	insecureSkipVerify := false
 	if !config.InsecureSkipVerify.IsNull() && !config.InsecureSkipVerify.IsUnknown() {
 		insecureSkipVerify = config.InsecureSkipVerify.ValueBool()
-	} else if v := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY"); v == "true" || v == "1" {
-		insecureSkipVerify = true
+	} else if v := os.Getenv("ARTESCA_INSECURE_SKIP_VERIFY"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Invalid ARTESCA_INSECURE_SKIP_VERIFY",
+				fmt.Sprintf("ARTESCA_INSECURE_SKIP_VERIFY must be a boolean (true, false, 1, 0), got %q.", v),
+			)
+		}
+		insecureSkipVerify = b
 	}
 
 	if managementEndpoint == "" {

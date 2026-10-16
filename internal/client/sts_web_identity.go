@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,29 +40,27 @@ func (c *STSClient) AssumeRoleWithWebIdentity(ctx context.Context, webIdentityTo
 		params.Set("DurationSeconds", fmt.Sprintf("%d", durationSeconds))
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(params.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", contentTypeForm)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+	encoded := params.Encode()
+	newReq := func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/", strings.NewReader(encoded))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", contentTypeForm)
+		return req, nil
 	}
 
-	if resp.StatusCode >= 400 {
+	body, status, err := sendWithTransientRetry(ctx, c.httpClient, c.transientBackoff(), newReq)
+	if err != nil {
+		return nil, err
+	}
+
+	if status >= 400 {
 		var stsErr stsErrorResponse
 		if xmlErr := xml.Unmarshal(body, &stsErr); xmlErr == nil && stsErr.Error.Code != "" {
 			return nil, fmt.Errorf("assume role with web identity: %s: %s", stsErr.Error.Code, stsErr.Error.Message)
 		}
-		return nil, fmt.Errorf("assume role with web identity failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("assume role with web identity failed (status %d): %s", status, string(body))
 	}
 
 	var out assumeRoleWithWebIdentityResponse
