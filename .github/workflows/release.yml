@@ -17,6 +17,16 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     steps:
+      - name: Check tag format
+        # vMAJOR.MINOR.PATCH, optionally -alpha.N, -beta.N or -rc.N.
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]; then
+            echo "::error::Tag $TAG is not vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-{alpha,beta,rc}.N"
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v7
 
@@ -195,7 +205,7 @@ jobs:
       - name: Publish release assets
         uses: softprops/action-gh-release@v3
         with:
-          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-dev') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist/terraform-provider-artesca_*.zip
             dist/terraform-provider-artesca_*.zip.sha256
