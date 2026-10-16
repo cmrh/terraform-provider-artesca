@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-16
+
 ### Fixed
 
 - **`artesca_account.email` (#101).** Removing it from the configuration no longer replaces the account; the value stays in state. Creating an account without it fails at plan time instead of with an API 422.
@@ -29,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - IAM list calls (access keys, groups for user, attached user/group/role policies) follow pagination.
   - `ARTESCA_INSECURE_SKIP_VERIFY` accepts any boolean (`TRUE`, `False`, `t`, `0`, …); an invalid value is an error instead of meaning `false`.
 
-## [1.0.0] - unreleased
+## [1.0.0] - 2026-10-12
 
 ### Added
 
