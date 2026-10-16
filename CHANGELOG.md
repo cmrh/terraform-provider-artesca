@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - An email with uppercase letters no longer fails with "inconsistent result after apply"; ARTESCA stores it lowercased, and state keeps the configured form.
   - A change to an email that is unknown until apply replaces the account, as a known change does.
   - `email = ""` is rejected at plan time instead of failing with an API 422.
+- **Provider configuration (#120).**
+  - An argument that is unknown at plan time is an error, instead of silently using the environment variable or default.
+  - An argument set to `""` falls back to its environment variable and default, like an unset one.
 
 ## [1.0.1] - 2026-10-16
 

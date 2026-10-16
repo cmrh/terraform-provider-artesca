@@ -42,7 +42,9 @@ import (
 	workflowreplication "github.com/cmrh/terraform-provider-artesca/internal/resources/workflow_replication"
 	workflowtransition "github.com/cmrh/terraform-provider-artesca/internal/resources/workflow_transition"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -134,6 +136,10 @@ func (p *ArtescaProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 func (p *ArtescaProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var config ArtescaProviderModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(checkUnknown(config)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -345,16 +351,47 @@ func (p *ArtescaProvider) EphemeralResources(_ context.Context) []func() ephemer
 	}
 }
 
+// checkUnknown reports provider attributes that are unknown at plan time.
+// Falling back to the environment variable or default would configure a
+// different provider than the one apply uses.
+func checkUnknown(config ArtescaProviderModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	for _, a := range []struct {
+		attr, env string
+		unknown   bool
+	}{
+		{"management_endpoint", "ARTESCA_MANAGEMENT_ENDPOINT", config.ManagementEndpoint.IsUnknown()},
+		{"instance_id", "ARTESCA_INSTANCE_ID", config.InstanceID.IsUnknown()},
+		{"oidc_url", "ARTESCA_OIDC_URL", config.OIDCUrl.IsUnknown()},
+		{"oidc_realm", "ARTESCA_OIDC_REALM", config.OIDCRealm.IsUnknown()},
+		{"client_id", "ARTESCA_CLIENT_ID", config.ClientID.IsUnknown()},
+		{"username", "ARTESCA_USERNAME", config.Username.IsUnknown()},
+		{"password", "ARTESCA_PASSWORD", config.Password.IsUnknown()},
+		{"insecure_skip_verify", "ARTESCA_INSECURE_SKIP_VERIFY", config.InsecureSkipVerify.IsUnknown()},
+		{"iam_region", "ARTESCA_IAM_REGION", config.IAMRegion.IsUnknown()},
+		{"s3_endpoint", "ARTESCA_S3_ENDPOINT", config.S3Endpoint.IsUnknown()},
+	} {
+		if a.unknown {
+			diags.AddAttributeError(path.Root(a.attr), "Unknown provider configuration value",
+				fmt.Sprintf("%s is unknown until apply. Set it to a value known at plan time, apply its source first (-target), or use the %s environment variable.", a.attr, a.env))
+		}
+	}
+	return diags
+}
+
+// envOrValue returns the configured value, or the environment variable when
+// the attribute is unset or "".
 func envOrValue(val types.String, envVar string) string {
-	if !val.IsNull() && !val.IsUnknown() {
-		return val.ValueString()
+	if v := val.ValueString(); v != "" {
+		return v
 	}
 	return os.Getenv(envVar)
 }
 
+// envOrDefault is envOrValue with a default when neither is set.
 func envOrDefault(val types.String, envVar, defaultVal string) string {
-	if !val.IsNull() && !val.IsUnknown() {
-		return val.ValueString()
+	if v := val.ValueString(); v != "" {
+		return v
 	}
 	if v := os.Getenv(envVar); v != "" {
 		return v
