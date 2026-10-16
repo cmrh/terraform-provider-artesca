@@ -31,7 +31,7 @@ output "team_a_credentials" {
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | String | Yes | Account name: 1–128 characters, ASCII letters, numbers, and hyphens. Forces replacement. |
-| `email` | String | Yes, to create | Account email address. Changing it forces replacement; removing it from the configuration keeps the account and the value in state. Not readable from the API. |
+| `email` | String | Yes, to create | Account email address. Changing it forces replacement; removing it from the configuration keeps the account and the value in state. Not readable from the API; ARTESCA stores it lowercased. |
 
 ## Attributes Exported
 

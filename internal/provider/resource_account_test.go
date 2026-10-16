@@ -149,3 +149,68 @@ resource "artesca_account" "test" {
 		},
 	})
 }
+
+// ARTESCA stores the email lowercased; state keeps the configured form.
+func TestAccAccount_emailMixedCase(t *testing.T) {
+	rName := randomName("tf-acc")
+	email := "Mixed.Case+" + rName + "@Example.COM"
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAccountDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAccountEmailConfig(rName, email),
+				Check:  resource.TestCheckResourceAttr("artesca_account.test", "email", email),
+			},
+		},
+	})
+}
+
+func TestAccAccount_emailEmptyRejected(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "artesca_account" "test" {
+  name  = "tf-acc-unused"
+  email = ""
+}
+`,
+				ExpectError: regexp.MustCompile(`Must not be empty`),
+			},
+		},
+	})
+}
+
+// An email that is unknown until apply may differ from the current one, so
+// the account is replaced.
+func TestAccAccount_emailUnknownReplaces(t *testing.T) {
+	rName, rSrc := randomName("tf-acc"), randomName("tf-acc")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAccountDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccAccountEmailConfig(rName, rName+"@test.example.com")},
+			{
+				Config: fmt.Sprintf(`
+resource "artesca_account" "src" {
+  name  = %q
+  email = "%s@test.example.com"
+}
+
+resource "artesca_account" "test" {
+  name  = %q
+  email = "${artesca_account.src.id}@test.example.com"
+}
+`, rSrc, rSrc, rName),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_account.test", plancheck.ResourceActionReplace)},
+				},
+			},
+		},
+	})
+}

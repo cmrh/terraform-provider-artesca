@@ -125,6 +125,12 @@ func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	// email may have been unknown at plan time.
+	if plan.Email.ValueString() == "" {
+		resp.Diagnostics.AddAttributeError(path.Root("email"), "Missing email", "email is required to create an account.")
+		return
+	}
+
 	tflog.Debug(ctx, "Creating account", map[string]any{"name": plan.Name.ValueString()})
 
 	user, err := r.client.CreateAccount(ctx, plan.Name.ValueString(), plan.Email.ValueString())
@@ -133,7 +139,10 @@ func (r *AccountResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	// ARTESCA returns the email lowercased; keep the configured form.
+	email := plan.Email
 	apiUserToModel(user, &plan)
+	plan.Email = email
 
 	// Save state now so Terraform can track the account even if key generation fails.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

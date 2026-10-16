@@ -14,7 +14,7 @@ import (
 var present = tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{}}, map[string]tftypes.Value{})
 
 func TestEmailPlanModifier(t *testing.T) {
-	null, str := types.StringNull(), types.StringValue
+	null, str, unknown := types.StringNull(), types.StringValue, types.StringUnknown()
 	for _, tc := range []struct {
 		name          string
 		create        bool
@@ -30,6 +30,9 @@ func TestEmailPlanModifier(t *testing.T) {
 		{"changed replaces", false, str("a@x.io"), str("b@x.io"), str("b@x.io"), true, false},
 		{"set on an imported account is adopted", false, null, str("a@x.io"), str("a@x.io"), false, false},
 		{"imported account still unset", false, null, null, null, false, false},
+		{"unknown on an account with an email replaces", false, str("a@x.io"), unknown, unknown, true, false},
+		{"unknown on an imported account is adopted", false, null, unknown, unknown, false, false},
+		{"unknown on create is checked by Create", true, null, unknown, unknown, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := planmodifier.StringRequest{
