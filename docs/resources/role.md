@@ -39,7 +39,7 @@ resource "artesca_role" "deployer" {
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `name` | String | Yes | The role name (1–64 chars; alphanumeric and `+=,.@-`). Forces replacement. |
 | `assume_role_policy_document` | String | Yes | Trust-policy JSON. Forces replacement on change. |
-| `description` | String | No  | Free-text description. Forces replacement on change. |
+| `description` | String | No  | Free-text description; must not be empty. Forces replacement on change. |
 
 ## Attributes Reference
 

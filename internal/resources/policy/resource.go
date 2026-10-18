@@ -68,6 +68,7 @@ func (r *PolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"description": schema.StringAttribute{
 				Description: "An optional description for the policy.",
 				Optional:    true,
+				Validators:  []validator.String{validators.NotEmpty{}},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},

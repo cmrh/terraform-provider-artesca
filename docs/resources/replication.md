@@ -77,6 +77,7 @@ tofu import artesca_replication.backup <stream-id>
 
 ## Notes
 
+- `source.location` and the `destination` strings can't be `""`; omit them instead.
 - `version` is computed and managed by the server. It starts at 1 on creation and is auto-incremented on each update.
 - For account-scoped, per-bucket replication, use `artesca_bucket_workflow_replication` instead.
 - The replication stream is read via the config overlay -- there is no dedicated read endpoint.

@@ -79,6 +79,7 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 					"location": schema.StringAttribute{
 						Description: "Source location name.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 				},
 			},
@@ -95,14 +96,17 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 					"location": schema.StringAttribute{
 						Description: "Destination location name.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"preferred_read_location": schema.StringAttribute{
 						Description: "Preferred read location.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"role": schema.StringAttribute{
 						Description: "IAM role for replication.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 				},
 				Blocks: map[string]schema.Block{
@@ -117,6 +121,7 @@ func (r *ReplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 								"storage_class": schema.StringAttribute{
 									Description: "Storage class at the destination location.",
 									Optional:    true,
+									Validators:  []validator.String{validators.NotEmpty{}},
 								},
 							},
 						},

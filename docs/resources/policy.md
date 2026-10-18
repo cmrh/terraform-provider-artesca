@@ -43,7 +43,7 @@ resource "artesca_user_policy_attachment" "alice_read" {
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `name` | String | Yes | Policy name (1–128 chars; alphanumeric and `+=,.@-`). Forces replacement. |
 | `policy_document` | String | Yes | JSON policy document. Forces replacement on change. |
-| `description` | String | No  | Free-text description. Forces replacement on change. |
+| `description` | String | No  | Free-text description; must not be empty. Forces replacement on change. |
 
 ## Attributes Reference
 
