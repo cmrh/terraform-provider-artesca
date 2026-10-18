@@ -35,7 +35,7 @@ resource "artesca_bucket" "logs" {
 |------|------|----------|-------------|
 | `name` | String | Yes | Bucket name: 3–63 characters, lowercase letters, numbers, hyphens, and periods, starting and ending with a letter or number. Forces replacement. |
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
-| `location_constraint` | String | No | ARTESCA location name to use as the storage backend. Forces replacement. |
+| `location_constraint` | String | No | ARTESCA location name to use as the storage backend. Unset, `""` and `us-east-1` all mean the default location. Forces replacement when the location changes. |
 | `versioning_enabled` | Boolean | No | Whether versioning is enabled. Required for replication workflows. When unset, versioning is not managed and the attribute reports the bucket's state; set `false` to suspend versioning. |
 
 ## Attributes Exported
