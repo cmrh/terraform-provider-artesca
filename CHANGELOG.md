@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - An argument that is unknown at plan time is an error, instead of silently using the environment variable or default.
   - An argument set to `""` falls back to its environment variable and default, like an unset one.
 - **`artesca_group_membership` group-name case (#126).** ARTESCA matches group names case-insensitively; a membership naming the group in different case is no longer removed from state and recreated on every plan.
+- **`artesca_bucket` import in the default location (#127).** Unset, `""` and `us-east-1` are the same location, so configuring `location_constraint = "us-east-1"` on an imported default-location bucket no longer plans a replacement.
 
 ## [1.0.1] - 2026-10-16
 

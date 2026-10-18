@@ -185,3 +185,39 @@ resource "artesca_bucket" "test" {
 		},
 	})
 }
+
+// GetBucketLocation reports "" for a bucket created in us-east-1, so after
+// import location_constraint is null. Configuring us-east-1 must not replace
+// the bucket.
+func TestAccBucket_importDefaultLocation(t *testing.T) {
+	rAcct := randomName("tf-acc")
+	rBucket := randomName("tf-acc-bkt")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
+		Steps: []resource.TestStep{
+			{Config: testAccAccountConfig(rAcct) + testAccBucketConfig("seed", rBucket, `"us-east-1"`, false)},
+			{
+				Config: testAccAccountConfig(rAcct) + fmt.Sprintf(`
+removed {
+  from = artesca_bucket.seed
+  lifecycle {
+    destroy = false
+  }
+}
+
+import {
+  to = artesca_bucket.test
+  id = "%s/%s"
+}
+`, rAcct, rBucket) + testAccBucketConfig("test", rBucket, `"us-east-1"`, false),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_bucket.test", plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.TestCheckResourceAttr("artesca_bucket.test", "location_constraint", "us-east-1"),
+			},
+		},
+	})
+}

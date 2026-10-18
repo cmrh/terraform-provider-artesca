@@ -53,10 +53,12 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				},
 			},
 			"location_constraint": schema.StringAttribute{
-				Description: "The ARTESCA location name to use as the storage backend for this bucket.",
+				Description: "The ARTESCA location name to use as the storage backend for this bucket. Unset, `\"\"` and `us-east-1` all mean the default location.",
 				Optional:    true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.RequiresReplaceIf(locationChanged,
+						"Changing the location replaces the bucket.",
+						"Changing the location replaces the bucket."),
 				},
 			},
 			"versioning_enabled": schema.BoolAttribute{
@@ -258,4 +260,24 @@ func (r *BucketResource) ImportState(ctx context.Context, req resource.ImportSta
 // to account_name.
 func (r *BucketResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
 	return creds.UpgradeFromAccountKeys(r, func() *client.AccountCredentialSource { return r.accounts })
+}
+
+// defaultLocation is the location of a bucket created without a location
+// constraint. GetBucketLocation reports "" for it, so a bucket imported from
+// there has no location_constraint in state.
+const defaultLocation = "us-east-1"
+
+// isDefaultLocation reports whether v names the default location. An unknown
+// value may name any location, so it doesn't.
+func isDefaultLocation(v types.String) bool {
+	if v.IsUnknown() {
+		return false
+	}
+	return v.IsNull() || v.ValueString() == "" || v.ValueString() == defaultLocation
+}
+
+// locationChanged replaces the bucket only when the location really changes:
+// unset, "" and us-east-1 are the same location.
+func locationChanged(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+	resp.RequiresReplace = !isDefaultLocation(req.StateValue) || !isDefaultLocation(req.PlanValue)
 }
