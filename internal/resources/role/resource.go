@@ -68,6 +68,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"description": schema.StringAttribute{
 				Description: "An optional description for the role.",
 				Optional:    true,
+				Validators:  []validator.String{validators.NotEmpty{}},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},

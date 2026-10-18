@@ -328,6 +328,46 @@ func (v MapSizeBetween) ValidateMap(_ context.Context, req validator.MapRequest,
 	}
 }
 
+// NotEmpty rejects "" where an empty string has no meaning.
+type NotEmpty struct{}
+
+func (v NotEmpty) Description(_ context.Context) string {
+	return "must not be empty"
+}
+
+func (v NotEmpty) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v NotEmpty) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if req.ConfigValue.ValueString() == "" {
+		resp.Diagnostics.AddAttributeError(req.Path, "Empty value", "Must not be empty; omit the argument instead.")
+	}
+}
+
+// ListNotEmpty rejects [] where an empty list has no meaning.
+type ListNotEmpty struct{}
+
+func (v ListNotEmpty) Description(_ context.Context) string {
+	return "must have at least one element"
+}
+
+func (v ListNotEmpty) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v ListNotEmpty) ValidateList(_ context.Context, req validator.ListRequest, resp *validator.ListResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if len(req.ConfigValue.Elements()) == 0 {
+		resp.Diagnostics.AddAttributeError(req.Path, "Empty list", "Must have at least one element; omit the argument instead.")
+	}
+}
+
 // Int64Between validates that an integer is between Min and Max, inclusive.
 type Int64Between struct {
 	Min, Max int64

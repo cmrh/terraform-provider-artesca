@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`artesca_group_membership` group-name case (#126).** ARTESCA matches group names case-insensitively; a membership naming the group in different case is no longer removed from state and recreated on every plan.
 - **`artesca_bucket` import in the default location (#127).** Unset, `""` and `us-east-1` are the same location, so configuring `location_constraint = "us-east-1"` on an imported default-location bucket no longer plans a replacement.
 - **`artesca_bucket` create when enabling versioning fails (#128).** The bucket is saved to state before versioning is enabled, so a failure leaves it tainted and the next apply replaces it, instead of orphaning it and failing with "already owns bucket".
+- **Empty values (#122).** Empty values that ARTESCA drops or replaces are rejected at validation instead of failing after apply with "inconsistent result":
+  - `artesca_location`: `""` in any `details` string and `[]` in `details.repo_id` / `details.bootstrap_list`;
+  - `artesca_replication`: `""` in `source.location`, `destination.location`, `destination.preferred_read_location`, `destination.role` and `destination.locations[].storage_class`;
+  - `artesca_role` / `artesca_policy`: `description = ""`, which forced replacement after import.
 
 ## [1.0.1] - 2026-10-16
 

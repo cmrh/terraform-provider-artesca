@@ -123,11 +123,13 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"access_key": schema.StringAttribute{
 						Description: "Access key for cloud storage authentication.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 						Sensitive:   true,
 					},
 					"secret_key": schema.StringAttribute{
 						Description: "Secret key for cloud storage authentication.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 						Sensitive:   true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -152,14 +154,17 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"endpoint": schema.StringAttribute{
 						Description: "Custom endpoint URL for the storage service.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"sts_endpoint": schema.StringAttribute{
 						Description: "STS endpoint of the destination site. Required for location-scality-crr-v1.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"region": schema.StringAttribute{
 						Description: "Region for the storage location.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 						Computed:    true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -172,18 +177,22 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"storage_class": schema.StringAttribute{
 						Description: "Storage class to use.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"mpu_bucket_name": schema.StringAttribute{
 						Description: "Bucket name for multipart uploads.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"username": schema.StringAttribute{
 						Description: "Username for authentication.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"password": schema.StringAttribute{
 						Description: "Password for authentication.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 						Sensitive:   true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -192,40 +201,49 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"tenant_name": schema.StringAttribute{
 						Description: "Azure tenant name.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"subscription_id": schema.StringAttribute{
 						Description: "Azure subscription ID.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"resource_group": schema.StringAttribute{
 						Description: "Azure resource group.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"storage_account_name": schema.StringAttribute{
 						Description: "Azure storage account name.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"storage_container_name": schema.StringAttribute{
 						Description: "Azure storage container name.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"ns_id": schema.StringAttribute{
 						Description: "Namespace ID for Scality RING.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"repo_id": schema.ListAttribute{
 						Description: "Repository IDs for Scality RING.",
 						Optional:    true,
 						ElementType: types.StringType,
+						Validators:  []validator.List{validators.ListNotEmpty{}},
 					},
 					"proxy_path": schema.StringAttribute{
 						Description: "Proxy path for NFS/RING.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"bootstrap_list": schema.ListAttribute{
 						Description: "Bootstrap list for Scality RING sproxyd.",
 						Optional:    true,
 						ElementType: types.StringType,
+						Validators:  []validator.List{validators.ListNotEmpty{}},
 					},
 					"chord_cos": schema.Int64Attribute{
 						Description: "Chord COS for sproxyd.",
@@ -245,10 +263,12 @@ func (r *LocationResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					"gcp_endpoint": schema.StringAttribute{
 						Description: "GCP endpoint URL.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 					"bucket_prefix": schema.StringAttribute{
 						Description: "Bucket prefix.",
 						Optional:    true,
+						Validators:  []validator.String{validators.NotEmpty{}},
 					},
 				},
 			},

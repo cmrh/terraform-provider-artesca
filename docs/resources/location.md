@@ -129,6 +129,7 @@ After import, sensitive fields (`secret_key`, `password`) are empty in state; AR
 
 - `name` and `location_type` force replacement -- locations cannot be renamed or change type.
 - The `details` block attributes are backend-specific. Only include fields relevant to your `location_type`.
+- `details` fields can't be `""` or `[]`; omit a field instead.
 - Sensitive fields (`secret_key`, `password`) are preserved from state and not re-read from the API.
 - ARTESCA supports at most 10 storage locations.
 - For Amazon S3 and RING S3 locations, the target bucket must have versioning enabled.

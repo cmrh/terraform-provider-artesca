@@ -533,3 +533,40 @@ func TestInt64Between(t *testing.T) {
 		}
 	}
 }
+
+func TestNotEmpty(t *testing.T) {
+	ctx := context.Background()
+	for val, wantErr := range map[string]bool{"x": false, "": true} {
+		resp := &validator.StringResponse{}
+		NotEmpty{}.ValidateString(ctx, testStringRequest(val), resp)
+		if resp.Diagnostics.HasError() != wantErr {
+			t.Errorf("%q: error = %v, want %v", val, resp.Diagnostics.HasError(), wantErr)
+		}
+	}
+	for _, req := range []validator.StringRequest{testNullRequest(), {Path: path.Root("test"), ConfigValue: types.StringUnknown()}} {
+		resp := &validator.StringResponse{}
+		NotEmpty{}.ValidateString(ctx, req, resp)
+		if resp.Diagnostics.HasError() {
+			t.Error("expected no error for null/unknown value")
+		}
+	}
+}
+
+func TestListNotEmpty(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		val     types.List
+		wantErr bool
+	}{
+		{types.ListValueMust(types.StringType, []attr.Value{types.StringValue("a")}), false},
+		{types.ListValueMust(types.StringType, []attr.Value{}), true},
+		{types.ListNull(types.StringType), false},
+		{types.ListUnknown(types.StringType), false},
+	} {
+		resp := &validator.ListResponse{}
+		ListNotEmpty{}.ValidateList(ctx, validator.ListRequest{Path: path.Root("test"), ConfigValue: tc.val}, resp)
+		if resp.Diagnostics.HasError() != tc.wantErr {
+			t.Errorf("%v: error = %v, want %v", tc.val, resp.Diagnostics.HasError(), tc.wantErr)
+		}
+	}
+}
