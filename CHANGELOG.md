@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - An argument set to `""` falls back to its environment variable and default, like an unset one.
 - **`artesca_group_membership` group-name case (#126).** ARTESCA matches group names case-insensitively; a membership naming the group in different case is no longer removed from state and recreated on every plan.
 - **`artesca_bucket` import in the default location (#127).** Unset, `""` and `us-east-1` are the same location, so configuring `location_constraint = "us-east-1"` on an imported default-location bucket no longer plans a replacement.
+- **`artesca_bucket` create when enabling versioning fails (#128).** The bucket is saved to state before versioning is enabled, so a failure leaves it tainted and the next apply replaces it, instead of orphaning it and failing with "already owns bucket".
 
 ## [1.0.1] - 2026-10-16
 
