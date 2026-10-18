@@ -130,6 +130,15 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	// Save the bucket now, so a failure below leaves it in state (tainted)
+	// instead of orphaned. A new bucket is unversioned.
+	created := plan
+	created.VersioningEnabled = types.BoolValue(false)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &created)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	if plan.VersioningEnabled.IsUnknown() {
 		versioning, err := r.s3Client.GetBucketVersioning(ctx, acctCreds, bucketName)
 		if err != nil {
