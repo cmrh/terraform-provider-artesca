@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,8 @@ type S3Client struct {
 	// propagationBackoffOverride shortens the wait between retries while a new
 	// location propagates; tests only.
 	propagationBackoffOverride time.Duration
+	// listPageSizeOverride sets max-keys on list requests; tests only.
+	listPageSizeOverride int
 }
 
 // LockBucket serializes bucket-config writes (tagging, encryption, policy,
@@ -128,6 +131,11 @@ func isLocationPropagationError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "InvalidLocationConstraint") ||
 		(strings.Contains(msg, "MalformedXML") && strings.Contains(msg, "StorageClass"))
+}
+
+// IsNoSuchKey reports whether err is S3's NoSuchKey or NoSuchVersion error.
+func IsNoSuchKey(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "NoSuchKey:") || strings.Contains(err.Error(), "NoSuchVersion:"))
 }
 
 // IsNoSuchBucket reports whether err is S3's NoSuchBucket error (not
@@ -476,6 +484,16 @@ func (c *S3Client) doSignedRequest(ctx context.Context, method, path, query, bod
 // request was resent after a transient gateway status, so an earlier attempt
 // may have been applied.
 func (c *S3Client) doSignedRequestRetried(ctx context.Context, method, path, query, body string, creds Credentials) ([]byte, int, bool, error) {
+	var values url.Values
+	if query != "" {
+		values = url.Values{query: {""}}
+	}
+	return c.doSignedRequestQuery(ctx, method, path, values, body, creds)
+}
+
+// doSignedRequestQuery is doSignedRequestRetried with any query parameters.
+// path is unescaped ("/bucket/key"); each segment is URI-encoded.
+func (c *S3Client) doSignedRequestQuery(ctx context.Context, method, path string, query url.Values, body string, creds Credentials) ([]byte, int, bool, error) {
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
 		return nil, 0, false, fmt.Errorf("parsing endpoint: %w", err)
@@ -484,17 +502,15 @@ func (c *S3Client) doSignedRequestRetried(ctx context.Context, method, path, que
 	host := u.Host
 	payloadHash := sha256Hex([]byte(body))
 
-	canonicalQueryString := ""
-	if query != "" {
-		canonicalQueryString = query + "="
-	}
+	path = sigV4EscapePath(path)
+	canonicalQueryString := sigV4CanonicalQuery(query)
 	signedHeaders := "host;x-amz-content-sha256;x-amz-date"
 	if creds.SessionToken != "" {
 		signedHeaders += ";x-amz-security-token"
 	}
 
 	fullURL := c.endpoint + path
-	if query != "" {
+	if canonicalQueryString != "" {
 		fullURL += "?" + canonicalQueryString
 	}
 
@@ -589,4 +605,47 @@ func (c *S3Client) doSignedRequestRetried(ctx context.Context, method, path, que
 	}
 
 	return respBody, statusCode, retried, nil
+}
+
+// sigV4Escape URI-encodes s as SigV4 requires: everything but unreserved
+// characters (A-Z a-z 0-9 - _ . ~) is percent-encoded, space as %20.
+func sigV4Escape(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z') || ('0' <= ch && ch <= '9') || ch == '-' || ch == '_' || ch == '.' || ch == '~' {
+			b.WriteByte(ch)
+		} else {
+			fmt.Fprintf(&b, "%%%02X", ch)
+		}
+	}
+	return b.String()
+}
+
+// sigV4EscapePath encodes each segment of an S3 path, keeping the slashes.
+func sigV4EscapePath(path string) string {
+	segments := strings.Split(path, "/")
+	for i, seg := range segments {
+		segments[i] = sigV4Escape(seg)
+	}
+	return strings.Join(segments, "/")
+}
+
+// sigV4CanonicalQuery builds the canonical query string: parameters sorted by
+// name (then value), names and values encoded, a bare name as "name=".
+func sigV4CanonicalQuery(query url.Values) string {
+	keys := make([]string, 0, len(query))
+	for k := range query {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var parts []string
+	for _, k := range keys {
+		vals := append([]string(nil), query[k]...)
+		sort.Strings(vals)
+		for _, v := range vals {
+			parts = append(parts, sigV4Escape(k)+"="+sigV4Escape(v))
+		}
+	}
+	return strings.Join(parts, "&")
 }

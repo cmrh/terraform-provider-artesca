@@ -37,6 +37,7 @@ resource "artesca_bucket" "logs" {
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `location_constraint` | String | No | ARTESCA location name to use as the storage backend. Unset, `""` and `us-east-1` all mean the default location. Forces replacement when the location changes. |
 | `versioning_enabled` | Boolean | No | Whether versioning is enabled. Required for replication workflows. When unset, versioning is not managed and the attribute reports the bucket's state; set `false` to suspend versioning. |
+| `force_destroy` | Boolean | No | Delete every object version and delete marker when the bucket is destroyed. Defaults to `false`. Set it and apply before destroying. |
 
 ## Attributes Exported
 
@@ -52,8 +53,8 @@ The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
+- Destroying a bucket that still has objects or object versions fails unless `force_destroy = true`.
 - `name` and `location_constraint` force replacement -- buckets cannot be renamed or relocated.
 - `versioning_enabled` can be toggled in-place.
-- A bucket must be empty to be deleted, including every object version when versioning is enabled.
 - Enable versioning before configuring replication workflows on a bucket.
 - Runs as the owning account, with temporary credentials the provider obtains from its OIDC login.

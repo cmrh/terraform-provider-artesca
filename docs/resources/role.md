@@ -59,5 +59,6 @@ The import ID starts with the name of the account that owns the resource.
 
 ## Notes
 
+- Destroying a role that still has attached policies fails; the error lists them.
 - A trust policy changed outside Terraform (by recreating the role) appears in the next plan. Whitespace and key-order differences are ignored.
 - Names are unique within the account regardless of case: `Alice` and `alice` can't both exist.

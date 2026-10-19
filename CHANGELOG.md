@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`force_destroy` on `artesca_bucket` and `artesca_user` (#130).** `artesca_bucket.force_destroy` deletes every object version and delete marker before deleting the bucket. `artesca_user.force_destroy` detaches the user's policies and removes it from its groups before deleting it. Both default to `false` and must be applied before destroying.
+
 ### Fixed
 
 - **`artesca_account.email` (#121, #125).**
@@ -23,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `artesca_location`: `""` in any `details` string and `[]` in `details.repo_id` / `details.bootstrap_list`;
   - `artesca_replication`: `""` in `source.location`, `destination.location`, `destination.preferred_read_location`, `destination.role` and `destination.locations[].storage_class`;
   - `artesca_role` / `artesca_policy`: `description = ""`, which forced replacement after import.
+- **Delete errors for objects with dependents (#130).** Destroying a bucket, user, group or role that still has objects, policies or members created outside Terraform reports what remains. Destroying a non-empty account says it is not empty instead of showing an empty 409.
 
 ## [1.0.1] - 2026-10-16
 

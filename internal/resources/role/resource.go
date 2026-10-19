@@ -3,6 +3,7 @@ package role
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -208,6 +209,12 @@ func (r *RoleResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		acctCreds,
 		state.Name.ValueString(),
 	)
+	if err != nil && strings.Contains(err.Error(), "DeleteConflict") {
+		attached, _ := r.iamClient.ListAttachedRolePolicies(ctx, acctCreds, state.Name.ValueString())
+		resp.Diagnostics.AddError("Role has dependents",
+			fmt.Sprintf("Role %q still has attached policies %v. Detach them before destroying.", state.Name.ValueString(), attached))
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting IAM role", err.Error())
 		return

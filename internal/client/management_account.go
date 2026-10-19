@@ -3,10 +3,15 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 )
+
+// ErrAccountNotEmpty is returned by DeleteAccount when the account still
+// holds buckets, users or other objects (ARTESCA answers 409 with no body).
+var ErrAccountNotEmpty = errors.New("account is not empty")
 
 type createUserRequest struct {
 	UserName string `json:"userName"`
@@ -52,6 +57,9 @@ func (c *ManagementClient) DeleteAccount(ctx context.Context, accountName string
 	}
 	if status == http.StatusNotFound {
 		return nil
+	}
+	if status == http.StatusConflict {
+		return ErrAccountNotEmpty
 	}
 	if status != http.StatusNoContent && status != http.StatusOK {
 		return fmt.Errorf("delete account failed (status %d): %s", status, string(body))

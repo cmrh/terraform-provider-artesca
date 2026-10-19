@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -41,6 +42,10 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 		Description: "Manages an IAM user within an ARTESCA account.",
 		Attributes: map[string]schema.Attribute{
 			creds.AttrAccountName: creds.ResourceAttribute(),
+			"force_destroy": schema.BoolAttribute{
+				Description: "Detach the user's policies and remove it from its groups when it is destroyed, including ones not managed by this configuration. Defaults to false. Set it and apply before destroying.",
+				Optional:    true,
+			},
 			"username": schema.StringAttribute{
 				Description: "The name of the IAM user. Must be 1–64 characters, alphanumeric and +=,.@-.",
 				Required:    true,
@@ -155,9 +160,15 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *UserResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// All fields are ForceNew, so Update should never be called.
-	resp.Diagnostics.AddError("Update not supported", "IAM users cannot be updated in place.")
+func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Only force_destroy changes in place, and it is local; the other
+	// attributes force replacement.
+	var plan UserResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -177,11 +188,49 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 	tflog.Debug(ctx, "Deleting IAM user", map[string]any{"username": username})
 
+	// ARTESCA removes a user's access keys and inline policies with it;
+	// attached policies and group memberships block the delete.
+	if state.ForceDestroy.ValueBool() {
+		if err := r.removeUserDependents(ctx, acctCreds, username); err != nil {
+			resp.Diagnostics.AddError("Error removing the user's policies and groups", err.Error())
+			return
+		}
+	}
+
 	err = r.iamClient.DeleteUser(ctx, acctCreds, username)
+	if err != nil && strings.Contains(err.Error(), "DeleteConflict") {
+		policies, _ := r.iamClient.ListAttachedUserPolicies(ctx, acctCreds, username)
+		groups, _ := r.iamClient.ListGroupsForUser(ctx, acctCreds, username)
+		resp.Diagnostics.AddError("User has dependents",
+			fmt.Sprintf("User %q still has attached policies %v and group memberships %v. Remove them, or set force_destroy = true and apply before destroying.", username, policies, groups))
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting IAM user", err.Error())
 		return
 	}
+}
+
+func (r *UserResource) removeUserDependents(ctx context.Context, acctCreds client.Credentials, username string) error {
+	policies, err := r.iamClient.ListAttachedUserPolicies(ctx, acctCreds, username)
+	if err != nil {
+		return err
+	}
+	for _, arn := range policies {
+		if err := r.iamClient.DetachUserPolicy(ctx, acctCreds, username, arn); err != nil {
+			return err
+		}
+	}
+	groups, err := r.iamClient.ListGroupsForUser(ctx, acctCreds, username)
+	if err != nil {
+		return err
+	}
+	for _, g := range groups {
+		if err := r.iamClient.RemoveUserFromGroup(ctx, acctCreds, g, username); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

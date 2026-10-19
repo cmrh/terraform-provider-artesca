@@ -9,4 +9,5 @@ type BucketResourceModel struct {
 	LocationConstraint types.String `tfsdk:"location_constraint"`
 	VersioningEnabled  types.Bool   `tfsdk:"versioning_enabled"`
 	AccountName        types.String `tfsdk:"account_name"`
+	ForceDestroy       types.Bool   `tfsdk:"force_destroy"`
 }
