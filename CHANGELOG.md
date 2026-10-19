@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `artesca_replication`: `""` in `source.location`, `destination.location`, `destination.preferred_read_location`, `destination.role` and `destination.locations[].storage_class`;
   - `artesca_role` / `artesca_policy`: `description = ""`, which forced replacement after import.
 - **Delete errors for objects with dependents (#130).** Destroying a bucket, user, group or role that still has objects, policies or members created outside Terraform reports what remains. Destroying a non-empty account says it is not empty instead of showing an empty 409.
+- **`artesca_policy` document changes (#129).** Changing `policy_document` creates a new default policy version in place, deleting the oldest non-default version at ARTESCA's 5-version limit, instead of replacing the policy (which failed while it was attached). Destroy deletes non-default versions first, and reports a policy that is still attached.
 
 ## [1.0.1] - 2026-10-16
 

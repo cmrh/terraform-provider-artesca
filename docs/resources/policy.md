@@ -42,7 +42,7 @@ resource "artesca_user_policy_attachment" "alice_read" {
 |------|------|----------|-------------|
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `name` | String | Yes | Policy name (1–128 chars; alphanumeric and `+=,.@-`). Forces replacement. |
-| `policy_document` | String | Yes | JSON policy document. Forces replacement on change. |
+| `policy_document` | String | Yes | JSON policy document. A change creates a new default policy version in place; ARTESCA keeps 5 versions, so the oldest non-default one is deleted when needed. |
 | `description` | String | No  | Free-text description; must not be empty. Forces replacement on change. |
 
 ## Attributes Reference
@@ -65,6 +65,7 @@ The import ID starts with the name of the account that owns the resource.
 ## Notes
 
 - Changes to `policy_document` made outside Terraform appear in the next plan. Whitespace and key-order differences are ignored.
+- Destroying the policy deletes its non-default versions first. It fails while the policy is still attached to users, groups or roles.
 - All attributes force replacement on change. Update the policy by replacing the resource (Terraform will delete and re-create).
 - ARTESCA's IAM API supports policy versions; this provider creates and reads only the default version.
 - Names are unique within the account regardless of case: `Alice` and `alice` can't both exist.

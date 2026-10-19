@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -55,11 +56,10 @@ func (r *PolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				},
 			},
 			"policy_document": schema.StringAttribute{
-				Description: "The JSON policy document.",
+				Description: "The JSON policy document. Changing it creates a new default policy version; ARTESCA keeps 5 versions, so the oldest non-default one is deleted when needed.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					policydoc.EquivalenceModifier(),
-					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
 					validators.JSONDocument{},
@@ -98,7 +98,7 @@ func (r *PolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "The default policy version ID.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					defaultVersionModifier{},
 				},
 			},
 		},
@@ -198,8 +198,46 @@ func (r *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *PolicyResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError("Update not supported", "Managed policies cannot be updated in place — all fields are ForceNew.")
+// Update creates a new default version for a changed policy document; the
+// other arguments force replacement.
+func (r *PolicyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state PolicyResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	acctCreds, err := r.accounts.For(ctx, state.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+	arn := state.ARN.ValueString()
+
+	if !policydoc.Equivalent(plan.PolicyDocument.ValueString(), state.PolicyDocument.ValueString()) {
+		tflog.Debug(ctx, "Creating managed policy version", map[string]any{"arn": arn})
+		if err := r.makeRoomForVersion(ctx, acctCreds, arn); err != nil {
+			resp.Diagnostics.AddError("Error deleting an old policy version", err.Error())
+			return
+		}
+		if err := r.iamClient.CreatePolicyVersion(ctx, acctCreds, arn, plan.PolicyDocument.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Error updating managed policy", err.Error())
+			return
+		}
+	}
+
+	pol, err := r.iamClient.GetPolicy(ctx, acctCreds, arn)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading managed policy", err.Error())
+		return
+	}
+	if pol == nil {
+		resp.Diagnostics.AddError("Error reading managed policy", fmt.Sprintf("Policy %q no longer exists.", arn))
+		return
+	}
+	plan.DefaultVersionID = types.StringValue(pol.DefaultVersionId)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -217,10 +255,21 @@ func (r *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	// A policy with non-default versions can't be deleted.
+	if err := r.deleteNonDefaultVersions(ctx, acctCreds, state.ARN.ValueString()); err != nil && !strings.Contains(err.Error(), "NoSuchEntity") {
+		resp.Diagnostics.AddError("Error deleting policy versions", err.Error())
+		return
+	}
+
 	err = r.iamClient.DeletePolicy(ctx,
 		acctCreds,
 		state.ARN.ValueString(),
 	)
+	if err != nil && strings.Contains(err.Error(), "DeleteConflict") {
+		resp.Diagnostics.AddError("Policy is attached",
+			fmt.Sprintf("Policy %q is still attached to users, groups or roles. Detach it before destroying.", state.Name.ValueString()))
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting managed policy", err.Error())
 		return
