@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fields removed outside Terraform now show as drift: `size_limit_gb`, `server_side_encryption`, and the `details` fields ARTESCA returns for RING S3 and sproxyd locations (`access_key`, `bucket_name`, `endpoint`, `region`, `proxy_path`, `chord_cos`).
   - Invalid `repo_id` / `bootstrap_list` elements are reported instead of silently dropping the list.
   - `location-scality-hdclient-v2` requires `details.bootstrap_list`.
+- **Lifecycle rules created outside Terraform (#123).** `artesca_bucket_workflow_expiration` and `_transition` read the prefix from `Filter/And` and the legacy top-level `Prefix`, and an update changes only the parts the resource manages: tag filters, noncurrent-version and multipart-upload actions, and the other workflow's action on the same rule are kept.
 
 ## [1.0.1] - 2026-10-16
 

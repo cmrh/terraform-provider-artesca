@@ -238,7 +238,13 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 	replaced := false
 	for _, rule := range existing {
 		if rule.ID == ruleID {
-			rules = append(rules, updated)
+			// Keep the parts of the rule this resource doesn't model.
+			merged, err := rule.Updated(updated)
+			if err != nil {
+				resp.Diagnostics.AddError("Error updating transition lifecycle rule", err.Error())
+				return
+			}
+			rules = append(rules, merged)
 			replaced = true
 		} else {
 			rules = append(rules, rule)
