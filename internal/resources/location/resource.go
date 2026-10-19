@@ -8,6 +8,7 @@ import (
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -49,6 +50,7 @@ var requiredDetailsByType = map[string][]string{
 	"location-ovh-cold-archive-v1":     {"endpoint", "access_key", "secret_key", "bucket_name"},
 	"location-versity-tape-archive-v1": {"endpoint", "access_key", "secret_key", "bucket_name"},
 	"location-scality-crr-v1":          {"endpoint", "sts_endpoint", "access_key", "secret_key"},
+	"location-scality-hdclient-v2":     {"bootstrap_list"},
 }
 
 type LocationResource struct {
@@ -397,7 +399,11 @@ func (r *LocationResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	apiLoc := modelToAPILocation(ctx, &plan)
+	apiLoc, diags := modelToAPILocation(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	tflog.Debug(ctx, "Creating location", map[string]any{"name": plan.Name.ValueString()})
 
@@ -476,7 +482,11 @@ func (r *LocationResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	apiLoc := modelToAPILocation(ctx, &plan)
+	apiLoc, diags := modelToAPILocation(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	tflog.Debug(ctx, "Updating location", map[string]any{"name": plan.Name.ValueString()})
 
@@ -537,7 +547,8 @@ func (r *LocationResource) ImportState(ctx context.Context, req resource.ImportS
 
 // --- Conversion helpers ---
 
-func modelToAPILocation(ctx context.Context, model *LocationResourceModel) *client.Location {
+func modelToAPILocation(ctx context.Context, model *LocationResourceModel) (*client.Location, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	loc := &client.Location{
 		Name:              model.Name.ValueString(),
 		LocationType:      model.LocationType.ValueString(),
@@ -554,13 +565,14 @@ func modelToAPILocation(ctx context.Context, model *LocationResourceModel) *clie
 	}
 
 	if model.Details != nil {
-		loc.Details = modelToAPIDetails(ctx, model.Details)
+		loc.Details, diags = modelToAPIDetails(ctx, model.Details)
 	}
 
-	return loc
+	return loc, diags
 }
 
-func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) *client.LocationDetails {
+func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) (*client.LocationDetails, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	details := &client.LocationDetails{}
 
 	if !d.AccessKey.IsNull() && !d.AccessKey.IsUnknown() {
@@ -642,19 +654,13 @@ func modelToAPIDetails(ctx context.Context, d *LocationDetailsModel) *client.Loc
 	}
 
 	if !d.RepoID.IsNull() && !d.RepoID.IsUnknown() {
-		var repoIDs []string
-		if diags := d.RepoID.ElementsAs(ctx, &repoIDs, false); !diags.HasError() {
-			details.RepoID = repoIDs
-		}
+		diags.Append(d.RepoID.ElementsAs(ctx, &details.RepoID, false)...)
 	}
 	if !d.BootstrapList.IsNull() && !d.BootstrapList.IsUnknown() {
-		var bootstrapList []string
-		if diags := d.BootstrapList.ElementsAs(ctx, &bootstrapList, false); !diags.HasError() {
-			details.BootstrapList = bootstrapList
-		}
+		diags.Append(d.BootstrapList.ElementsAs(ctx, &details.BootstrapList, false)...)
 	}
 
-	return details
+	return details, diags
 }
 
 func apiLocationToModel(ctx context.Context, loc *client.Location, model *LocationResourceModel, imported bool) {
@@ -670,6 +676,9 @@ func apiLocationToModel(ctx context.Context, loc *client.Location, model *Locati
 
 	if loc.SizeLimitGB > 0 {
 		model.SizeLimitGB = types.Int64Value(loc.SizeLimitGB)
+	} else if model.SizeLimitGB.ValueInt64() > 0 {
+		// Removed outside Terraform; a configured 0 is what the API omits.
+		model.SizeLimitGB = types.Int64Null()
 	}
 
 	if loc.Details != nil {
@@ -690,21 +699,37 @@ func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *Lo
 		}
 	}
 
-	setIfConfigured(&model.AccessKey, d.AccessKey)
-	// Sensitive fields: preserve state value, API may return redacted data
-	setIfConfigured(&model.BucketName, d.BucketName)
+	// The overlay is known to return these fields whenever they are set
+	// (RING S3 and sproxyd locations), so an empty value means the field was
+	// cleared outside Terraform and must show as drift. Other fields keep
+	// setIfConfigured: an unverified field the API never returns would
+	// otherwise diff forever. secret_key and password are never returned.
+	refresh := func(target *types.String, value string) {
+		switch {
+		case value != "" && (imported || !target.IsNull()):
+			*target = types.StringValue(value)
+		case value == "" && !imported && !target.IsNull() && !target.IsUnknown():
+			*target = types.StringNull()
+		}
+	}
+
+	refresh(&model.AccessKey, d.AccessKey)
+	refresh(&model.BucketName, d.BucketName)
 	// ARTESCA omits bucketMatch when it is false.
 	model.BucketMatch = types.BoolValue(d.BucketMatch != nil && *d.BucketMatch)
-	setIfConfigured(&model.Endpoint, d.Endpoint)
+	refresh(&model.Endpoint, d.Endpoint)
 	setIfConfigured(&model.StsEndpoint, d.StsEndpoint)
-	setIfConfigured(&model.Region, d.Region)
+	refresh(&model.Region, d.Region)
 	// region is computed, but some location types (e.g. CRR) have none.
 	if model.Region.IsUnknown() && d.Region == "" {
 		model.Region = types.StringNull()
 	}
-	// Unset and false are equivalent; keep null so an unset attribute doesn't diff.
+	// Unset and false are equivalent; keep null so an unset attribute doesn't
+	// diff. Omitted by the API means false.
 	if d.ServerSideEncryption != nil && (*d.ServerSideEncryption || !model.ServerSideEncryption.IsNull()) {
 		model.ServerSideEncryption = types.BoolValue(*d.ServerSideEncryption)
+	} else if d.ServerSideEncryption == nil && model.ServerSideEncryption.ValueBool() {
+		model.ServerSideEncryption = types.BoolValue(false)
 	}
 	setIfConfigured(&model.StorageClass, d.StorageClass)
 	setIfConfigured(&model.MpuBucketName, d.MpuBucketName)
@@ -715,12 +740,14 @@ func apiDetailsToModel(ctx context.Context, d *client.LocationDetails, model *Lo
 	setIfConfigured(&model.StorageAccountName, d.StorageAccountName)
 	setIfConfigured(&model.StorageContainerName, d.StorageContainerName)
 	setIfConfigured(&model.NsID, d.NsID)
-	setIfConfigured(&model.ProxyPath, d.ProxyPath)
+	refresh(&model.ProxyPath, d.ProxyPath)
 	setIfConfigured(&model.GcpEndpoint, d.GcpEndpoint)
 	setIfConfigured(&model.BucketPrefix, d.BucketPrefix)
 
 	if d.ChordCos != nil {
 		model.ChordCos = types.Int64Value(*d.ChordCos)
+	} else if !imported && !model.ChordCos.IsUnknown() {
+		model.ChordCos = types.Int64Null()
 	}
 	if d.CodingParts != nil {
 		model.CodingParts = types.Int64Value(*d.CodingParts)

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -21,7 +22,11 @@ func TestStsEndpointMapping(t *testing.T) {
 		},
 	}
 
-	body, err := json.Marshal(modelToAPILocation(ctx, model))
+	apiLoc, diags := modelToAPILocation(ctx, model)
+	if diags.HasError() {
+		t.Fatal(diags)
+	}
+	body, err := json.Marshal(apiLoc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,5 +79,86 @@ func TestApiDetailsToModelImported(t *testing.T) {
 	}
 	if !imported.SecretKey.IsNull() {
 		t.Errorf("secret_key should stay null, got %s", imported.SecretKey)
+	}
+}
+
+// A configured field the API no longer returns was cleared outside
+// Terraform and must read as null, so the next plan restores it.
+func TestApiDetailsToModelClearedFields(t *testing.T) {
+	ctx := context.Background()
+	model := &LocationDetailsModel{
+		AccessKey:            types.StringValue("AK"),
+		SecretKey:            types.StringValue("SK"),
+		BucketName:           types.StringValue("target"),
+		Endpoint:             types.StringValue("http://ring.example.com"),
+		Region:               types.StringValue("eu-west-1"),
+		ProxyPath:            types.StringValue("/proxy/"),
+		ChordCos:             types.Int64Value(2),
+		StsEndpoint:          types.StringValue("https://sts.example.com"),
+		ServerSideEncryption: types.BoolValue(true),
+	}
+	apiDetailsToModel(ctx, &client.LocationDetails{}, model, false)
+
+	for name, got := range map[string]types.String{
+		"access_key": model.AccessKey, "bucket_name": model.BucketName, "endpoint": model.Endpoint,
+		"region": model.Region, "proxy_path": model.ProxyPath,
+	} {
+		if !got.IsNull() {
+			t.Errorf("%s = %s, want null", name, got)
+		}
+	}
+	if !model.ChordCos.IsNull() {
+		t.Errorf("chord_cos = %s, want null", model.ChordCos)
+	}
+	if model.ServerSideEncryption.ValueBool() {
+		t.Errorf("server_side_encryption = %s, want false", model.ServerSideEncryption)
+	}
+	// Never returned by the API: kept.
+	if model.SecretKey.ValueString() != "SK" {
+		t.Errorf("secret_key = %s, want kept", model.SecretKey)
+	}
+	// Not verified to round-trip: kept.
+	if model.StsEndpoint.ValueString() != "https://sts.example.com" {
+		t.Errorf("sts_endpoint = %s, want kept", model.StsEndpoint)
+	}
+}
+
+func TestApiLocationToModelSizeLimit(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name        string
+		state       types.Int64
+		api         int64
+		wantNull    bool
+		wantValueGB int64
+	}{
+		{"cleared outside Terraform", types.Int64Value(100), 0, true, 0},
+		{"configured 0 kept", types.Int64Value(0), 0, false, 0},
+		{"unset stays unset", types.Int64Null(), 0, true, 0},
+		{"changed outside Terraform", types.Int64Value(100), 50, false, 50},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model := &LocationResourceModel{SizeLimitGB: tc.state}
+			apiLocationToModel(ctx, &client.Location{Name: "l", LocationType: "t", SizeLimitGB: tc.api}, model, false)
+			if model.SizeLimitGB.IsNull() != tc.wantNull || (!tc.wantNull && model.SizeLimitGB.ValueInt64() != tc.wantValueGB) {
+				t.Errorf("size_limit_gb = %s", model.SizeLimitGB)
+			}
+		})
+	}
+}
+
+func TestModelToAPIDetailsReportsListErrors(t *testing.T) {
+	ctx := context.Background()
+	d := &LocationDetailsModel{
+		BootstrapList: types.ListValueMust(types.StringType, []attr.Value{types.StringNull()}),
+	}
+	if _, diags := modelToAPIDetails(ctx, d); !diags.HasError() {
+		t.Error("expected a diagnostic for a null list element")
+	}
+}
+
+func TestRequiredDetailsHdclientV2(t *testing.T) {
+	if got := requiredDetailsByType["location-scality-hdclient-v2"]; len(got) != 1 || got[0] != "bootstrap_list" {
+		t.Errorf("hdclient-v2 required details = %v, want [bootstrap_list]", got)
 	}
 }
