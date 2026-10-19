@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
 ### Added
 
 - **`force_destroy` on `artesca_bucket` and `artesca_user` (#130).** `artesca_bucket.force_destroy` deletes every object version and delete marker before deleting the bucket. `artesca_user.force_destroy` detaches the user's policies and removes it from its groups before deleting it. Both default to `false` and must be applied before destroying.
