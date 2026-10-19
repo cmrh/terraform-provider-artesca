@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -179,6 +180,14 @@ func (r *GroupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		acctCreds,
 		state.Name.ValueString(),
 	)
+	if err != nil && strings.Contains(err.Error(), "DeleteConflict") {
+		members, _ := r.iamClient.ListGroupMembers(ctx, acctCreds, state.Name.ValueString())
+		attached, _ := r.iamClient.ListAttachedGroupPolicies(ctx, acctCreds, state.Name.ValueString())
+		inline, _ := r.iamClient.ListGroupPolicies(ctx, acctCreds, state.Name.ValueString())
+		resp.Diagnostics.AddError("Group has dependents",
+			fmt.Sprintf("Group %q still has members %v, attached policies %v and inline policies %v. Remove them before destroying.", state.Name.ValueString(), members, attached, inline))
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting IAM group", err.Error())
 		return

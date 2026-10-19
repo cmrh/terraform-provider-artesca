@@ -56,5 +56,5 @@ After import, `access_key`, `secret_key`, and `email` are null — none of them 
 - Uses OIDC credentials from the provider configuration.
 - The `name` attribute forces replacement -- accounts cannot be renamed.
 - ARTESCA creates four default IAM roles in every new account: `StorageManager`, `StorageAccountOwner`, `DataConsumer`, and `StorageUsageConsumer`.
-- An account can only be deleted after its locations, users, policies, and buckets are deleted.
+- An account can only be deleted after its buckets, users, groups, roles and policies are deleted.
 - `access_key` and `secret_key` are generated once at creation and preserved in state. They are not refreshed on subsequent reads.

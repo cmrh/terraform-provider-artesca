@@ -28,6 +28,7 @@ output "user_arn" {
 |------|------|----------|-------------|
 | `account_name` | String | Yes | Name of the account that owns the resource. Forces replacement. |
 | `username` | String | Yes | IAM username. Must be 1-64 characters, alphanumeric and `+=,.@-`. Forces replacement. |
+| `force_destroy` | Boolean | No | Detach the user's policies and remove it from its groups when it is destroyed, including ones not managed by this configuration. Defaults to `false`. Set it and apply before destroying. |
 
 ## Attributes Exported
 
@@ -48,6 +49,6 @@ The import ID starts with the name of the account that owns the resource.
 ## Notes
 
 - All arguments force replacement -- users cannot be renamed or moved between accounts.
-- ARTESCA refuses to delete a user that still has attached managed policies. Terraform detaches them first when they are managed with `artesca_user_policy_attachment`.
+- ARTESCA refuses to delete a user that still has attached policies or group memberships. Terraform removes them first when they are managed with `artesca_user_policy_attachment` or `artesca_group_membership`; set `force_destroy = true` to also remove ones created outside this configuration. ARTESCA removes the user's access keys and inline policies with it.
 - Names are unique within the account regardless of case: `Alice` and `alice` can't both exist.
 - Uses AWS SigV4 signing against the IAM API (endpoint derived from management endpoint).

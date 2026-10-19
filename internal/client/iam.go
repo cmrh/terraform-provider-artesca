@@ -474,6 +474,56 @@ func (c *IAMClient) ListGroupsForUser(ctx context.Context, creds Credentials, us
 	return names, nil
 }
 
+// ListGroupMembers returns the names of the group's users.
+func (c *IAMClient) ListGroupMembers(ctx context.Context, creds Credentials, groupName string) ([]string, error) {
+	params := url.Values{"Action": {"GetGroup"}, "GroupName": {groupName}}
+	names := []string{}
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp struct {
+			Result struct {
+				Users       []struct{ UserName string } `xml:"Users>member"`
+				IsTruncated bool                        `xml:"IsTruncated"`
+				Marker      string                      `xml:"Marker"`
+			} `xml:"GetGroupResult"`
+		}
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing get group response: %w", err)
+		}
+		for _, u := range resp.Result.Users {
+			names = append(names, u.UserName)
+		}
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list group members: %w", err)
+	}
+	return names, nil
+}
+
+// ListGroupPolicies returns the names of the group's inline policies.
+func (c *IAMClient) ListGroupPolicies(ctx context.Context, creds Credentials, groupName string) ([]string, error) {
+	params := url.Values{"Action": {"ListGroupPolicies"}, "GroupName": {groupName}}
+	names := []string{}
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp struct {
+			Result struct {
+				PolicyNames []string `xml:"PolicyNames>member"`
+				IsTruncated bool     `xml:"IsTruncated"`
+				Marker      string   `xml:"Marker"`
+			} `xml:"ListGroupPoliciesResult"`
+		}
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list group policies response: %w", err)
+		}
+		names = append(names, resp.Result.PolicyNames...)
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list group policies: %w", err)
+	}
+	return names, nil
+}
+
 // --- Group Inline Policy Operations ---
 
 type getGroupPolicyResponse struct {

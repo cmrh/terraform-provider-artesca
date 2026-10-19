@@ -67,6 +67,7 @@ func TestCreateSavesBucketWhenVersioningFails(t *testing.T) {
 		"location_constraint": tftypes.NewValue(tftypes.String, nil),
 		"versioning_enabled":  tftypes.NewValue(tftypes.Bool, true),
 		"account_name":        tftypes.NewValue(tftypes.String, "app"),
+		"force_destroy":       tftypes.NewValue(tftypes.Bool, nil),
 	})
 	resp := &resource.CreateResponse{State: tfsdk.State{Schema: s, Raw: tftypes.NewValue(objType, nil)}}
 	r.Create(ctx, resource.CreateRequest{Plan: tfsdk.Plan{Schema: s, Raw: plan}}, resp)
@@ -80,5 +81,72 @@ func TestCreateSavesBucketWhenVersioningFails(t *testing.T) {
 	}
 	if got.Name.ValueString() != "bkt" || got.VersioningEnabled.ValueBool() {
 		t.Errorf("state = %+v, want bucket bkt with versioning false", got)
+	}
+}
+
+// fakeBucketS3 serves one bucket holding object versions; deleting the bucket
+// fails with BucketNotEmpty until every version is deleted.
+func fakeBucketS3(t *testing.T, versions map[string]bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		switch {
+		case req.Method == http.MethodGet && req.URL.Query().Has("versions"):
+			body := `<ListVersionsResult><IsTruncated>false</IsTruncated>`
+			for v := range versions {
+				body += `<Version><Key>obj</Key><VersionId>` + v + `</VersionId></Version>`
+			}
+			_, _ = w.Write([]byte(body + `</ListVersionsResult>`))
+		case req.Method == http.MethodDelete && req.URL.Path == "/bkt/obj":
+			delete(versions, req.URL.Query().Get("versionId"))
+			w.WriteHeader(http.StatusNoContent)
+		case req.Method == http.MethodDelete && req.URL.Path == "/bkt":
+			if len(versions) > 0 {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`<Error><Code>BucketNotEmpty</Code><Message>The bucket you tried to delete is not empty.</Message></Error>`))
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected %s %s", req.Method, req.URL)
+		}
+	}
+}
+
+func deleteBucket(t *testing.T, r *BucketResource, forceDestroy bool) *resource.DeleteResponse {
+	t.Helper()
+	ctx := context.Background()
+	schemaResp := &resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, schemaResp)
+	s := schemaResp.Schema
+	state := tftypes.NewValue(s.Type().TerraformType(ctx), map[string]tftypes.Value{
+		"name":                tftypes.NewValue(tftypes.String, "bkt"),
+		"location_constraint": tftypes.NewValue(tftypes.String, nil),
+		"versioning_enabled":  tftypes.NewValue(tftypes.Bool, true),
+		"account_name":        tftypes.NewValue(tftypes.String, "app"),
+		"force_destroy":       tftypes.NewValue(tftypes.Bool, forceDestroy),
+	})
+	resp := &resource.DeleteResponse{}
+	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State{Schema: s, Raw: state}}, resp)
+	return resp
+}
+
+func TestDeleteNonEmptyBucket(t *testing.T) {
+	versions := map[string]bool{"v1": true, "v2": true}
+	resp := deleteBucket(t, newTestBucketResource(t, fakeBucketS3(t, versions)), false)
+	if !resp.Diagnostics.HasError() || resp.Diagnostics.Errors()[0].Summary() != "Bucket not empty" {
+		t.Fatalf("diagnostics = %v, want Bucket not empty", resp.Diagnostics)
+	}
+	if len(versions) != 2 {
+		t.Errorf("versions deleted without force_destroy: %v", versions)
+	}
+}
+
+func TestDeleteForceDestroyEmptiesBucket(t *testing.T) {
+	versions := map[string]bool{"v1": true, "v2": true}
+	resp := deleteBucket(t, newTestBucketResource(t, fakeBucketS3(t, versions)), true)
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("diagnostics = %v", resp.Diagnostics)
+	}
+	if len(versions) != 0 {
+		t.Errorf("versions left: %v", versions)
 	}
 }

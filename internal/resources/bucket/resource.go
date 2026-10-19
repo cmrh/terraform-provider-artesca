@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
@@ -68,6 +69,10 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"force_destroy": schema.BoolAttribute{
+				Description: "Delete every object version and delete marker when the bucket is destroyed, so a non-empty bucket can be deleted. Defaults to false. Set it and apply before destroying.",
+				Optional:    true,
 			},
 			creds.AttrAccountName: creds.ResourceAttribute(),
 		},
@@ -254,7 +259,18 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	unlock := r.s3Client.LockBucket(bucketName)
 	defer unlock()
+	if state.ForceDestroy.ValueBool() {
+		if err := r.s3Client.EmptyBucket(ctx, acctCreds, bucketName); err != nil && !client.IsNoSuchBucket(err) {
+			resp.Diagnostics.AddError("Error emptying bucket", err.Error())
+			return
+		}
+	}
 	err = r.s3Client.DeleteBucket(ctx, acctCreds, bucketName)
+	if err != nil && strings.Contains(err.Error(), "BucketNotEmpty") {
+		resp.Diagnostics.AddError("Bucket not empty",
+			fmt.Sprintf("Bucket %q still has objects or object versions. Delete them, or set force_destroy = true and apply before destroying.", bucketName))
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting bucket", err.Error())
 		return

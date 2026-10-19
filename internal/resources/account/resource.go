@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
@@ -240,6 +241,11 @@ func (r *AccountResource) Delete(ctx context.Context, req resource.DeleteRequest
 	tflog.Debug(ctx, "Deleting account", map[string]any{"name": state.Name.ValueString()})
 
 	err := r.client.DeleteAccount(ctx, state.Name.ValueString())
+	if errors.Is(err, client.ErrAccountNotEmpty) {
+		resp.Diagnostics.AddError("Account not empty",
+			fmt.Sprintf("Account %q still has buckets, users, groups, roles or policies. Delete them before destroying the account.", state.Name.ValueString()))
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting account", err.Error())
 		return
