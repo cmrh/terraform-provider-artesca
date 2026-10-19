@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -252,6 +253,57 @@ resource "artesca_location" "test" {
 }
 `,
 				ExpectError: regexp.MustCompile(`(?s)server_side_encryption is only supported.*location-aws-s3-v1`),
+			},
+		},
+	})
+}
+
+// A configured field removed outside Terraform shows as drift.
+func TestAccLocation_clearedFieldDrift(t *testing.T) {
+	rName := randomName("tf-acc-loc")
+	config := fmt.Sprintf(`
+resource "artesca_location" "test" {
+  name          = %q
+  location_type = "location-scality-ring-s3-v1"
+  size_limit_gb = 100
+
+  details {
+    endpoint     = %q
+    access_key   = %q
+    secret_key   = %q
+    bucket_name  = %q
+    bucket_match = false
+  }
+}
+`, rName, os.Getenv("TF_VAR_ring_s3_endpoint"), os.Getenv("TF_VAR_ring_s3_access_key"),
+		os.Getenv("TF_VAR_ring_s3_secret_key"), os.Getenv("TF_VAR_ring_s3_bucket_name"))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckLocationDestroy,
+		Steps: []resource.TestStep{
+			{Config: config},
+			{
+				PreConfig: func() {
+					mgmt, err := testAccManagementClient()
+					if err != nil {
+						t.Fatal(err)
+					}
+					ctx := context.Background()
+					loc, err := mgmt.GetLocation(ctx, rName)
+					if err != nil || loc == nil {
+						t.Fatalf("reading location: %v", err)
+					}
+					loc.SizeLimitGB = 0
+					loc.Details.SecretKey = os.Getenv("TF_VAR_ring_s3_secret_key")
+					if _, err := mgmt.UpdateLocation(ctx, rName, loc); err != nil {
+						t.Fatalf("clearing size_limit_gb outside Terraform: %v", err)
+					}
+				},
+				Config:             config,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
