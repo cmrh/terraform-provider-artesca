@@ -791,6 +791,43 @@ func (c *IAMClient) CreatePolicyVersion(ctx context.Context, creds Credentials, 
 }
 
 // DeletePolicyVersion deletes a non-default version of a managed policy.
+// PolicyVersion is one version of a managed policy.
+type PolicyVersion struct {
+	VersionID  string
+	IsDefault  bool
+	CreateDate string
+}
+
+// ListPolicyVersions returns the versions of a managed policy.
+func (c *IAMClient) ListPolicyVersions(ctx context.Context, creds Credentials, policyArn string) ([]PolicyVersion, error) {
+	params := url.Values{"Action": {"ListPolicyVersions"}, "PolicyArn": {policyArn}}
+	var versions []PolicyVersion
+	err := c.listAllPages(ctx, creds, params, func(body []byte) (bool, string, error) {
+		var resp struct {
+			Result struct {
+				Versions []struct {
+					VersionID        string `xml:"VersionId"`
+					IsDefaultVersion bool   `xml:"IsDefaultVersion"`
+					CreateDate       string `xml:"CreateDate"`
+				} `xml:"Versions>member"`
+				IsTruncated bool   `xml:"IsTruncated"`
+				Marker      string `xml:"Marker"`
+			} `xml:"ListPolicyVersionsResult"`
+		}
+		if err := xml.Unmarshal(body, &resp); err != nil {
+			return false, "", fmt.Errorf("parsing list policy versions response: %w", err)
+		}
+		for _, v := range resp.Result.Versions {
+			versions = append(versions, PolicyVersion{VersionID: v.VersionID, IsDefault: v.IsDefaultVersion, CreateDate: v.CreateDate})
+		}
+		return resp.Result.IsTruncated, resp.Result.Marker, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list policy versions: %w", err)
+	}
+	return versions, nil
+}
+
 func (c *IAMClient) DeletePolicyVersion(ctx context.Context, creds Credentials, policyArn, versionId string) error {
 	params := url.Values{
 		"Action":    {"DeletePolicyVersion"},
