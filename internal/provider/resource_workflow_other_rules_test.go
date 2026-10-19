@@ -9,6 +9,7 @@ import (
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -172,4 +173,58 @@ func testAccCheckBucketXMLContains(bucketResource, subresource string, fragments
 		}
 		return nil
 	}
+}
+
+// A rule created outside Terraform keeps the parts the resource doesn't model
+// (a tag in an And filter, a noncurrent-version action) when imported and
+// updated.
+func TestAccWorkflowExpiration_importKeepsUnmodelledParts(t *testing.T) {
+	rAcct, rBucket := randomName("tf-acc"), randomName("tf-acc-bkt")
+	base := testAccAccountConfig(rAcct) + testAccBucketConfig("test", rBucket, "null", true)
+	rule := `<LifecycleConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ID>outside</ID>` +
+		`<Filter><And><Prefix>logs/</Prefix><Tag><Key>team</Key><Value>a</Value></Tag></And></Filter><Status>Enabled</Status>` +
+		`<Expiration><Days>30</Days></Expiration><NoncurrentVersionExpiration><NoncurrentDays>7</NoncurrentDays></NoncurrentVersionExpiration>` +
+		`</Rule></LifecycleConfiguration>`
+	managed := func(days int) string {
+		return base + fmt.Sprintf(`
+import {
+  to = artesca_bucket_workflow_expiration.test
+  id = "%s/%s/outside"
+}
+
+resource "artesca_bucket_workflow_expiration" "test" {
+  account_name = artesca_account.test.name
+  bucket_name  = artesca_bucket.test.name
+  rule_id      = "outside"
+  enabled      = true
+
+  current_version_trigger_delay_days = %d
+
+  filter {
+    object_key_prefix = "logs/"
+  }
+}
+`, rAcct, rBucket, days)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBucketDestroy,
+		Steps: []resource.TestStep{
+			{Config: base, Check: testAccPutBucketXML("artesca_bucket.test", "lifecycle", rule)},
+			{
+				// The prefix inside Filter/And is read, so the import plans nothing.
+				Config: managed(30),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_bucket_workflow_expiration.test", plancheck.ResourceActionNoop)},
+				},
+			},
+			{
+				Config: managed(45),
+				Check: testAccCheckBucketXMLContains("artesca_bucket.test", "lifecycle",
+					"<Days>45</Days>", "<Key>team</Key>", "<Prefix>logs/</Prefix>", "<NoncurrentDays>7</NoncurrentDays>"),
+			},
+		},
+	})
 }

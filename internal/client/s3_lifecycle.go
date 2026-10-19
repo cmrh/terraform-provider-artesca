@@ -15,6 +15,7 @@ type lifecycleConfiguration struct {
 type lifecycleRule struct {
 	ID         string               `xml:"ID"`
 	Status     string               `xml:"Status"`
+	Prefix     *string              `xml:"Prefix,omitempty"` // legacy form, read only
 	Filter     *lifecycleFilter     `xml:"Filter,omitempty"`
 	Expiration *lifecycleExpiration `xml:"Expiration,omitempty"`
 	Transition *lifecycleTransition `xml:"Transition,omitempty"`
@@ -34,6 +35,9 @@ func (r lifecycleRule) MarshalXML(e *xml.Encoder, start xml.StartElement) error 
 
 type lifecycleFilter struct {
 	Prefix string `xml:"Prefix"`
+	And    *struct {
+		Prefix string `xml:"Prefix"`
+	} `xml:"And,omitempty"` // read only
 }
 
 type lifecycleExpiration struct {
@@ -86,8 +90,13 @@ func (c *S3Client) GetBucketLifecycle(ctx context.Context, creds Credentials, bu
 			Status: r.Status,
 			raw:    r.Inner,
 		}
-		if r.Filter != nil {
+		switch {
+		case r.Filter != nil && r.Filter.And != nil:
+			rule.Prefix = r.Filter.And.Prefix
+		case r.Filter != nil:
 			rule.Prefix = r.Filter.Prefix
+		case r.Prefix != nil:
+			rule.Prefix = *r.Prefix
 		}
 		if r.Expiration != nil {
 			rule.ExpirationDays = r.Expiration.Days
