@@ -8,6 +8,7 @@ import (
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -27,6 +28,7 @@ var (
 type WorkflowReplicationResource struct {
 	accounts *client.AccountCredentialSource
 	s3       *client.S3Client
+	mgmt     *client.ManagementClient
 }
 
 func NewWorkflowReplicationResource() resource.Resource {
@@ -83,6 +85,13 @@ func (r *WorkflowReplicationResource) Schema(_ context.Context, _ resource.Schem
 					validators.LocationName{},
 				},
 			},
+			"destination_role": schema.StringAttribute{
+				Description: "For a cross-region replication (CRR) destination_location, the IAM role ARN on the remote site that replication assumes. Required for a CRR location and not allowed otherwise. All CRR rules on a bucket share one destination role.",
+				Optional:    true,
+				Validators: []validator.String{
+					validators.IAMRoleARN{},
+				},
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"filter": schema.SingleNestedBlock{
@@ -119,6 +128,7 @@ func (r *WorkflowReplicationResource) Configure(_ context.Context, req resource.
 	}
 	r.s3 = providerData.S3
 	r.accounts = providerData.Accounts
+	r.mgmt = providerData.Management
 }
 
 func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -159,7 +169,16 @@ func (r *WorkflowReplicationResource) Create(ctx context.Context, req resource.C
 			return
 		}
 	}
+	isCRR := r.crrChecker(ctx)
+	destination, ok := checkDestinationRole(&plan, cfg, ruleID, isCRR, &resp.Diagnostics)
+	if !ok {
+		return
+	}
 	cfg.Rules = append(cfg.Rules, modelToReplicationRule(&plan, ruleID))
+	if cfg.Role, err = buildRole(cfg.Role, cfg.Rules, isCRR, destination); err != nil {
+		resp.Diagnostics.AddError("Error building replication role", err.Error())
+		return
+	}
 
 	tflog.Debug(ctx, "Creating replication rule", map[string]any{"bucket": bucket, "rule_id": ruleID})
 
@@ -213,7 +232,62 @@ func (r *WorkflowReplicationResource) Read(ctx context.Context, req resource.Rea
 	}
 
 	replicationRuleToModel(found, &state)
+
+	// The destination role is bucket-wide; report it for rules that set it,
+	// and for a CRR rule without one in state (after import).
+	_, destination := splitRole(cfg.Role)
+	switch {
+	case !state.DestinationRole.IsNull() && destination == "":
+		state.DestinationRole = types.StringNull()
+	case !state.DestinationRole.IsNull():
+		state.DestinationRole = types.StringValue(destination)
+	case destination != "":
+		crr, err := r.crrChecker(ctx)(found.StorageClass)
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading replication rules", err.Error())
+			return
+		}
+		if crr {
+			state.DestinationRole = types.StringValue(destination)
+		}
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+// checkDestinationRole checks plan.destination_role against the rule's
+// location type and the role other CRR rules on the bucket use, and returns
+// the destination role the bucket's Role should carry.
+func checkDestinationRole(plan *WorkflowReplicationResourceModel, cfg *client.BucketReplication, ruleID string, isCRR func(string) (bool, error), diags *diag.Diagnostics) (string, bool) {
+	location := plan.DestinationLocation.ValueString()
+	crr, err := isCRR(location)
+	if err != nil {
+		diags.AddError("Error reading destination location", err.Error())
+		return "", false
+	}
+	other, err := otherCRRDestination(cfg.Role, cfg.Rules, ruleID, isCRR)
+	if err != nil {
+		diags.AddError("Error reading destination location", err.Error())
+		return "", false
+	}
+	role := plan.DestinationRole.ValueString()
+	switch {
+	case crr && role == "":
+		diags.AddAttributeError(path.Root("destination_role"), "Missing destination_role",
+			fmt.Sprintf("Location %q is a cross-region replication location; set destination_role to the IAM role on the remote site.", location))
+		return "", false
+	case !crr && role != "":
+		diags.AddAttributeError(path.Root("destination_role"), "Unexpected destination_role",
+			fmt.Sprintf("destination_role applies only to cross-region replication locations; %q is not one.", location))
+		return "", false
+	case crr && other != "" && other != role:
+		diags.AddAttributeError(path.Root("destination_role"), "Conflicting destination_role",
+			fmt.Sprintf("Bucket %q already replicates to a CRR location with destination role %q; all CRR rules on a bucket share one destination role.", plan.BucketName.ValueString(), other))
+		return "", false
+	case crr:
+		return role, true
+	default:
+		return other, true
+	}
 }
 
 func (r *WorkflowReplicationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -252,6 +326,15 @@ func (r *WorkflowReplicationResource) Update(ctx context.Context, req resource.U
 	if !replaced {
 		resp.Diagnostics.AddError("Replication rule not found",
 			fmt.Sprintf("Bucket %q has no replication rule with ID %q.", bucket, ruleID))
+		return
+	}
+	isCRR := r.crrChecker(ctx)
+	destination, ok := checkDestinationRole(&plan, cfg, ruleID, isCRR, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+	if cfg.Role, err = buildRole(cfg.Role, cfg.Rules, isCRR, destination); err != nil {
+		resp.Diagnostics.AddError("Error building replication role", err.Error())
 		return
 	}
 
@@ -315,6 +398,12 @@ func (r *WorkflowReplicationResource) Delete(ctx context.Context, req resource.D
 		return
 	}
 	cfg.Rules = remaining
+	// Drop the destination role with the last CRR rule.
+	_, destination := splitRole(cfg.Role)
+	if cfg.Role, err = buildRole(cfg.Role, remaining, r.crrChecker(ctx), destination); err != nil {
+		resp.Diagnostics.AddError("Error building replication role", err.Error())
+		return
+	}
 	if err := r.s3.PutBucketReplication(ctx, acctCreds, bucket, *cfg); err != nil {
 		if client.IsNoSuchBucket(err) {
 			return // the bucket, and its configuration, is gone

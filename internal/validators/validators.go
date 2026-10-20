@@ -328,6 +328,30 @@ func (v MapSizeBetween) ValidateMap(_ context.Context, req validator.MapRequest,
 	}
 }
 
+// IAMRoleARN validates an IAM role ARN. A comma is rejected because the
+// replication Role uses it to separate the source and destination roles.
+type IAMRoleARN struct{}
+
+var iamRoleARNRegexp = regexp.MustCompile(`^arn:aws:iam::[^:,]*:role/[\w+=.@/-]+$`)
+
+func (v IAMRoleARN) Description(_ context.Context) string {
+	return "must be an IAM role ARN (arn:aws:iam::<account-id>:role/<name>) without commas"
+}
+
+func (v IAMRoleARN) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v IAMRoleARN) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if !iamRoleARNRegexp.MatchString(req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid IAM role ARN",
+			fmt.Sprintf("Must be an IAM role ARN such as arn:aws:iam::123456789012:role/crr-role, without commas; got %q.", req.ConfigValue.ValueString()))
+	}
+}
+
 // NotEmpty rejects "" where an empty string has no meaning.
 type NotEmpty struct{}
 

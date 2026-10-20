@@ -11,6 +11,7 @@ type WorkflowReplicationResourceModel struct {
 	Enabled               types.Bool           `tfsdk:"enabled"`
 	DestinationBucketName types.String         `tfsdk:"destination_bucket_name"`
 	DestinationLocation   types.String         `tfsdk:"destination_location"`
+	DestinationRole       types.String         `tfsdk:"destination_role"`
 	Filter                *WorkflowFilterModel `tfsdk:"filter"`
 }
 

@@ -3,9 +3,13 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
+	"regexp"
 	"testing"
 
+	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -256,4 +260,111 @@ resource "artesca_bucket_workflow_replication" "second" {
   }
 }
 `, prefix)
+}
+
+// testAccCRRLocationsConfig adds a RING S3 location on lab2 and a CRR
+// location on lab1 next to an account and a versioned bucket.
+func testAccCRRLocationsConfig(acct, bucket, ringLoc, crrLoc string) string {
+	return testAccAccountConfig(acct) + testAccBucketConfig("source", bucket, "null", true) + fmt.Sprintf(`
+resource "artesca_location" "ring" {
+  name          = %q
+  location_type = "location-scality-ring-s3-v1"
+  details {
+    endpoint     = %q
+    access_key   = %q
+    secret_key   = %q
+    bucket_name  = %q
+    bucket_match = false
+  }
+}
+
+resource "artesca_location" "crr" {
+  name          = %q
+  location_type = "location-scality-crr-v1"
+  details {
+    endpoint     = %q
+    sts_endpoint = %q
+    access_key   = %q
+    secret_key   = %q
+  }
+}
+`, ringLoc, os.Getenv("TF_VAR_dest_ring_s3_endpoint"), os.Getenv("TF_VAR_dest_ring_s3_access_key"), os.Getenv("TF_VAR_dest_ring_s3_secret_key"), os.Getenv("TF_VAR_dest_ring_s3_bucket_name"),
+		crrLoc, os.Getenv("TF_VAR_ring_s3_endpoint"), os.Getenv("TF_VAR_ring_s3_endpoint"), os.Getenv("TF_VAR_ring_s3_access_key"), os.Getenv("TF_VAR_ring_s3_secret_key"))
+}
+
+func testAccCRRRule(name, location, role string) string {
+	roleLine := ""
+	if role != "" {
+		roleLine = fmt.Sprintf("\n  destination_role        = %q", role)
+	}
+	return fmt.Sprintf(`
+resource "artesca_bucket_workflow_replication" %q {
+  account_name            = artesca_account.test.name
+  bucket_name             = artesca_bucket.source.name
+  destination_location    = %s
+  destination_bucket_name = "tf-acc-crr-dest"
+  enabled                 = true%s
+
+  filter {
+    object_key_prefix = "%s/"
+  }
+}
+`, name, location, roleLine, name)
+}
+
+func TestAccWorkflowReplication_crrDestinationRole(t *testing.T) {
+	rAcct, rBkt, rRing, rCRR := randomName("tf-acc"), randomName("tf-acc-sbkt"), randomName("tf-acc-ring"), randomName("tf-acc-crr")
+	base := testAccCRRLocationsConfig(rAcct, rBkt, rRing, rCRR)
+	src := client.DefaultReplicationRole
+	role1, role2 := "arn:aws:iam::111111111111:role/crr-role", "arn:aws:iam::111111111111:role/crr-role-2"
+	// ARTESCA requires every rule on a bucket to name the same destination
+	// bucket; a RING location ignores it and writes to its own target bucket.
+	ringRule := testAccCRRRule("ring", "artesca_location.ring.name", "")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckRingS3(t); testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckWorkflowReplicationDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: base + testAccCRRRule("crr", "artesca_location.crr.name", role1),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("artesca_bucket_workflow_replication.crr", "destination_role", role1),
+					testAccCheckBucketXMLContains("artesca_bucket.source", "replication", "<Role>"+src+","+role1+"</Role>"),
+				),
+			},
+			{
+				// A RING rule next to the CRR rule shares the two-ARN role.
+				Config: base + testAccCRRRule("crr", "artesca_location.crr.name", role1) + ringRule,
+				Check:  testAccCheckBucketXMLContains("artesca_bucket.source", "replication", "<Role>"+src+","+role1+"</Role>"),
+			},
+			{
+				Config: base + testAccCRRRule("crr", "artesca_location.crr.name", role2) + ringRule,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_bucket_workflow_replication.crr", plancheck.ResourceActionUpdate)},
+				},
+				Check: testAccCheckBucketXMLContains("artesca_bucket.source", "replication", "<Role>"+src+","+role2+"</Role>"),
+			},
+			{
+				ResourceName:                         "artesca_bucket_workflow_replication.crr",
+				ImportState:                          true,
+				ImportStateVerify:                    true,
+				ImportStateIdFunc:                    testAccImportWithAccount(testAccImportStateBucketAndAttr("artesca_bucket_workflow_replication.crr", "rule_id")),
+				ImportStateVerifyIdentifierAttribute: "rule_id",
+			},
+			{
+				// Removing the last CRR rule drops the destination role.
+				Config: base + ringRule,
+				Check:  testAccCheckBucketXMLContains("artesca_bucket.source", "replication", "<Role>"+src+"</Role>"),
+			},
+			{
+				Config:      base + ringRule + testAccCRRRule("crr", "artesca_location.crr.name", ""),
+				ExpectError: regexp.MustCompile(`Missing destination_role`),
+			},
+			{
+				Config:      base + ringRule + testAccCRRRule("ring2", "artesca_location.ring.name", role1),
+				ExpectError: regexp.MustCompile(`Unexpected destination_role`),
+			},
+		},
+	})
 }

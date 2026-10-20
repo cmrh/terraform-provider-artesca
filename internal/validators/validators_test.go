@@ -570,3 +570,21 @@ func TestListNotEmpty(t *testing.T) {
 		}
 	}
 }
+
+func TestIAMRoleARN(t *testing.T) {
+	ctx := context.Background()
+	for val, wantErr := range map[string]bool{
+		"arn:aws:iam::123456789012:role/crr-role":     false,
+		"arn:aws:iam::123456789012:role/path/crr.r1":  false,
+		"arn:aws:iam::123456789012:user/crr-user":     true,
+		"arn:aws:iam::1:role/a,arn:aws:iam::2:role/b": true,
+		"crr-role": true,
+		"":         true,
+	} {
+		resp := &validator.StringResponse{}
+		IAMRoleARN{}.ValidateString(ctx, testStringRequest(val), resp)
+		if resp.Diagnostics.HasError() != wantErr {
+			t.Errorf("%q: error = %v, want %v", val, resp.Diagnostics.HasError(), wantErr)
+		}
+	}
+}
