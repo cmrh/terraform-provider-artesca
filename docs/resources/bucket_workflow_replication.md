@@ -34,6 +34,7 @@ Objects land in the location's target bucket, under a prefix named after the sou
 | `bucket_name` | String | Yes | Source bucket. Versioning must be enabled. Forces replacement. |
 | `destination_location` | String | Yes | Location objects are replicated to. For RING S3 and cloud locations, objects go to the location's target bucket. |
 | `destination_bucket_name` | String | No | For a cross-region replication (CRR) `destination_location`, the bucket on the remote site. Versioning must be enabled. |
+| `destination_role` | String | No | For a CRR `destination_location`, the ARN of the IAM role on the remote site that replication assumes. Required for a CRR location and not allowed for other locations. |
 | `enabled` | Boolean | Yes | Whether the rule is active. |
 | `rule_id` | String | No | Replication rule ID, 1–255 characters. Generated if not set. Forces replacement. |
 | `filter` | Block | No | Object filter. See below. |
@@ -61,6 +62,8 @@ The import ID starts with the name of the account that owns the resource.
 ## Notes
 
 - `account_name`, `bucket_name`, and `rule_id` force replacement — a rule cannot be moved.
-- Changes to `enabled`, `destination_location`, `destination_bucket_name`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
+- Changes to `enabled`, `destination_location`, `destination_bucket_name`, `destination_role`, and `filter` are applied in place, and changes made outside Terraform are detected on refresh.
 - The source bucket must have versioning enabled before the rule is created.
 - ARTESCA rejects a rule naming a location created moments earlier; the provider retries for up to 5 minutes while the location propagates.
+- The bucket's replication configuration has one `Role` for all its rules. While any rule targets a CRR location, the provider writes the source role and `destination_role`; when the last CRR rule is removed, it drops `destination_role`. All CRR rules on a bucket must use the same `destination_role`.
+- ARTESCA requires every rule on a bucket to name the same destination bucket. When a bucket mixes CRR and other rules, set `destination_bucket_name` on every rule to the CRR destination bucket; RING S3 and cloud locations ignore it and write to their own target bucket.
