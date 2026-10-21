@@ -84,7 +84,7 @@ resource "artesca_bucket_object_lock" "test" {
   retention_days = 1
 }
 `, rBucket),
-				ExpectError: regexp.MustCompile(`object_lock_enabled = true`),
+				ExpectError: regexp.MustCompile(`does not have object lock enabled`),
 			},
 		},
 	})
