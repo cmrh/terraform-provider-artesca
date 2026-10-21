@@ -17,6 +17,7 @@ import (
 	locationds "github.com/cmrh/terraform-provider-artesca/internal/datasources/location"
 	locationsds "github.com/cmrh/terraform-provider-artesca/internal/datasources/locations"
 	policyds "github.com/cmrh/terraform-provider-artesca/internal/datasources/policy"
+	policydocumentds "github.com/cmrh/terraform-provider-artesca/internal/datasources/policy_document"
 	roleds "github.com/cmrh/terraform-provider-artesca/internal/datasources/role"
 	userds "github.com/cmrh/terraform-provider-artesca/internal/datasources/user"
 	assumedrolecredentials "github.com/cmrh/terraform-provider-artesca/internal/ephemeral/assumed_role_credentials"
@@ -344,6 +345,7 @@ func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.Dat
 		locationds.NewLocationDataSource,
 		locationsds.NewLocationsDataSource,
 		policyds.NewPolicyDataSource,
+		policydocumentds.NewPolicyDocumentDataSource,
 		roleds.NewRoleDataSource,
 		userds.NewUserDataSource,
 	}

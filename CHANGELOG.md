@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Both: new `filter.object_tags`.
   - Combinations ARTESCA rejects are reported at plan time: two timings for current versions, delete markers with a current-version timing, and tag filters with delete-marker or multipart-upload actions.
   - Updating a rule changes only the actions the resource manages; other actions and filter conditions in the rule are kept.
+- **`artesca_policy_document` data source (#148).** Builds an IAM policy document as JSON from `statement` blocks (`sid`, `effect`, `actions`, `not_actions`, `resources`, `not_resources`, `principals`, `not_principals`, `condition`), with `version`, `source_policy_documents` and `override_policy_documents`, like `aws_iam_policy_document`. Computed locally, with no API calls.
 
 ### Changed
 
