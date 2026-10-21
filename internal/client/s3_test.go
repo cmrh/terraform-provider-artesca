@@ -31,7 +31,7 @@ func TestCreateBucket(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "us-east-1")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "us-east-1", false)
 	if err != nil {
 		t.Fatalf("CreateBucket returned error: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestCreateBucketWithLocationConstraint(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "my-location")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "my-location", false)
 	if err != nil {
 		t.Fatalf("CreateBucket returned error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestCreateBucketError(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "", false)
 	if err == nil {
 		t.Fatal("expected error for 409 response")
 	}
@@ -84,7 +84,7 @@ func TestCreateBucketAlreadyOwned(t *testing.T) {
 	defer apiServer.Close()
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "", false)
 	if !errors.Is(err, ErrBucketAlreadyOwned) {
 		t.Fatalf("error = %v, want ErrBucketAlreadyOwned", err)
 	}
@@ -106,7 +106,7 @@ func TestCreateBucketAlreadyOwnedAfterGatewayRetry(t *testing.T) {
 
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	client.transientBackoffOverride = time.Millisecond
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "", false)
 	if err != nil {
 		t.Fatalf("CreateBucket returned error: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestDoSignedRequestRetriesTransientGatewayStatus(t *testing.T) {
 			client := NewS3Client(apiServer.URL, "us-east-1", false)
 			client.transientBackoffOverride = time.Millisecond
 
-			err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+			err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "", false)
 			if err != nil {
 				t.Fatalf("CreateBucket returned error: %v", err)
 			}
@@ -587,7 +587,7 @@ func TestDoSignedRequestNoRetryOn500(t *testing.T) {
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	client.transientBackoffOverride = time.Millisecond
 
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "", false)
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -607,7 +607,7 @@ func TestDoSignedRequestGivesUpAfterMaxAttempts(t *testing.T) {
 	client := NewS3Client(apiServer.URL, "us-east-1", false)
 	client.transientBackoffOverride = time.Millisecond
 
-	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "")
+	err := client.CreateBucket(context.Background(), Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "", false)
 	if err == nil {
 		t.Fatal("expected error after exhausting retries")
 	}
@@ -658,7 +658,7 @@ func TestCreateBucketPropagationRetryHonoursContext(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	err := client.CreateBucket(ctx, Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "typo-location")
+	err := client.CreateBucket(ctx, Credentials{AccessKey: "AKID", SecretKey: "secret"}, "my-bucket", "typo-location", false)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("error = %v, want context.DeadlineExceeded", err)
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/cmrh/terraform-provider-artesca/internal/resources/account"
 	"github.com/cmrh/terraform-provider-artesca/internal/resources/bucket"
 	bucketencryption "github.com/cmrh/terraform-provider-artesca/internal/resources/bucket_encryption"
+	bucketobjectlock "github.com/cmrh/terraform-provider-artesca/internal/resources/bucket_object_lock"
 	bucketpolicy "github.com/cmrh/terraform-provider-artesca/internal/resources/bucket_policy"
 	buckettagging "github.com/cmrh/terraform-provider-artesca/internal/resources/bucket_tagging"
 	"github.com/cmrh/terraform-provider-artesca/internal/resources/endpoint"
@@ -307,6 +308,7 @@ func (p *ArtescaProvider) Resources(_ context.Context) []func() resource.Resourc
 		account.NewAccountResource,
 		bucket.NewBucketResource,
 		bucketencryption.NewBucketEncryptionResource,
+		bucketobjectlock.NewBucketObjectLockResource,
 		bucketpolicy.NewBucketPolicyResource,
 		buckettagging.NewBucketTaggingResource,
 		endpoint.NewEndpointResource,

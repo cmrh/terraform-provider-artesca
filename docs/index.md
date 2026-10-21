@@ -49,6 +49,7 @@ An argument that is unset or `""` takes its environment variable, then its defau
 | [artesca_account](resources/account.md) | Account (S3 user) via management API |
 | [artesca_bucket](resources/bucket.md) | S3 bucket with versioning and location constraint |
 | [artesca_bucket_encryption](resources/bucket_encryption.md) | Server-side encryption configuration (SSE-S3) |
+| [artesca_bucket_object_lock](resources/bucket_object_lock.md) | Default retention (GOVERNANCE / COMPLIANCE) on an object-lock bucket |
 | [artesca_bucket_policy](resources/bucket_policy.md) | Bucket policy via S3 `PutBucketPolicy` |
 | [artesca_bucket_tagging](resources/bucket_tagging.md) | Bucket tag set management |
 | [artesca_location](resources/location.md) | Storage location (AWS S3, Azure, GCP, Scality RING, etc.) |

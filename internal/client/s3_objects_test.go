@@ -89,13 +89,13 @@ func TestDeleteObjectVersion(t *testing.T) {
 	defer srv.Close()
 	c := NewS3Client(srv.URL, "us-east-1", false)
 	creds := Credentials{AccessKey: "AKID", SecretKey: "secret"}
-	if err := c.DeleteObjectVersion(context.Background(), creds, "bkt", "dir/a b", "v1"); err != nil {
+	if err := c.DeleteObjectVersion(context.Background(), creds, "bkt", "dir/a b", "v1", false); err != nil {
 		t.Fatalf("DeleteObjectVersion: %v", err)
 	}
 	if gotPath != "/bkt/dir/a%20b" || gotVersion != "v1" {
 		t.Errorf("request = %s ?versionId=%s", gotPath, gotVersion)
 	}
-	if err := c.DeleteObjectVersion(context.Background(), creds, "bkt", "k", "gone"); err != nil {
+	if err := c.DeleteObjectVersion(context.Background(), creds, "bkt", "k", "gone", false); err != nil {
 		t.Errorf("a version already gone should count as deleted: %v", err)
 	}
 }

@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Cross-region replication destinations in `artesca_bucket_workflow_replication` (#143).** The new `destination_role` argument sets the IAM role on the remote site for a `location-scality-crr-v1` destination. The provider writes the bucket's replication `Role` as the source and destination roles while any rule targets a CRR location, and drops the destination role when the last such rule is removed.
+- **Object lock (#146).**
+  - `artesca_bucket.object_lock_enabled` creates the bucket with object lock, which also enables versioning. It can only be set at creation, so changing it replaces the bucket; `versioning_enabled = false` with it is rejected. When unset, it reports the bucket's state.
+  - New `artesca_bucket_object_lock` resource sets an object-lock bucket's default retention: `retention_mode` (`GOVERNANCE` or `COMPLIANCE`) and exactly one of `retention_days` or `retention_years`. Destroying it removes the default retention.
+  - `artesca_bucket.force_destroy` on an object-lock bucket deletes versions under GOVERNANCE retention; a version still under COMPLIANCE retention stops the destroy with an error naming it and its retain-until date.
 
 ### Changed
 

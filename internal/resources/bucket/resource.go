@@ -9,6 +9,7 @@ import (
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -20,9 +21,10 @@ import (
 )
 
 var (
-	_ resource.Resource                 = &BucketResource{}
-	_ resource.ResourceWithImportState  = &BucketResource{}
-	_ resource.ResourceWithUpgradeState = &BucketResource{}
+	_ resource.Resource                   = &BucketResource{}
+	_ resource.ResourceWithImportState    = &BucketResource{}
+	_ resource.ResourceWithUpgradeState   = &BucketResource{}
+	_ resource.ResourceWithValidateConfig = &BucketResource{}
 )
 
 type BucketResource struct {
@@ -70,8 +72,19 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"object_lock_enabled": schema.BoolAttribute{
+				Description: "Create the bucket with object lock, for write-once-read-many (WORM) storage. Object lock can only be enabled when the bucket is created; changing it replaces the bucket. It enables versioning, which can't be suspended afterwards. Set the default retention with `artesca_bucket_object_lock`. When unset, the attribute reports the bucket's state.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+					boolplanmodifier.RequiresReplaceIf(objectLockChanged,
+						"Object lock can only be set when the bucket is created; changing it replaces the bucket.",
+						"Object lock can only be set when the bucket is created; changing it replaces the bucket."),
+				},
+			},
 			"force_destroy": schema.BoolAttribute{
-				Description: "Delete every object version and delete marker when the bucket is destroyed, so a non-empty bucket can be deleted. Defaults to false. Set it and apply before destroying.",
+				Description: "Delete every object version and delete marker when the bucket is destroyed, so a non-empty bucket can be deleted. On an object-lock bucket this bypasses GOVERNANCE retention; a version still under COMPLIANCE retention stops the destroy. Defaults to false. Set it and apply before destroying.",
 				Optional:    true,
 			},
 			creds.AttrAccountName: creds.ResourceAttribute(),
@@ -102,6 +115,20 @@ func (r *BucketResource) Configure(_ context.Context, req resource.ConfigureRequ
 	r.accounts = providerData.Accounts
 }
 
+// ValidateConfig rejects object lock with versioning disabled: object lock
+// enables versioning, and it can't be suspended afterwards.
+func (r *BucketResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config BucketResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if config.ObjectLockEnabled.ValueBool() && !config.VersioningEnabled.IsNull() && !config.VersioningEnabled.IsUnknown() && !config.VersioningEnabled.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("versioning_enabled"), "Versioning required for object lock",
+			"object_lock_enabled = true enables versioning, which can't be suspended. Set versioning_enabled = true or remove it.")
+	}
+}
+
 func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan BucketResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -117,13 +144,15 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	locationConstraint := plan.LocationConstraint.ValueString()
+	objectLock := plan.ObjectLockEnabled.ValueBool()
 
 	tflog.Debug(ctx, "Creating bucket", map[string]any{
-		"bucket":   bucketName,
-		"location": locationConstraint,
+		"bucket":      bucketName,
+		"location":    locationConstraint,
+		"object_lock": objectLock,
 	})
 
-	err = r.s3Client.CreateBucket(ctx, acctCreds, bucketName, locationConstraint)
+	err = r.s3Client.CreateBucket(ctx, acctCreds, bucketName, locationConstraint, objectLock)
 	if errors.Is(err, client.ErrBucketAlreadyOwned) {
 		resp.Diagnostics.AddError("Bucket already exists",
 			fmt.Sprintf("Account %q already owns bucket %q. To manage it, import it: tofu import <address> %s/%s",
@@ -136,9 +165,11 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	// Save the bucket now, so a failure below leaves it in state (tainted)
-	// instead of orphaned. A new bucket is unversioned.
+	// instead of orphaned. A new bucket is unversioned unless it has object
+	// lock, which enables versioning.
+	plan.ObjectLockEnabled = types.BoolValue(objectLock)
 	created := plan
-	created.VersioningEnabled = types.BoolValue(false)
+	created.VersioningEnabled = types.BoolValue(objectLock)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &created)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -151,7 +182,7 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 			return
 		}
 		plan.VersioningEnabled = types.BoolValue(versioning)
-	} else if plan.VersioningEnabled.ValueBool() {
+	} else if plan.VersioningEnabled.ValueBool() && !objectLock {
 		unlock := r.s3Client.LockBucket(bucketName)
 		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, true); err != nil {
@@ -206,6 +237,13 @@ func (r *BucketResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 	state.VersioningEnabled = types.BoolValue(versioning)
 
+	objectLock, _, err := r.s3Client.GetObjectLockConfiguration(ctx, acctCreds, bucketName)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading bucket object lock configuration", err.Error())
+		return
+	}
+	state.ObjectLockEnabled = types.BoolValue(objectLock)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -222,14 +260,31 @@ func (r *BucketResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	if !plan.VersioningEnabled.Equal(state.VersioningEnabled) {
-		bucketName := plan.Name.ValueString()
-		acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	bucketName := plan.Name.ValueString()
+	acctCreds, err := r.accounts.For(ctx, plan.AccountName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+		return
+	}
+
+	// State written before object_lock_enabled existed, and not refreshed
+	// since, has no value for it, so the plan didn't compare it with the
+	// bucket.
+	if state.ObjectLockEnabled.IsNull() {
+		objectLock, _, err := r.s3Client.GetObjectLockConfiguration(ctx, acctCreds, bucketName)
 		if err != nil {
-			resp.Diagnostics.AddError("Error getting account credentials", err.Error())
+			resp.Diagnostics.AddError("Error reading bucket object lock configuration", err.Error())
 			return
 		}
+		if !plan.ObjectLockEnabled.IsUnknown() && plan.ObjectLockEnabled.ValueBool() != objectLock {
+			resp.Diagnostics.AddAttributeError(path.Root("object_lock_enabled"), "Object lock can't be changed in place",
+				fmt.Sprintf("Bucket %q has object_lock_enabled = %v. Object lock can only be set when the bucket is created; refresh and apply again to plan the replacement.", bucketName, objectLock))
+			return
+		}
+		plan.ObjectLockEnabled = types.BoolValue(objectLock)
+	}
 
+	if !plan.VersioningEnabled.Equal(state.VersioningEnabled) {
 		unlock := r.s3Client.LockBucket(bucketName)
 		defer unlock()
 		if err := r.s3Client.PutBucketVersioning(ctx, acctCreds, bucketName, plan.VersioningEnabled.ValueBool()); err != nil {
@@ -260,7 +315,7 @@ func (r *BucketResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	unlock := r.s3Client.LockBucket(bucketName)
 	defer unlock()
 	if state.ForceDestroy.ValueBool() {
-		if err := r.s3Client.EmptyBucket(ctx, acctCreds, bucketName); err != nil && !client.IsNoSuchBucket(err) {
+		if err := r.s3Client.EmptyBucket(ctx, acctCreds, bucketName, state.ObjectLockEnabled.ValueBool()); err != nil && !client.IsNoSuchBucket(err) {
 			resp.Diagnostics.AddError("Error emptying bucket", err.Error())
 			return
 		}
@@ -299,6 +354,13 @@ func isDefaultLocation(v types.String) bool {
 		return false
 	}
 	return v.IsNull() || v.ValueString() == "" || v.ValueString() == defaultLocation
+}
+
+// objectLockChanged replaces the bucket when object_lock_enabled changes,
+// but not when state predates the attribute (null) or the plan doesn't know
+// it yet: neither is a change to the bucket.
+func objectLockChanged(_ context.Context, req planmodifier.BoolRequest, resp *boolplanmodifier.RequiresReplaceIfFuncResponse) {
+	resp.RequiresReplace = !req.StateValue.IsNull() && !req.PlanValue.IsUnknown()
 }
 
 // locationChanged replaces the bucket only when the location really changes:
