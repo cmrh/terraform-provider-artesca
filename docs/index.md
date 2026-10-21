@@ -89,6 +89,7 @@ An argument that is unset or `""` takes its environment variable, then its defau
 | [data.artesca_endpoints](data-sources/endpoints.md) | List all data-service endpoints |
 | [data.artesca_user](data-sources/user.md) / [data.artesca_group](data-sources/group.md) / [data.artesca_role](data-sources/role.md) / [data.artesca_policy](data-sources/policy.md) | Look up existing IAM objects |
 | [data.artesca_caller_identity](data-sources/caller_identity.md) | Resolve identity for an access key via STS `GetCallerIdentity` |
+| [data.artesca_bucket](data-sources/bucket.md) | Look up an existing bucket: location, versioning, object lock and tags |
 | [data.artesca_bucket_workflows](data-sources/bucket_workflows.md) | List workflows (replication / expiration / transition) on a bucket |
 
 ## Ephemeral Resources

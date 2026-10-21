@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `artesca_bucket.object_lock_enabled` creates the bucket with object lock, which also enables versioning. It can only be set at creation, so changing it replaces the bucket; `versioning_enabled = false` with it is rejected. When unset, it reports the bucket's state.
   - New `artesca_bucket_object_lock` resource sets an object-lock bucket's default retention: `retention_mode` (`GOVERNANCE` or `COMPLIANCE`) and exactly one of `retention_days` or `retention_years`. Destroying it removes the default retention.
   - `artesca_bucket.force_destroy` on an object-lock bucket deletes versions under GOVERNANCE retention; a version still under COMPLIANCE retention stops the destroy with an error naming it and its retain-until date.
+- **`artesca_bucket` data source (#149).** Looks up an existing bucket by `name` and `account_name` and returns `arn`, `location_constraint` (`us-east-1` for the default location), `versioning_enabled`, `object_lock_enabled` and `tags`.
 
 ### Changed
 
