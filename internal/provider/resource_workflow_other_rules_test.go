@@ -175,10 +175,9 @@ func testAccCheckBucketXMLContains(bucketResource, subresource string, fragments
 	}
 }
 
-// A rule created outside Terraform keeps the parts the resource doesn't model
-// (a tag in an And filter, a noncurrent-version action) when imported and
-// updated.
-func TestAccWorkflowExpiration_importKeepsUnmodelledParts(t *testing.T) {
+// A rule created outside Terraform with a tag in an And filter and a
+// noncurrent-version action imports with both, and keeps both when updated.
+func TestAccWorkflowExpiration_importReadsFilterAndActions(t *testing.T) {
 	rAcct, rBucket := randomName("tf-acc"), randomName("tf-acc-bkt")
 	base := testAccAccountConfig(rAcct) + testAccBucketConfig("test", rBucket, "null", true)
 	rule := `<LifecycleConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ID>outside</ID>` +
@@ -198,10 +197,12 @@ resource "artesca_bucket_workflow_expiration" "test" {
   rule_id      = "outside"
   enabled      = true
 
-  current_version_trigger_delay_days = %d
+  current_version_trigger_delay_days  = %d
+  previous_version_trigger_delay_days = 7
 
   filter {
     object_key_prefix = "logs/"
+    object_tags       = { team = "a" }
   }
 }
 `, rAcct, rBucket, days)
@@ -214,7 +215,8 @@ resource "artesca_bucket_workflow_expiration" "test" {
 		Steps: []resource.TestStep{
 			{Config: base, Check: testAccPutBucketXML("artesca_bucket.test", "lifecycle", rule)},
 			{
-				// The prefix inside Filter/And is read, so the import plans nothing.
+				// The prefix and tag inside Filter/And and the noncurrent
+				// action are read, so the import plans nothing.
 				Config: managed(30),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_bucket_workflow_expiration.test", plancheck.ResourceActionNoop)},

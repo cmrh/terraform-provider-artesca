@@ -490,6 +490,41 @@ func TestRoleSessionName(t *testing.T) {
 	})
 }
 
+func TestDate(t *testing.T) {
+	testStringCases(t, Date{}, map[string]bool{
+		"2027-01-01":           true,
+		"2028-02-29":           true,
+		"2027-02-29":           false,
+		"2027-1-1":             false,
+		"2027-01-01T00:00:00Z": false,
+		"":                     false,
+	})
+}
+
+func TestOneOf(t *testing.T) {
+	testStringCases(t, OneOf{Values: []string{"current", "noncurrent"}}, map[string]bool{
+		"current":    true,
+		"noncurrent": true,
+		"Current":    false,
+		"":           false,
+	})
+}
+
+func TestMapNotEmpty(t *testing.T) {
+	ctx := context.Background()
+	for n, ok := range map[int]bool{0: false, 1: true} {
+		elems := map[string]attr.Value{}
+		for i := range n {
+			elems[strconv.Itoa(i)] = types.StringValue("v")
+		}
+		resp := &validator.MapResponse{}
+		MapNotEmpty{}.ValidateMap(ctx, validator.MapRequest{Path: path.Root("test"), ConfigValue: types.MapValueMust(types.StringType, elems)}, resp)
+		if resp.Diagnostics.HasError() == ok {
+			t.Errorf("%d elements: error = %v, want valid %v", n, resp.Diagnostics, ok)
+		}
+	}
+}
+
 func TestRetentionMode(t *testing.T) {
 	testStringCases(t, RetentionMode{}, map[string]bool{
 		"GOVERNANCE": true,

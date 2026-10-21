@@ -9,7 +9,10 @@ import (
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
+	"github.com/cmrh/terraform-provider-artesca/internal/resources/lifecycle"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -20,9 +23,10 @@ import (
 )
 
 var (
-	_ resource.Resource                 = &WorkflowExpirationResource{}
-	_ resource.ResourceWithImportState  = &WorkflowExpirationResource{}
-	_ resource.ResourceWithUpgradeState = &WorkflowExpirationResource{}
+	_ resource.Resource                   = &WorkflowExpirationResource{}
+	_ resource.ResourceWithImportState    = &WorkflowExpirationResource{}
+	_ resource.ResourceWithUpgradeState   = &WorkflowExpirationResource{}
+	_ resource.ResourceWithValidateConfig = &WorkflowExpirationResource{}
 )
 
 type WorkflowExpirationResource struct {
@@ -71,8 +75,33 @@ func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.Schema
 				Required:    true,
 			},
 			"current_version_trigger_delay_days": schema.Int64Attribute{
-				Description: "Number of days after which current version objects expire. Must be at least 1.",
-				Required:    true,
+				Description: "Number of days after which current versions expire. Must be at least 1. Conflicts with `current_version_trigger_delay_date` and `expire_delete_markers`.",
+				Optional:    true,
+				Validators: []validator.Int64{
+					validators.Int64AtLeast{Min: 1},
+				},
+			},
+			"current_version_trigger_delay_date": schema.StringAttribute{
+				Description: "Date (YYYY-MM-DD, midnight UTC) on which current versions expire. Conflicts with `current_version_trigger_delay_days` and `expire_delete_markers`.",
+				Optional:    true,
+				Validators: []validator.String{
+					validators.Date{},
+				},
+			},
+			"expire_delete_markers": schema.BoolAttribute{
+				Description: "Remove delete markers that have no noncurrent versions left behind them. Conflicts with the current-version days or date, and with `filter.object_tags`.",
+				Optional:    true,
+			},
+			"previous_version_trigger_delay_days": schema.Int64Attribute{
+				Description: "Number of days after an object version becomes noncurrent before it expires. Must be at least 1.",
+				Optional:    true,
+				Validators: []validator.Int64{
+					validators.Int64AtLeast{Min: 1},
+				},
+			},
+			"incomplete_multipart_upload_trigger_delay_days": schema.Int64Attribute{
+				Description: "Number of days after a multipart upload starts before an incomplete upload is aborted and its parts deleted. Must be at least 1. Conflicts with `filter.object_tags`.",
+				Optional:    true,
 				Validators: []validator.Int64{
 					validators.Int64AtLeast{Min: 1},
 				},
@@ -86,9 +115,69 @@ func (r *WorkflowExpirationResource) Schema(_ context.Context, _ resource.Schema
 						Description: "Object key prefix filter.",
 						Optional:    true,
 					},
+					"object_tags": schema.MapAttribute{
+						Description: "Object tags filter: the rule applies to objects that have all of these tags.",
+						Optional:    true,
+						ElementType: types.StringType,
+						Validators: []validator.Map{
+							validators.MapNotEmpty{},
+						},
+					},
 				},
 			},
 		},
+	}
+}
+
+// ValidateConfig rejects rules ARTESCA refuses: a rule without an action, two
+// timings for current versions, and tag filters with actions that don't
+// support them.
+func (r *WorkflowExpirationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config WorkflowExpirationResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	days := config.CurrentVersionTriggerDelayDays
+	date := config.CurrentVersionTriggerDelayDate
+	markers := config.ExpireDeleteMarkers
+	previous := config.PreviousVersionTriggerDelayDays
+	multipart := config.IncompleteMultipartUploadTriggerDelayDays
+	var tags types.Map
+	if config.Filter != nil {
+		tags = config.Filter.ObjectTags
+	}
+
+	set := func(v attr.Value) bool { return !v.IsNull() && !v.IsUnknown() }
+	markersOn := set(markers) && markers.ValueBool()
+
+	if set(days) && set(date) {
+		resp.Diagnostics.AddAttributeError(path.Root("current_version_trigger_delay_date"), "Conflicting expiration",
+			"Set current_version_trigger_delay_days or current_version_trigger_delay_date, not both.")
+	}
+	if markersOn && (set(days) || set(date)) {
+		resp.Diagnostics.AddAttributeError(path.Root("expire_delete_markers"), "Conflicting expiration",
+			"expire_delete_markers can't be combined with current_version_trigger_delay_days or current_version_trigger_delay_date.")
+	}
+	if set(tags) && markersOn {
+		resp.Diagnostics.AddAttributeError(path.Root("filter").AtName("object_tags"), "Tag filter not supported",
+			"A rule with filter.object_tags can't set expire_delete_markers.")
+	}
+	if set(tags) && set(multipart) {
+		resp.Diagnostics.AddAttributeError(path.Root("filter").AtName("object_tags"), "Tag filter not supported",
+			"A rule with filter.object_tags can't set incomplete_multipart_upload_trigger_delay_days.")
+	}
+
+	// A value unknown at validation may still provide the action.
+	for _, v := range []attr.Value{days, date, markers, previous, multipart} {
+		if v.IsUnknown() {
+			return
+		}
+	}
+	if !set(days) && !set(date) && !markersOn && !set(previous) && !set(multipart) {
+		resp.Diagnostics.AddError("Missing expiration action",
+			"Set at least one of current_version_trigger_delay_days, current_version_trigger_delay_date, expire_delete_markers = true, previous_version_trigger_delay_days or incomplete_multipart_upload_trigger_delay_days.")
 	}
 }
 
@@ -135,7 +224,11 @@ func (r *WorkflowExpirationResource) Create(ctx context.Context, req resource.Cr
 		ruleID = client.NewRuleID()
 	}
 
-	newRule := modelToLifecycleRule(&plan, ruleID)
+	newRule, diags := modelToLifecycleRule(ctx, &plan, ruleID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	unlock := r.s3.LockBucket(bucket)
 	defer unlock()
@@ -201,7 +294,10 @@ func (r *WorkflowExpirationResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	lifecycleRuleToModel(found, &state)
+	resp.Diagnostics.Append(lifecycleRuleToModel(ctx, found, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -230,13 +326,17 @@ func (r *WorkflowExpirationResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	updated := modelToLifecycleRule(&plan, ruleID)
+	updated, diags := modelToLifecycleRule(ctx, &plan, ruleID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	rules := make([]client.LifecycleRule, 0, len(existing))
 	replaced := false
 	for _, rule := range existing {
 		if rule.ID == ruleID {
 			// Keep the parts of the rule this resource doesn't model.
-			merged, err := rule.Updated(updated)
+			merged, err := rule.Updated(updated, client.ScopeExpiration)
 			if err != nil {
 				resp.Diagnostics.AddError("Error updating expiration lifecycle rule", err.Error())
 				return
@@ -333,39 +433,58 @@ func (r *WorkflowExpirationResource) ImportState(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("rule_id"), parts[1])...)
 }
 
-func modelToLifecycleRule(model *WorkflowExpirationResourceModel, ruleID string) client.LifecycleRule {
+func modelToLifecycleRule(ctx context.Context, model *WorkflowExpirationResourceModel, ruleID string) (client.LifecycleRule, diag.Diagnostics) {
 	status := "Disabled"
 	if model.Enabled.ValueBool() {
 		status = "Enabled"
 	}
 
 	rule := client.LifecycleRule{
-		ID:             ruleID,
-		Status:         status,
-		ExpirationDays: int(model.CurrentVersionTriggerDelayDays.ValueInt64()),
+		ID:                        ruleID,
+		Status:                    status,
+		ExpirationDays:            int(model.CurrentVersionTriggerDelayDays.ValueInt64()),
+		ExpirationDate:            model.CurrentVersionTriggerDelayDate.ValueString(),
+		ExpiredObjectDeleteMarker: model.ExpireDeleteMarkers.ValueBool(),
+		NoncurrentExpirationDays:  int(model.PreviousVersionTriggerDelayDays.ValueInt64()),
+		AbortMultipartDays:        int(model.IncompleteMultipartUploadTriggerDelayDays.ValueInt64()),
 	}
 
-	if model.Filter != nil && !model.Filter.ObjectKeyPrefix.IsNull() {
+	var diags diag.Diagnostics
+	if model.Filter != nil {
 		rule.Prefix = model.Filter.ObjectKeyPrefix.ValueString()
+		rule.Tags, diags = lifecycle.TagsFromMap(ctx, model.Filter.ObjectTags)
 	}
-
-	return rule
+	return rule, diags
 }
 
-func lifecycleRuleToModel(rule *client.LifecycleRule, model *WorkflowExpirationResourceModel) {
+func lifecycleRuleToModel(ctx context.Context, rule *client.LifecycleRule, model *WorkflowExpirationResourceModel) diag.Diagnostics {
 	model.Enabled = types.BoolValue(rule.Status == "Enabled")
-	model.CurrentVersionTriggerDelayDays = types.Int64Value(int64(rule.ExpirationDays))
-	switch {
-	case model.Filter != nil:
-		// An unset prefix is stored as ""; keep it null so it doesn't diff.
-		if !model.Filter.ObjectKeyPrefix.IsNull() || rule.Prefix != "" {
-			model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
-		}
-	case rule.Prefix != "":
-		// No filter block in state (e.g. after import): surface the server's
-		// prefix so it round-trips and out-of-band changes show as drift.
-		model.Filter = &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue(rule.Prefix)}
+	model.CurrentVersionTriggerDelayDays = lifecycle.PositiveInt64(rule.ExpirationDays)
+	model.CurrentVersionTriggerDelayDate = lifecycle.NonEmptyString(rule.ExpirationDate)
+	model.PreviousVersionTriggerDelayDays = lifecycle.PositiveInt64(rule.NoncurrentExpirationDays)
+	model.IncompleteMultipartUploadTriggerDelayDays = lifecycle.PositiveInt64(rule.AbortMultipartDays)
+	// An absent delete-marker action matches a configured false.
+	if rule.ExpiredObjectDeleteMarker || model.ExpireDeleteMarkers.ValueBool() {
+		model.ExpireDeleteMarkers = types.BoolValue(rule.ExpiredObjectDeleteMarker)
 	}
+
+	filter, diags := lifecycle.FilterToModel(ctx, rule, model.Filter.toCommon())
+	model.Filter = fromCommon(filter)
+	return diags
+}
+
+func (f *WorkflowFilterModel) toCommon() *lifecycle.Filter {
+	if f == nil {
+		return nil
+	}
+	return &lifecycle.Filter{ObjectKeyPrefix: f.ObjectKeyPrefix, ObjectTags: f.ObjectTags}
+}
+
+func fromCommon(f *lifecycle.Filter) *WorkflowFilterModel {
+	if f == nil {
+		return nil
+	}
+	return &WorkflowFilterModel{ObjectKeyPrefix: f.ObjectKeyPrefix, ObjectTags: f.ObjectTags}
 }
 
 // UpgradeState migrates v0 state, which held the account's access key pair,

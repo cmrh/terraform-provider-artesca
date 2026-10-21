@@ -7,7 +7,10 @@ import (
 	"net"
 	"net/mail"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -412,6 +415,78 @@ func (v ListNotEmpty) ValidateList(_ context.Context, req validator.ListRequest,
 	if len(req.ConfigValue.Elements()) == 0 {
 		resp.Diagnostics.AddAttributeError(req.Path, "Empty list", "Must have at least one element; omit the argument instead.")
 	}
+}
+
+// MapNotEmpty validates that a map, when set, has at least one element.
+type MapNotEmpty struct{}
+
+func (v MapNotEmpty) Description(_ context.Context) string {
+	return "must have at least one element"
+}
+
+func (v MapNotEmpty) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v MapNotEmpty) ValidateMap(_ context.Context, req validator.MapRequest, resp *validator.MapResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if len(req.ConfigValue.Elements()) == 0 {
+		resp.Diagnostics.AddAttributeError(req.Path, "Empty map", "Must have at least one element; omit the argument instead.")
+	}
+}
+
+// Date validates a calendar date in YYYY-MM-DD form.
+type Date struct{}
+
+func (v Date) Description(_ context.Context) string {
+	return "must be a date in YYYY-MM-DD form"
+}
+
+func (v Date) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v Date) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if _, err := time.Parse(time.DateOnly, req.ConfigValue.ValueString()); err != nil {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid date",
+			fmt.Sprintf("Must be a date in YYYY-MM-DD form, got %q.", req.ConfigValue.ValueString()))
+	}
+}
+
+// OneOf validates that a string is one of Values.
+type OneOf struct {
+	Values []string
+}
+
+func (v OneOf) Description(_ context.Context) string {
+	return fmt.Sprintf("must be one of %s", quotedList(v.Values))
+}
+
+func (v OneOf) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v OneOf) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if !slices.Contains(v.Values, req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid value",
+			fmt.Sprintf("Must be one of %s, got %q.", quotedList(v.Values), req.ConfigValue.ValueString()))
+	}
+}
+
+func quotedList(values []string) string {
+	quoted := make([]string, len(values))
+	for i, s := range values {
+		quoted[i] = strconv.Quote(s)
+	}
+	return strings.Join(quoted, ", ")
 }
 
 // Int64Between validates that an integer is between Min and Max, inclusive.

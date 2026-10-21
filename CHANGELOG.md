@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `artesca_bucket_object_lock` resource sets an object-lock bucket's default retention: `retention_mode` (`GOVERNANCE` or `COMPLIANCE`) and exactly one of `retention_days` or `retention_years`. Destroying it removes the default retention.
   - `artesca_bucket.force_destroy` on an object-lock bucket deletes versions under GOVERNANCE retention; a version still under COMPLIANCE retention stops the destroy with an error naming it and its retain-until date.
 - **`artesca_bucket` data source (#149).** Looks up an existing bucket by `name` and `account_name` and returns `arn`, `location_constraint` (`us-east-1` for the default location), `versioning_enabled`, `object_lock_enabled` and `tags`.
+- **Lifecycle workflow actions (#145).**
+  - `artesca_bucket_workflow_expiration`: new `current_version_trigger_delay_date`, `expire_delete_markers`, `previous_version_trigger_delay_days` (noncurrent versions) and `incomplete_multipart_upload_trigger_delay_days`. `current_version_trigger_delay_days` is now optional; a rule must set at least one action.
+  - `artesca_bucket_workflow_transition`: new `apply_to_version` (`current`, the default, or `noncurrent`) and `trigger_delay_date`. `trigger_delay_days` is now optional; exactly one of the days or the date must be set, and `noncurrent` takes days.
+  - Both: new `filter.object_tags`.
+  - Combinations ARTESCA rejects are reported at plan time: two timings for current versions, delete markers with a current-version timing, and tag filters with delete-marker or multipart-upload actions.
+  - Updating a rule changes only the actions the resource manages; other actions and filter conditions in the rule are kept.
 
 ### Changed
 
