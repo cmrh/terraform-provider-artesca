@@ -74,6 +74,48 @@ func TestSTSWebIdentityRetriesTransientGatewayStatus(t *testing.T) {
 	}
 }
 
+func TestOIDCRetriesTransientGatewayStatus(t *testing.T) {
+	for _, status := range []int{http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout} {
+		var attempts int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = r.ParseForm()
+			if r.Form.Get("password") != "pass" {
+				t.Errorf("%d: attempt %d sent password %q, want the form resent", status, atomic.LoadInt32(&attempts)+1, r.Form.Get("password"))
+			}
+			if atomic.AddInt32(&attempts, 1) == 1 {
+				w.WriteHeader(status)
+				return
+			}
+			_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":300,"token_type":"bearer"}`))
+		}))
+		ts := NewOIDCTokenSource(srv.URL, "realm", "client", "openid", "user", "pass", false)
+		ts.transientBackoffOverride = time.Millisecond
+		token, err := ts.Token(context.Background())
+		srv.Close()
+		if err != nil {
+			t.Fatalf("%d: Token returned error: %v", status, err)
+		}
+		if token != "tok" {
+			t.Errorf("%d: token = %q, want tok", status, token)
+		}
+		if got := atomic.LoadInt32(&attempts); got != 2 {
+			t.Errorf("%d: attempts = %d, want 2", status, got)
+		}
+	}
+}
+
+func TestOIDCNoRetryOnAuthError(t *testing.T) {
+	srv, attempts := failFirst(t, http.StatusUnauthorized, "")
+	ts := NewOIDCTokenSource(srv.URL, "realm", "client", "openid", "user", "badpass", false)
+	ts.transientBackoffOverride = time.Millisecond
+	if _, err := ts.Token(context.Background()); err == nil {
+		t.Fatal("expected error for 401")
+	}
+	if got := atomic.LoadInt32(attempts); got != 1 {
+		t.Errorf("attempts = %d, want 1", got)
+	}
+}
+
 func TestSendWithTransientRetryHonoursContext(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusGatewayTimeout)

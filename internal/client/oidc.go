@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,9 +27,19 @@ type OIDCTokenSource struct {
 	password   string
 	httpClient *http.Client
 
+	// transientBackoffOverride shortens the gateway retry backoff in tests.
+	transientBackoffOverride time.Duration
+
 	mu          sync.Mutex
 	cachedToken string
 	tokenExpiry time.Time
+}
+
+func (s *OIDCTokenSource) transientBackoff() time.Duration {
+	if s.transientBackoffOverride > 0 {
+		return s.transientBackoffOverride
+	}
+	return transientGatewayBackoff
 }
 
 type oidcTokenResponse struct {
@@ -77,25 +86,23 @@ func (s *OIDCTokenSource) Token(ctx context.Context) (string, error) {
 		"scope":      {s.scope},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("creating OIDC token request: %w", err)
+	encoded := data.Encode()
+	newReq := func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(encoded))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", contentTypeForm)
+		return req, nil
 	}
-	req.Header.Set("Content-Type", contentTypeForm)
 
-	resp, err := s.httpClient.Do(req)
+	body, status, err := sendWithTransientRetry(ctx, s.httpClient, s.transientBackoff(), newReq)
 	if err != nil {
 		return "", fmt.Errorf("requesting OIDC token: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return "", fmt.Errorf("reading OIDC token response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OIDC token request failed (status %d): %s", resp.StatusCode, string(body))
+	if status != http.StatusOK {
+		return "", fmt.Errorf("OIDC token request failed (status %d): %s", status, string(body))
 	}
 
 	var tokenResp oidcTokenResponse

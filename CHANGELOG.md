@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Cross-region replication destinations in `artesca_bucket_workflow_replication` (#143).** The new `destination_role` argument sets the IAM role on the remote site for a `location-scality-crr-v1` destination. The provider writes the bucket's replication `Role` as the source and destination roles while any rule targets a CRR location, and drops the destination role when the last such rule is removed.
 
+### Changed
+
+- **OIDC token requests are retried on 502/503/504 (#150)**, like IAM, STS and S3 requests, instead of failing the plan or apply on the first gateway error.
+
 ## [1.1.0] - 2026-10-19
 
 ### Added
