@@ -490,6 +490,16 @@ func TestRoleSessionName(t *testing.T) {
 	})
 }
 
+func TestRetentionMode(t *testing.T) {
+	testStringCases(t, RetentionMode{}, map[string]bool{
+		"GOVERNANCE": true,
+		"COMPLIANCE": true,
+		"governance": false,
+		"LEGAL_HOLD": false,
+		"":           false,
+	})
+}
+
 func TestMapSizeBetween(t *testing.T) {
 	ctx := context.Background()
 	mapOf := func(n int) types.Map {

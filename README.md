@@ -60,6 +60,7 @@ Account-scoped resources (IAM and S3) identify their account with `account_name`
 | `artesca_account` | Manage ARTESCA accounts (S3 users) |
 | `artesca_bucket` | Manage S3 buckets on the ARTESCA S3 endpoint |
 | `artesca_bucket_encryption` | Server-side encryption configuration (SSE-S3 / `AES256`) |
+| `artesca_bucket_object_lock` | Default retention (GOVERNANCE / COMPLIANCE) on an object-lock bucket |
 | `artesca_bucket_policy` | Bucket policy via S3 `PutBucketPolicy` |
 | `artesca_bucket_tagging` | Bucket tag set management |
 | `artesca_location` | Manage storage locations (AWS S3, Azure, GCP, Scality RING, etc.) |

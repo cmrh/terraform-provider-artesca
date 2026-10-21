@@ -202,7 +202,7 @@ func TestAccAccount_deleteNotEmpty(t *testing.T) {
 			{Config: config},
 			{
 				PreConfig: testAccOutOfBandS3(t, rAcct, func(ctx context.Context, s3 *client.S3Client, c client.Credentials) error {
-					return s3.CreateBucket(ctx, c, bucket, "")
+					return s3.CreateBucket(ctx, c, bucket, "", false)
 				}),
 				Config:      config,
 				Destroy:     true,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // ObjectVersion is one object version or delete marker in a bucket.
@@ -70,9 +71,14 @@ func (c *S3Client) ListObjectVersions(ctx context.Context, creds Credentials, bu
 }
 
 // DeleteObjectVersion permanently deletes one object version or delete
-// marker. A version that is already gone counts as deleted.
-func (c *S3Client) DeleteObjectVersion(ctx context.Context, creds Credentials, bucket, key, versionID string) error {
-	_, status, _, err := c.doSignedRequestQuery(ctx, http.MethodDelete, "/"+bucket+"/"+key, url.Values{"versionId": {versionID}}, "", creds)
+// marker. A version that is already gone counts as deleted. bypassGovernance
+// also deletes a version under GOVERNANCE retention.
+func (c *S3Client) DeleteObjectVersion(ctx context.Context, creds Credentials, bucket, key, versionID string, bypassGovernance bool) error {
+	var headers map[string]string
+	if bypassGovernance {
+		headers = map[string]string{"x-amz-bypass-governance-retention": "true"}
+	}
+	_, status, _, err := c.doSignedRequestHeaders(ctx, http.MethodDelete, "/"+bucket+"/"+key, url.Values{"versionId": {versionID}}, "", headers, creds)
 	if err != nil && !IsNoSuchKey(err) {
 		return fmt.Errorf("delete object %q version %q: %w", key, versionID, err)
 	}
@@ -83,15 +89,25 @@ func (c *S3Client) DeleteObjectVersion(ctx context.Context, creds Credentials, b
 }
 
 // EmptyBucket deletes every object version and delete marker in the bucket.
-func (c *S3Client) EmptyBucket(ctx context.Context, creds Credentials, bucket string) error {
+// On an object-lock bucket, objectLock bypasses GOVERNANCE retention; a
+// version still under COMPLIANCE retention stops it with an error naming the
+// version and its retain-until date.
+func (c *S3Client) EmptyBucket(ctx context.Context, creds Credentials, bucket string, objectLock bool) error {
 	versions, err := c.ListObjectVersions(ctx, creds, bucket)
 	if err != nil {
 		return err
 	}
 	for _, v := range versions {
-		if err := c.DeleteObjectVersion(ctx, creds, bucket, v.Key, v.VersionID); err != nil {
-			return err
+		err := c.DeleteObjectVersion(ctx, creds, bucket, v.Key, v.VersionID, objectLock)
+		if err == nil {
+			continue
 		}
+		if objectLock && strings.Contains(err.Error(), "AccessDenied:") {
+			if mode, until, rerr := c.GetObjectRetention(ctx, creds, bucket, v.Key, v.VersionID); rerr == nil && mode == "COMPLIANCE" {
+				return fmt.Errorf("object %q version %q is under COMPLIANCE retention until %s and can't be deleted before then", v.Key, v.VersionID, until)
+			}
+		}
+		return err
 	}
 	return nil
 }

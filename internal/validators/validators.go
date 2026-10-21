@@ -234,6 +234,28 @@ func (v SSEAlgorithm) ValidateString(_ context.Context, req validator.StringRequ
 	}
 }
 
+// RetentionMode validates an object lock retention mode.
+type RetentionMode struct{}
+
+func (v RetentionMode) Description(_ context.Context) string {
+	return `must be "GOVERNANCE" or "COMPLIANCE"`
+}
+
+func (v RetentionMode) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v RetentionMode) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	val := req.ConfigValue.ValueString()
+	if val != "GOVERNANCE" && val != "COMPLIANCE" {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid retention mode",
+			fmt.Sprintf("Must be \"GOVERNANCE\" or \"COMPLIANCE\", got %q.", val))
+	}
+}
+
 // RuleID validates S3 lifecycle and replication rule IDs: 1–255 characters.
 type RuleID struct{}
 

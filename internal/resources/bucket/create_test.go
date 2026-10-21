@@ -66,6 +66,7 @@ func TestCreateSavesBucketWhenVersioningFails(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "bkt"),
 		"location_constraint": tftypes.NewValue(tftypes.String, nil),
 		"versioning_enabled":  tftypes.NewValue(tftypes.Bool, true),
+		"object_lock_enabled": tftypes.NewValue(tftypes.Bool, false),
 		"account_name":        tftypes.NewValue(tftypes.String, "app"),
 		"force_destroy":       tftypes.NewValue(tftypes.Bool, nil),
 	})
@@ -96,6 +97,9 @@ func fakeBucketS3(t *testing.T, versions map[string]bool) http.HandlerFunc {
 			}
 			_, _ = w.Write([]byte(body + `</ListVersionsResult>`))
 		case req.Method == http.MethodDelete && req.URL.Path == "/bkt/obj":
+			if req.Header.Get("X-Amz-Bypass-Governance-Retention") != "" {
+				t.Errorf("bypass header sent on a bucket without object lock")
+			}
 			delete(versions, req.URL.Query().Get("versionId"))
 			w.WriteHeader(http.StatusNoContent)
 		case req.Method == http.MethodDelete && req.URL.Path == "/bkt":
@@ -111,7 +115,7 @@ func fakeBucketS3(t *testing.T, versions map[string]bool) http.HandlerFunc {
 	}
 }
 
-func deleteBucket(t *testing.T, r *BucketResource, forceDestroy bool) *resource.DeleteResponse {
+func deleteBucket(t *testing.T, r *BucketResource, forceDestroy, objectLock bool) *resource.DeleteResponse {
 	t.Helper()
 	ctx := context.Background()
 	schemaResp := &resource.SchemaResponse{}
@@ -121,6 +125,7 @@ func deleteBucket(t *testing.T, r *BucketResource, forceDestroy bool) *resource.
 		"name":                tftypes.NewValue(tftypes.String, "bkt"),
 		"location_constraint": tftypes.NewValue(tftypes.String, nil),
 		"versioning_enabled":  tftypes.NewValue(tftypes.Bool, true),
+		"object_lock_enabled": tftypes.NewValue(tftypes.Bool, objectLock),
 		"account_name":        tftypes.NewValue(tftypes.String, "app"),
 		"force_destroy":       tftypes.NewValue(tftypes.Bool, forceDestroy),
 	})
@@ -131,7 +136,7 @@ func deleteBucket(t *testing.T, r *BucketResource, forceDestroy bool) *resource.
 
 func TestDeleteNonEmptyBucket(t *testing.T) {
 	versions := map[string]bool{"v1": true, "v2": true}
-	resp := deleteBucket(t, newTestBucketResource(t, fakeBucketS3(t, versions)), false)
+	resp := deleteBucket(t, newTestBucketResource(t, fakeBucketS3(t, versions)), false, false)
 	if !resp.Diagnostics.HasError() || resp.Diagnostics.Errors()[0].Summary() != "Bucket not empty" {
 		t.Fatalf("diagnostics = %v, want Bucket not empty", resp.Diagnostics)
 	}
@@ -142,7 +147,7 @@ func TestDeleteNonEmptyBucket(t *testing.T) {
 
 func TestDeleteForceDestroyEmptiesBucket(t *testing.T) {
 	versions := map[string]bool{"v1": true, "v2": true}
-	resp := deleteBucket(t, newTestBucketResource(t, fakeBucketS3(t, versions)), true)
+	resp := deleteBucket(t, newTestBucketResource(t, fakeBucketS3(t, versions)), true, false)
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("diagnostics = %v", resp.Diagnostics)
 	}

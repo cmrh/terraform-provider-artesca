@@ -9,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -162,7 +164,14 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 // owns a bucket with that name.
 var ErrBucketAlreadyOwned = errors.New("bucket already exists and is owned by this account")
 
-func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, locationConstraint string) error {
+// CreateBucket creates bucket in locationConstraint ("" for the default
+// location). objectLock creates it with object lock enabled, which also
+// enables versioning; object lock can't be enabled on an existing bucket.
+func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, locationConstraint string, objectLock bool) error {
+	var headers map[string]string
+	if objectLock {
+		headers = map[string]string{"x-amz-bucket-object-lock-enabled": "true"}
+	}
 	var body string
 	if locationConstraint != "" {
 		body = fmt.Sprintf(
@@ -175,7 +184,7 @@ func (c *S3Client) CreateBucket(ctx context.Context, creds Credentials, bucket, 
 	backoff := c.propagationBackoff()
 
 	for {
-		_, status, retried, err := c.doSignedRequestRetried(ctx, http.MethodPut, "/"+bucket, "", body, creds)
+		_, status, retried, err := c.doSignedRequestHeaders(ctx, http.MethodPut, "/"+bucket, nil, body, headers, creds)
 		if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
 			// After a gateway retry, the first attempt may be what created it.
 			if retried {
@@ -494,6 +503,12 @@ func (c *S3Client) doSignedRequestRetried(ctx context.Context, method, path, que
 // doSignedRequestQuery is doSignedRequestRetried with any query parameters.
 // path is unescaped ("/bucket/key"); each segment is URI-encoded.
 func (c *S3Client) doSignedRequestQuery(ctx context.Context, method, path string, query url.Values, body string, creds Credentials) ([]byte, int, bool, error) {
+	return c.doSignedRequestHeaders(ctx, method, path, query, body, nil, creds)
+}
+
+// doSignedRequestHeaders is doSignedRequestQuery with extra request headers.
+// Header names must be lowercase x-amz-* names; they are signed.
+func (c *S3Client) doSignedRequestHeaders(ctx context.Context, method, path string, query url.Values, body string, extra map[string]string, creds Credentials) ([]byte, int, bool, error) {
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
 		return nil, 0, false, fmt.Errorf("parsing endpoint: %w", err)
@@ -504,10 +519,19 @@ func (c *S3Client) doSignedRequestQuery(ctx context.Context, method, path string
 
 	path = sigV4EscapePath(path)
 	canonicalQueryString := sigV4CanonicalQuery(query)
-	signedHeaders := "host;x-amz-content-sha256;x-amz-date"
-	if creds.SessionToken != "" {
-		signedHeaders += ";x-amz-security-token"
+
+	// Every header but x-amz-date is the same on each attempt.
+	fixed := map[string]string{
+		"host":                 host,
+		"x-amz-content-sha256": payloadHash,
 	}
+	if creds.SessionToken != "" {
+		fixed["x-amz-security-token"] = creds.SessionToken
+	}
+	maps.Copy(fixed, extra)
+	headerNames := append(slices.Collect(maps.Keys(fixed)), "x-amz-date")
+	slices.Sort(headerNames)
+	signedHeaders := strings.Join(headerNames, ";")
 
 	fullURL := c.endpoint + path
 	if canonicalQueryString != "" {
@@ -528,16 +552,20 @@ func (c *S3Client) doSignedRequestQuery(ctx context.Context, method, path string
 		amzdate := now.Format("20060102T150405Z")
 
 		// SigV4 canonical headers must be alphabetically sorted by header name.
-		canonicalHeaders := fmt.Sprintf("host:%s\nx-amz-content-sha256:%s\nx-amz-date:%s\n", host, payloadHash, amzdate)
-		if creds.SessionToken != "" {
-			canonicalHeaders += fmt.Sprintf("x-amz-security-token:%s\n", creds.SessionToken)
+		var canonicalHeaders strings.Builder
+		for _, name := range headerNames {
+			value := fixed[name]
+			if name == "x-amz-date" {
+				value = amzdate
+			}
+			fmt.Fprintf(&canonicalHeaders, "%s:%s\n", name, value)
 		}
 
 		canonicalRequest := strings.Join([]string{
 			method,
 			path,
 			canonicalQueryString,
-			canonicalHeaders,
+			canonicalHeaders.String(),
 			signedHeaders,
 			payloadHash,
 		}, "\n")
@@ -561,12 +589,10 @@ func (c *S3Client) doSignedRequestQuery(ctx context.Context, method, path string
 			return nil, 0, retried, fmt.Errorf("creating request: %w", err)
 		}
 
-		req.Header.Set("Host", host)
-		req.Header.Set("X-Amz-Date", amzdate)
-		req.Header.Set("X-Amz-Content-Sha256", payloadHash)
-		if creds.SessionToken != "" {
-			req.Header.Set("X-Amz-Security-Token", creds.SessionToken)
+		for name, value := range fixed {
+			req.Header.Set(name, value)
 		}
+		req.Header.Set("X-Amz-Date", amzdate)
 		req.Header.Set("Authorization", authHeader)
 		if body != "" {
 			req.Header.Set("Content-Type", "application/xml")
