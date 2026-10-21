@@ -9,6 +9,7 @@ import (
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	accountds "github.com/cmrh/terraform-provider-artesca/internal/datasources/account"
 	accountsds "github.com/cmrh/terraform-provider-artesca/internal/datasources/accounts"
+	bucketds "github.com/cmrh/terraform-provider-artesca/internal/datasources/bucket"
 	bucketworkflowsds "github.com/cmrh/terraform-provider-artesca/internal/datasources/bucket_workflows"
 	calleridentityds "github.com/cmrh/terraform-provider-artesca/internal/datasources/caller_identity"
 	endpointsds "github.com/cmrh/terraform-provider-artesca/internal/datasources/endpoints"
@@ -335,6 +336,7 @@ func (p *ArtescaProvider) DataSources(_ context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		accountds.NewAccountDataSource,
 		accountsds.NewAccountsDataSource,
+		bucketds.NewBucketDataSource,
 		bucketworkflowsds.NewBucketWorkflowsDataSource,
 		calleridentityds.NewCallerIdentityDataSource,
 		endpointsds.NewEndpointsDataSource,

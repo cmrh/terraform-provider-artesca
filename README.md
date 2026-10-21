@@ -100,6 +100,7 @@ Account-scoped resources (IAM and S3) identify their account with `account_name`
 | `data.artesca_endpoints` | List all data-service endpoints |
 | `data.artesca_user` / `data.artesca_group` / `data.artesca_role` / `data.artesca_policy` | Look up existing IAM objects without managing them |
 | `data.artesca_caller_identity` | Resolve `account` / `user_id` / `arn` for an access key via STS `GetCallerIdentity` |
+| `data.artesca_bucket` | Look up an existing bucket: location, versioning, object lock and tags |
 | `data.artesca_bucket_workflows` | List the workflows (replication / expiration / transition) configured on a bucket |
 
 ## Ephemeral Resources
