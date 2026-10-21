@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-21
+
 ### Added
 
 - **Cross-region replication destinations in `artesca_bucket_workflow_replication` (#143).** The new `destination_role` argument sets the IAM role on the remote site for a `location-scality-crr-v1` destination. The provider writes the bucket's replication `Role` as the source and destination roles while any rule targets a CRR location, and drops the destination role when the last such rule is removed.
