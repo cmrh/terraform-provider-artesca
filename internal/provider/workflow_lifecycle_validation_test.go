@@ -30,6 +30,31 @@ resource "artesca_bucket_workflow_transition" "test" {
   trigger_delay_days = -1
 }
 `, `(?s)Value too small.*at least 0, got -1`},
+		{"expiration without an action", `
+resource "artesca_bucket_workflow_expiration" "test" {
+  account_name = "tf-acc-validate"
+  bucket_name  = "tf-acc-validate"
+  enabled      = true
+}
+`, `Missing expiration action`},
+		{"expiration date not YYYY-MM-DD", `
+resource "artesca_bucket_workflow_expiration" "test" {
+  account_name                       = "tf-acc-validate"
+  bucket_name                        = "tf-acc-validate"
+  enabled                            = true
+  current_version_trigger_delay_date = "2030-01-01T00:00:00Z"
+}
+`, `Invalid date`},
+		{"noncurrent transition with a date", `
+resource "artesca_bucket_workflow_transition" "test" {
+  account_name       = "tf-acc-validate"
+  bucket_name        = "tf-acc-validate"
+  enabled            = true
+  location_name      = "tf-acc-validate"
+  apply_to_version   = "noncurrent"
+  trigger_delay_date = "2030-01-01"
+}
+`, `Date not supported for noncurrent versions`},
 		{"rule_id longer than 255", `
 resource "artesca_bucket_workflow_expiration" "test" {
   account_name                       = "tf-acc-validate"

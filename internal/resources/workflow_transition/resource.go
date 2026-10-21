@@ -7,11 +7,14 @@ import (
 
 	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/cmrh/terraform-provider-artesca/internal/creds"
+	"github.com/cmrh/terraform-provider-artesca/internal/resources/lifecycle"
 	validators "github.com/cmrh/terraform-provider-artesca/internal/validators"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,9 +22,15 @@ import (
 )
 
 var (
-	_ resource.Resource                 = &WorkflowTransitionResource{}
-	_ resource.ResourceWithImportState  = &WorkflowTransitionResource{}
-	_ resource.ResourceWithUpgradeState = &WorkflowTransitionResource{}
+	_ resource.Resource                   = &WorkflowTransitionResource{}
+	_ resource.ResourceWithImportState    = &WorkflowTransitionResource{}
+	_ resource.ResourceWithUpgradeState   = &WorkflowTransitionResource{}
+	_ resource.ResourceWithValidateConfig = &WorkflowTransitionResource{}
+)
+
+const (
+	applyCurrent    = "current"
+	applyNoncurrent = "noncurrent"
 )
 
 type WorkflowTransitionResource struct {
@@ -69,15 +78,36 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 				Description: "Whether the lifecycle rule is enabled.",
 				Required:    true,
 			},
+			"apply_to_version": schema.StringAttribute{
+				Description: "Which object versions the rule transitions: `current` (default) or `noncurrent`. Changing it replaces the rule.",
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString(applyCurrent),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplaceIf(applyToVersionChanged,
+						"Changing apply_to_version replaces the rule.",
+						"Changing apply_to_version replaces the rule."),
+				},
+				Validators: []validator.String{
+					validators.OneOf{Values: []string{applyCurrent, applyNoncurrent}},
+				},
+			},
 			"location_name": schema.StringAttribute{
 				Description: "The destination location (storage class) for transitioning objects.",
 				Required:    true,
 			},
 			"trigger_delay_days": schema.Int64Attribute{
-				Description: "Number of days after which objects are transitioned. Must be at least 0.",
-				Required:    true,
+				Description: "Number of days after which objects are transitioned; for `noncurrent`, days after a version becomes noncurrent. Must be at least 0. Exactly one of `trigger_delay_days` and `trigger_delay_date` must be set; `noncurrent` requires `trigger_delay_days`.",
+				Optional:    true,
 				Validators: []validator.Int64{
 					validators.Int64AtLeast{Min: 0},
+				},
+			},
+			"trigger_delay_date": schema.StringAttribute{
+				Description: "Date (YYYY-MM-DD, midnight UTC) on which current versions are transitioned. Only with `apply_to_version = \"current\"`.",
+				Optional:    true,
+				Validators: []validator.String{
+					validators.Date{},
 				},
 			},
 		},
@@ -89,9 +119,42 @@ func (r *WorkflowTransitionResource) Schema(_ context.Context, _ resource.Schema
 						Description: "Object key prefix filter.",
 						Optional:    true,
 					},
+					"object_tags": schema.MapAttribute{
+						Description: "Object tags filter: the rule applies to objects that have all of these tags.",
+						Optional:    true,
+						ElementType: types.StringType,
+						Validators: []validator.Map{
+							validators.MapNotEmpty{},
+						},
+					},
 				},
 			},
 		},
+	}
+}
+
+// ValidateConfig requires exactly one timing: days or a date for current
+// versions, days for noncurrent versions.
+func (r *WorkflowTransitionResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config WorkflowTransitionResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if config.TriggerDelayDays.IsUnknown() || config.TriggerDelayDate.IsUnknown() || config.ApplyToVersion.IsUnknown() {
+		return
+	}
+	daysSet, dateSet := !config.TriggerDelayDays.IsNull(), !config.TriggerDelayDate.IsNull()
+	switch {
+	case config.ApplyToVersion.ValueString() == applyNoncurrent && dateSet:
+		resp.Diagnostics.AddAttributeError(path.Root("trigger_delay_date"), "Date not supported for noncurrent versions",
+			"A noncurrent-version transition takes trigger_delay_days, the days after a version becomes noncurrent.")
+	case daysSet && dateSet:
+		resp.Diagnostics.AddAttributeError(path.Root("trigger_delay_date"), "Conflicting transition timing",
+			"Set trigger_delay_days or trigger_delay_date, not both.")
+	case !daysSet && !dateSet:
+		resp.Diagnostics.AddAttributeError(path.Root("trigger_delay_days"), "Missing transition timing",
+			"Set trigger_delay_days or trigger_delay_date.")
 	}
 }
 
@@ -138,7 +201,11 @@ func (r *WorkflowTransitionResource) Create(ctx context.Context, req resource.Cr
 		ruleID = client.NewRuleID()
 	}
 
-	newRule := modelToLifecycleRule(&plan, ruleID)
+	newRule, diags := modelToLifecycleRule(ctx, &plan, ruleID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	unlock := r.s3.LockBucket(bucket)
 	defer unlock()
@@ -204,7 +271,10 @@ func (r *WorkflowTransitionResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	lifecycleRuleToModel(found, &state)
+	resp.Diagnostics.Append(lifecycleRuleToModel(ctx, found, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -233,13 +303,21 @@ func (r *WorkflowTransitionResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	updated := modelToLifecycleRule(&plan, ruleID)
+	updated, diags := modelToLifecycleRule(ctx, &plan, ruleID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	scope := client.ScopeTransition
+	if plan.ApplyToVersion.ValueString() == applyNoncurrent {
+		scope = client.ScopeNoncurrentTransition
+	}
 	rules := make([]client.LifecycleRule, 0, len(existing))
 	replaced := false
 	for _, rule := range existing {
 		if rule.ID == ruleID {
 			// Keep the parts of the rule this resource doesn't model.
-			merged, err := rule.Updated(updated)
+			merged, err := rule.Updated(updated, scope)
 			if err != nil {
 				resp.Diagnostics.AddError("Error updating transition lifecycle rule", err.Error())
 				return
@@ -336,41 +414,84 @@ func (r *WorkflowTransitionResource) ImportState(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("rule_id"), parts[1])...)
 }
 
-func modelToLifecycleRule(model *WorkflowTransitionResourceModel, ruleID string) client.LifecycleRule {
+func modelToLifecycleRule(ctx context.Context, model *WorkflowTransitionResourceModel, ruleID string) (client.LifecycleRule, diag.Diagnostics) {
 	status := "Disabled"
 	if model.Enabled.ValueBool() {
 		status = "Enabled"
 	}
 
-	rule := client.LifecycleRule{
-		ID:                 ruleID,
-		Status:             status,
-		TransitionDays:     int(model.TriggerDelayDays.ValueInt64()),
-		TransitionLocation: model.LocationName.ValueString(),
+	rule := client.LifecycleRule{ID: ruleID, Status: status}
+	days := int(model.TriggerDelayDays.ValueInt64())
+	if model.ApplyToVersion.ValueString() == applyNoncurrent {
+		rule.NoncurrentTransitionDays = days
+		rule.NoncurrentTransitionLocation = model.LocationName.ValueString()
+	} else {
+		rule.TransitionDays = days
+		rule.TransitionDate = model.TriggerDelayDate.ValueString()
+		rule.TransitionLocation = model.LocationName.ValueString()
 	}
 
-	if model.Filter != nil && !model.Filter.ObjectKeyPrefix.IsNull() {
+	var diags diag.Diagnostics
+	if model.Filter != nil {
 		rule.Prefix = model.Filter.ObjectKeyPrefix.ValueString()
+		rule.Tags, diags = lifecycle.TagsFromMap(ctx, model.Filter.ObjectTags)
 	}
-
-	return rule
+	return rule, diags
 }
 
-func lifecycleRuleToModel(rule *client.LifecycleRule, model *WorkflowTransitionResourceModel) {
+func lifecycleRuleToModel(ctx context.Context, rule *client.LifecycleRule, model *WorkflowTransitionResourceModel) diag.Diagnostics {
 	model.Enabled = types.BoolValue(rule.Status == "Enabled")
-	model.TriggerDelayDays = types.Int64Value(int64(rule.TransitionDays))
-	model.LocationName = types.StringValue(rule.TransitionLocation)
-	switch {
-	case model.Filter != nil:
-		// An unset prefix is stored as ""; keep it null so it doesn't diff.
-		if !model.Filter.ObjectKeyPrefix.IsNull() || rule.Prefix != "" {
-			model.Filter.ObjectKeyPrefix = types.StringValue(rule.Prefix)
+
+	// State without apply_to_version (an import, or state from before the
+	// attribute existed) takes the rule's transition: the current-version
+	// one when it has both.
+	if model.ApplyToVersion.IsNull() || model.ApplyToVersion.IsUnknown() {
+		apply := applyCurrent
+		if rule.TransitionLocation == "" && rule.NoncurrentTransitionLocation != "" {
+			apply = applyNoncurrent
 		}
-	case rule.Prefix != "":
-		// No filter block in state (e.g. after import): surface the server's
-		// prefix so it round-trips and out-of-band changes show as drift.
-		model.Filter = &WorkflowFilterModel{ObjectKeyPrefix: types.StringValue(rule.Prefix)}
+		model.ApplyToVersion = types.StringValue(apply)
 	}
+
+	if model.ApplyToVersion.ValueString() == applyNoncurrent {
+		model.LocationName = types.StringValue(rule.NoncurrentTransitionLocation)
+		model.TriggerDelayDays = types.Int64Value(int64(rule.NoncurrentTransitionDays))
+		model.TriggerDelayDate = types.StringNull()
+	} else {
+		model.LocationName = types.StringValue(rule.TransitionLocation)
+		if rule.TransitionDate != "" {
+			model.TriggerDelayDays = types.Int64Null()
+			model.TriggerDelayDate = types.StringValue(rule.TransitionDate)
+		} else {
+			model.TriggerDelayDays = types.Int64Value(int64(rule.TransitionDays))
+			model.TriggerDelayDate = types.StringNull()
+		}
+	}
+
+	filter, diags := lifecycle.FilterToModel(ctx, rule, model.Filter.toCommon())
+	model.Filter = fromCommon(filter)
+	return diags
+}
+
+// applyToVersionChanged replaces the rule when apply_to_version changes, but
+// not when state predates the attribute (null): every such rule transitions
+// current versions.
+func applyToVersionChanged(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+	resp.RequiresReplace = !req.StateValue.IsNull()
+}
+
+func (f *WorkflowFilterModel) toCommon() *lifecycle.Filter {
+	if f == nil {
+		return nil
+	}
+	return &lifecycle.Filter{ObjectKeyPrefix: f.ObjectKeyPrefix, ObjectTags: f.ObjectTags}
+}
+
+func fromCommon(f *lifecycle.Filter) *WorkflowFilterModel {
+	if f == nil {
+		return nil
+	}
+	return &WorkflowFilterModel{ObjectKeyPrefix: f.ObjectKeyPrefix, ObjectTags: f.ObjectTags}
 }
 
 // UpgradeState migrates v0 state, which held the account's access key pair,

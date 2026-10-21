@@ -85,35 +85,88 @@ func (n *xmlNode) innerXML() (string, error) {
 	return string(out), nil
 }
 
-// setPrefix sets the rule's prefix where the rule keeps it: Filter/And/Prefix,
-// Filter/Prefix, or the legacy top-level Prefix. A filter holding only a tag
-// becomes an And of the prefix and the tag.
-func setPrefix(rule *xmlNode, prefix string) {
+// LifecycleScope is the set of lifecycle actions a resource manages in a rule.
+// Updated changes only those actions; the rule's other actions are kept.
+type LifecycleScope int
+
+const (
+	// ScopeExpiration covers Expiration, NoncurrentVersionExpiration and
+	// AbortIncompleteMultipartUpload.
+	ScopeExpiration LifecycleScope = iota
+	// ScopeTransition covers the rule's first Transition.
+	ScopeTransition
+	// ScopeNoncurrentTransition covers the rule's first NoncurrentVersionTransition.
+	ScopeNoncurrentTransition
+)
+
+func textNode(name, text string) *xmlNode {
+	return &xmlNode{XMLName: xml.Name{Local: name}, Text: text}
+}
+
+func tagNode(t BucketTag) *xmlNode {
+	return &xmlNode{XMLName: xml.Name{Local: "Tag"}, Nodes: []*xmlNode{textNode("Key", t.Key), textNode("Value", t.Value)}}
+}
+
+// setFilter sets the rule's prefix and tags. A rule in the legacy form, with a
+// top-level Prefix and no Filter, keeps that form while it has no tags. Filter
+// conditions the provider doesn't model (such as object size) are kept, inside
+// an And.
+func setFilter(rule *xmlNode, prefix string, tags []BucketTag) {
 	filter := rule.child("Filter")
-	switch {
-	case filter == nil && rule.child("Prefix") != nil:
+	if filter == nil && rule.child("Prefix") != nil && len(tags) == 0 {
 		rule.set("Prefix", prefix)
-	case filter == nil:
-		rule.ensure("Filter").set("Prefix", prefix)
-	case filter.child("And") != nil:
-		filter.child("And").set("Prefix", prefix)
-	case filter.child("Tag") != nil:
-		if prefix == "" {
-			return
+		return
+	}
+	rule.remove("Prefix")
+	if filter == nil {
+		filter = rule.ensure("Filter")
+	}
+
+	var extra []*xmlNode
+	for _, c := range filter.Nodes {
+		switch c.XMLName.Local {
+		case "Prefix", "Tag":
+		case "And":
+			for _, a := range c.Nodes {
+				if a.XMLName.Local != "Prefix" && a.XMLName.Local != "Tag" {
+					extra = append(extra, a)
+				}
+			}
+		default:
+			extra = append(extra, c)
 		}
-		tag := filter.child("Tag")
-		filter.Nodes = []*xmlNode{{XMLName: xml.Name{Local: "And"}, Nodes: []*xmlNode{
-			{XMLName: xml.Name{Local: "Prefix"}, Text: prefix}, tag,
-		}}}
+	}
+
+	switch {
+	case len(extra) == 0 && len(tags) == 0:
+		filter.Nodes = []*xmlNode{textNode("Prefix", prefix)}
+	case len(extra) == 0 && len(tags) == 1 && prefix == "":
+		filter.Nodes = []*xmlNode{tagNode(tags[0])}
+	case len(tags) == 0 && prefix == "" && len(extra) == 1:
+		filter.Nodes = extra
 	default:
-		filter.set("Prefix", prefix)
+		and := &xmlNode{XMLName: xml.Name{Local: "And"}}
+		if prefix != "" {
+			and.Nodes = append(and.Nodes, textNode("Prefix", prefix))
+		}
+		for _, t := range tags {
+			and.Nodes = append(and.Nodes, tagNode(t))
+		}
+		and.Nodes = append(and.Nodes, extra...)
+		filter.Nodes = []*xmlNode{and}
 	}
 }
 
-// Updated returns rule r with the provider-modelled parts taken from next:
-// status, prefix, and the expiration days or transition next sets. The rest
-// of a rule read from the server (tag filters, other actions) is kept.
-func (r LifecycleRule) Updated(next LifecycleRule) (LifecycleRule, error) {
+// setTransition sets a transition's timing (replacing the elements named in
+// timing) and storage class, keeping its other children after them.
+func setTransition(tr, when *xmlNode, storageClass string, timing ...string) {
+	tr.remove(append(timing, "StorageClass")...)
+	tr.Nodes = append([]*xmlNode{when, textNode("StorageClass", storageClass)}, tr.Nodes...)
+}
+
+// Updated returns rule r with status, filter and the actions in scope taken
+// from next. The rest of a rule read from the server is kept.
+func (r LifecycleRule) Updated(next LifecycleRule, scope LifecycleScope) (LifecycleRule, error) {
 	if r.raw == "" {
 		return next, nil
 	}
@@ -123,17 +176,39 @@ func (r LifecycleRule) Updated(next LifecycleRule) (LifecycleRule, error) {
 	}
 
 	rule.set("Status", next.Status)
-	setPrefix(&rule, next.Prefix)
-	if next.ExpirationDays > 0 {
-		exp := rule.ensure("Expiration")
-		exp.remove("Date", "ExpiredObjectDeleteMarker")
-		exp.set("Days", strconv.Itoa(next.ExpirationDays))
-	}
-	if next.TransitionLocation != "" {
-		tr := rule.ensure("Transition")
-		tr.remove("Date")
-		tr.set("Days", strconv.Itoa(next.TransitionDays))
-		tr.set("StorageClass", next.TransitionLocation)
+	setFilter(&rule, next.Prefix, next.Tags)
+
+	switch scope {
+	case ScopeExpiration:
+		rule.remove("Expiration")
+		switch {
+		case next.ExpirationDays > 0:
+			rule.ensure("Expiration").set("Days", strconv.Itoa(next.ExpirationDays))
+		case next.ExpirationDate != "":
+			rule.ensure("Expiration").set("Date", lifecycleDate(next.ExpirationDate))
+		case next.ExpiredObjectDeleteMarker:
+			rule.ensure("Expiration").set("ExpiredObjectDeleteMarker", "true")
+		}
+		if next.NoncurrentExpirationDays > 0 {
+			rule.ensure("NoncurrentVersionExpiration").set("NoncurrentDays", strconv.Itoa(next.NoncurrentExpirationDays))
+		} else {
+			rule.remove("NoncurrentVersionExpiration")
+		}
+		if next.AbortMultipartDays > 0 {
+			rule.ensure("AbortIncompleteMultipartUpload").set("DaysAfterInitiation", strconv.Itoa(next.AbortMultipartDays))
+		} else {
+			rule.remove("AbortIncompleteMultipartUpload")
+		}
+	case ScopeTransition:
+		when := textNode("Days", strconv.Itoa(next.TransitionDays))
+		if next.TransitionDate != "" {
+			when = textNode("Date", lifecycleDate(next.TransitionDate))
+		}
+		setTransition(rule.ensure("Transition"), when, next.TransitionLocation, "Days", "Date")
+	case ScopeNoncurrentTransition:
+		setTransition(rule.ensure("NoncurrentVersionTransition"),
+			textNode("NoncurrentDays", strconv.Itoa(next.NoncurrentTransitionDays)),
+			next.NoncurrentTransitionLocation, "NoncurrentDays")
 	}
 
 	inner, err := rule.innerXML()
