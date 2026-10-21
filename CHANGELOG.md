@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **OIDC token requests are retried on 502/503/504 (#150)**, like IAM, STS and S3 requests, instead of failing the plan or apply on the first gateway error.
 
+### Security
+
+- **Built with Go 1.26.10**, which fixes GO-2026-6809 (`crypto/x509`: distrust compromised intermediate certificates) in the standard library.
+
 ## [1.1.0] - 2026-10-19
 
 ### Added
