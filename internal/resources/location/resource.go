@@ -488,6 +488,8 @@ func (r *LocationResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	apiLoc.IsCRR = crrFlag(apiLoc.LocationType)
+
 	tflog.Debug(ctx, "Updating location", map[string]any{"name": plan.Name.ValueString()})
 
 	updated, err := r.client.UpdateLocation(ctx, plan.Name.ValueString(), apiLoc)
@@ -546,6 +548,17 @@ func (r *LocationResource) ImportState(ctx context.Context, req resource.ImportS
 }
 
 // --- Conversion helpers ---
+
+// crrFlag is the isCRR value ARTESCA stores for a location type: true for a
+// cross-region replication location, unset otherwise. ARTESCA sets it on
+// create and rejects an update that doesn't send the stored value back.
+func crrFlag(locationType string) *bool {
+	if locationType != "location-scality-crr-v1" {
+		return nil
+	}
+	crr := true
+	return &crr
+}
 
 func modelToAPILocation(ctx context.Context, model *LocationResourceModel) (*client.Location, diag.Diagnostics) {
 	var diags diag.Diagnostics
