@@ -16,6 +16,7 @@ type Location struct {
 	IsBuiltin         bool             `json:"isBuiltin,omitempty"`
 	IsTransient       bool             `json:"isTransient,omitempty"`
 	IsCold            bool             `json:"isCold,omitempty"`
+	IsCRR             *bool            `json:"isCRR,omitempty"`
 	LegacyAwsBehavior bool             `json:"legacyAwsBehavior,omitempty"`
 	SizeLimitGB       int64            `json:"sizeLimitGB,omitempty"`
 	Details           *LocationDetails `json:"details,omitempty"`

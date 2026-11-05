@@ -7,7 +7,9 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/cmrh/terraform-provider-artesca/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 func TestAccLocation_basic(t *testing.T) {
@@ -32,7 +34,8 @@ func TestAccLocation_basic(t *testing.T) {
 	})
 }
 
-// Checks sts_endpoint round-trips; it does not exercise replication through the location.
+// Checks sts_endpoint round-trips and in-place updates; it does not exercise
+// replication through the location.
 func TestAccLocation_crr(t *testing.T) {
 	rName := randomName("tf-acc-crr")
 	endpoint := os.Getenv("TF_VAR_dest_ring_s3_endpoint")
@@ -43,28 +46,24 @@ func TestAccLocation_crr(t *testing.T) {
 		CheckDestroy:             testAccCheckLocationDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: fmt.Sprintf(`
-resource "artesca_location" "crr" {
-  name          = %q
-  location_type = "location-scality-crr-v1"
-
-  details {
-    endpoint     = %q
-    sts_endpoint = %q
-    access_key   = %q
-    secret_key   = %q
-  }
-}
-
+				Config: testAccLocationCRRConfig(rName, endpoint) + `
 data "artesca_location" "crr" {
   name = artesca_location.crr.name
 }
-`, rName, endpoint, endpoint, os.Getenv("TF_VAR_dest_ring_s3_access_key"), os.Getenv("TF_VAR_dest_ring_s3_secret_key")),
+`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("artesca_location.crr", "details.sts_endpoint", endpoint),
 					resource.TestCheckNoResourceAttr("artesca_location.crr", "details.region"),
 					resource.TestCheckResourceAttr("data.artesca_location.crr", "details.sts_endpoint", endpoint),
 				),
+			},
+			{
+				// ARTESCA rejects a CRR location update that doesn't keep isCRR.
+				Config: testAccLocationCRRConfig(rName, endpoint+"/"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("artesca_location.crr", plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.TestCheckResourceAttr("artesca_location.crr", "details.endpoint", endpoint+"/"),
 			},
 			{
 				ResourceName:                         "artesca_location.crr",
@@ -76,6 +75,71 @@ data "artesca_location" "crr" {
 			},
 		},
 	})
+}
+
+// A CRR location created outside Terraform can be adopted: import leaves
+// secret_key empty, so the first apply updates it in place.
+func TestAccLocation_crrImportThenApply(t *testing.T) {
+	rName := randomName("tf-acc-crr")
+	endpoint := os.Getenv("TF_VAR_dest_ring_s3_endpoint")
+	config := fmt.Sprintf(`
+import {
+  to = artesca_location.crr
+  id = %q
+}
+`, rName) + testAccLocationCRRConfig(rName, endpoint)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheckDestRingS3(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckLocationDestroy,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() {
+					c, err := testAccManagementClient()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err := c.CreateLocation(context.Background(), &client.Location{
+						Name:         rName,
+						LocationType: "location-scality-crr-v1",
+						Details: &client.LocationDetails{
+							Endpoint:    endpoint,
+							StsEndpoint: endpoint,
+							AccessKey:   os.Getenv("TF_VAR_dest_ring_s3_access_key"),
+							SecretKey:   os.Getenv("TF_VAR_dest_ring_s3_secret_key"),
+						},
+					}); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config: config,
+				Check:  resource.TestCheckResourceAttr("artesca_location.crr", "details.endpoint", endpoint),
+			},
+			{
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		},
+	})
+}
+
+func testAccLocationCRRConfig(name, endpoint string) string {
+	return fmt.Sprintf(`
+resource "artesca_location" "crr" {
+  name          = %q
+  location_type = "location-scality-crr-v1"
+
+  details {
+    endpoint     = %q
+    sts_endpoint = %q
+    access_key   = %q
+    secret_key   = %q
+  }
+}
+`, name, endpoint, endpoint, os.Getenv("TF_VAR_dest_ring_s3_access_key"), os.Getenv("TF_VAR_dest_ring_s3_secret_key"))
 }
 
 func TestAccLocation_update(t *testing.T) {
