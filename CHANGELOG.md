@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-06
+
 ### Fixed
 
 - **`artesca_location` updates of `location-scality-crr-v1` locations (#161).** Any in-place update, including the first apply after importing one, failed with "Cannot change location replication type"; the provider now sends the location's `isCRR` value, which ARTESCA requires.
